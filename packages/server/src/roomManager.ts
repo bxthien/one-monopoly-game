@@ -1,0 +1,343 @@
+import {
+  GameAction,
+  GameEvent,
+  GameState,
+  OneMonopolyEngine,
+  VesselToken,
+} from '@one-monopoly/shared';
+import crypto from 'node:crypto';
+import { TurnTimer } from './turnTimer.js';
+
+export interface RoomPlayer {
+  id: string;
+  name: string;
+  token: VesselToken;
+  isReady: boolean;
+  isOnline: boolean;
+  sessionToken: string;
+}
+
+export interface Room {
+  id: string;
+  hostId: string;
+  players: RoomPlayer[];
+  gameState: GameState | null;
+  isGameStarted: boolean;
+  timer: TurnTimer | null;
+  socketToPlayer: Map<string, string>; // socketId -> playerId
+  playerToSocket: Map<string, string>; // playerId -> socketId
+}
+
+export class RoomManager {
+  private rooms: Map<string, Room> = new Map();
+  private onBroadcastUpdate?: (roomId: string, state: GameState, events: GameEvent[]) => void;
+  private onTimerTick?: (roomId: string, seconds: number, playerId: string) => void;
+  private onLobbyUpdate?: (roomId: string) => void;
+
+  constructor(callbacks?: {
+    onBroadcastUpdate?: (roomId: string, state: GameState, events: GameEvent[]) => void;
+    onTimerTick?: (roomId: string, seconds: number, playerId: string) => void;
+    onLobbyUpdate?: (roomId: string) => void;
+  }) {
+    if (callbacks) {
+      this.onBroadcastUpdate = callbacks.onBroadcastUpdate;
+      this.onTimerTick = callbacks.onTimerTick;
+      this.onLobbyUpdate = callbacks.onLobbyUpdate;
+    }
+  }
+
+  public getRoom(roomId: string): Room | undefined {
+    return this.rooms.get(roomId.toUpperCase());
+  }
+
+  public createRoom(
+    hostName: string,
+    token: VesselToken,
+    socketId: string
+  ): { room: Room; sessionToken: string; playerId: string } {
+    const roomId = `ONE-${Math.floor(1000 + Math.random() * 9000)}`;
+    const playerId = `usr-${crypto.randomUUID().slice(0, 8)}`;
+    const sessionToken = crypto.randomUUID();
+
+    const host: RoomPlayer = {
+      id: playerId,
+      name: hostName.trim() || 'Captain ONE',
+      token,
+      isReady: true,
+      isOnline: true,
+      sessionToken,
+    };
+
+    const room: Room = {
+      id: roomId,
+      hostId: playerId,
+      players: [host],
+      gameState: null,
+      isGameStarted: false,
+      timer: null,
+      socketToPlayer: new Map([[socketId, playerId]]),
+      playerToSocket: new Map([[playerId, socketId]]),
+    };
+
+    this.rooms.set(roomId, room);
+    return { room, sessionToken, playerId };
+  }
+
+  public joinRoom(
+    roomId: string,
+    playerName: string,
+    token: VesselToken,
+    socketId: string,
+    sessionToken?: string
+  ): { success: boolean; error?: string; room?: Room; sessionToken?: string; playerId?: string; isReconnect?: boolean } {
+    const room = this.getRoom(roomId);
+    if (!room) {
+      return { success: false, error: 'Phòng không tồn tại!' };
+    }
+
+    // 1. Reconnect check via sessionToken
+    if (sessionToken) {
+      const existingPlayer = room.players.find((p) => p.sessionToken === sessionToken);
+      if (existingPlayer) {
+        existingPlayer.isOnline = true;
+        room.socketToPlayer.set(socketId, existingPlayer.id);
+        room.playerToSocket.set(existingPlayer.id, socketId);
+
+        if (room.gameState) {
+          const gp = room.gameState.players.find((p) => p.id === existingPlayer.id);
+          if (gp) gp.isOnline = true;
+        }
+
+        return {
+          success: true,
+          room,
+          sessionToken,
+          playerId: existingPlayer.id,
+          isReconnect: true,
+        };
+      }
+    }
+
+    // 2. Joining as a new player
+    if (room.isGameStarted) {
+      return { success: false, error: 'Ván chơi đã bắt đầu, không thể tham gia mới!' };
+    }
+
+    if (room.players.length >= 4) {
+      return { success: false, error: 'Phòng đã đầy (tối đa 4 người chơi)!' };
+    }
+
+    // Check if token already taken
+    const tokenTaken = room.players.some((p) => p.token === token);
+    if (tokenTaken) {
+      // Pick available token
+      const allTokens: VesselToken[] = [
+        'ONE_APUS',
+        'ONE_MAGENTA',
+        'GANTRY_CRANE',
+        'REEFER_TRUCK',
+        'PILOT_BOAT',
+        'BUNKER_BARGE',
+      ];
+      const available = allTokens.find((t) => !room.players.some((p) => p.token === t));
+      if (available) token = available;
+    }
+
+    const playerId = `usr-${crypto.randomUUID().slice(0, 8)}`;
+    const newSessionToken = crypto.randomUUID();
+
+    const newPlayer: RoomPlayer = {
+      id: playerId,
+      name: playerName.trim() || `Player ${room.players.length + 1}`,
+      token,
+      isReady: false,
+      isOnline: true,
+      sessionToken: newSessionToken,
+    };
+
+    room.players.push(newPlayer);
+    room.socketToPlayer.set(socketId, playerId);
+    room.playerToSocket.set(playerId, socketId);
+
+    if (this.onLobbyUpdate) {
+      this.onLobbyUpdate(room.id);
+    }
+
+    return {
+      success: true,
+      room,
+      sessionToken: newSessionToken,
+      playerId,
+      isReconnect: false,
+    };
+  }
+
+  public setReady(roomId: string, playerId: string, isReady: boolean): boolean {
+    const room = this.getRoom(roomId);
+    if (!room || room.isGameStarted) return false;
+
+    const player = room.players.find((p) => p.id === playerId);
+    if (!player) return false;
+
+    player.isReady = isReady;
+    if (this.onLobbyUpdate) {
+      this.onLobbyUpdate(room.id);
+    }
+    return true;
+  }
+
+  public startGame(roomId: string, callerId: string): { success: boolean; error?: string } {
+    const room = this.getRoom(roomId);
+    if (!room) return { success: false, error: 'Phòng không tồn tại!' };
+    if (room.hostId !== callerId) return { success: false, error: 'Chỉ phòng trưởng (Host) mới có quyền bắt đầu!' };
+    if (room.players.length < 2) return { success: false, error: 'Cần ít nhất 2 người chơi để bắt đầu!' };
+    if (room.isGameStarted) return { success: false, error: 'Trò chơi đã bắt đầu!' };
+
+    const gameState = OneMonopolyEngine.createGame(
+      room.id,
+      room.players.map((p) => ({
+        id: p.id,
+        name: p.name,
+        token: p.token,
+      }))
+    );
+
+    room.gameState = gameState;
+    room.isGameStarted = true;
+
+    // Start 45s turn timer
+    this.setupRoomTimer(room);
+
+    if (this.onBroadcastUpdate) {
+      this.onBroadcastUpdate(room.id, room.gameState, []);
+    }
+
+    return { success: true };
+  }
+
+  private setupRoomTimer(room: Room): void {
+    if (room.timer) {
+      room.timer.stop();
+    }
+
+    room.timer = new TurnTimer(
+      45,
+      (seconds) => {
+        if (!room.gameState || room.gameState.winnerId) return;
+        const activePlayer = room.gameState.players[room.gameState.activePlayerIndex];
+        if (this.onTimerTick && activePlayer) {
+          this.onTimerTick(room.id, seconds, activePlayer.id);
+        }
+      },
+      () => {
+        this.handleAFKTimeout(room.id);
+      }
+    );
+
+    room.timer.start();
+  }
+
+  public dispatchAction(
+    roomId: string,
+    playerId: string,
+    action: GameAction
+  ): { success: boolean; error?: string; state?: GameState; events?: GameEvent[] } {
+    const room = this.getRoom(roomId);
+    if (!room || !room.gameState) return { success: false, error: 'Phòng hoặc ván chơi không tồn tại' };
+
+    const activePlayer = room.gameState.players[room.gameState.activePlayerIndex];
+
+    // Some actions can only be triggered by the active player
+    if (
+      action.type === 'ROLL_DICE' ||
+      action.type === 'BUY_PROPERTY' ||
+      action.type === 'SKIP_BUY' ||
+      action.type === 'PAY_HOLD_FINE' ||
+      action.type === 'USE_CLEARANCE_PASS' ||
+      action.type === 'END_TURN'
+    ) {
+      if (activePlayer.id !== playerId) {
+        return { success: false, error: 'Chưa đến lượt của bạn!' };
+      }
+    }
+
+    // Debt resolution actions can only be by the debtor
+    if (action.type === 'SETTLE_DEBT' || action.type === 'DECLARE_BANKRUPTCY') {
+      if (activePlayer.id !== playerId) {
+        return { success: false, error: 'Chỉ người đang nợ mới được xử lý nợ!' };
+      }
+    }
+
+    const prevPhase = room.gameState.phase;
+    const prevActiveIndex = room.gameState.activePlayerIndex;
+
+    const { state: nextState, events } = OneMonopolyEngine.dispatch(room.gameState, action);
+    room.gameState = nextState;
+
+    // Reset turn timer when turn changes or phase changes
+    if (
+      nextState.activePlayerIndex !== prevActiveIndex ||
+      nextState.phase !== prevPhase
+    ) {
+      if (room.timer && !nextState.winnerId) {
+        room.timer.reset();
+      }
+    }
+
+    if (nextState.winnerId && room.timer) {
+      room.timer.stop();
+    }
+
+    if (this.onBroadcastUpdate) {
+      this.onBroadcastUpdate(room.id, nextState, events);
+    }
+
+    return { success: true, state: nextState, events };
+  }
+
+  public handleAFKTimeout(roomId: string): void {
+    const room = this.getRoom(roomId);
+    if (!room || !room.gameState || room.gameState.winnerId) return;
+
+    const activePlayer = room.gameState.players[room.gameState.activePlayerIndex];
+    if (!activePlayer) return;
+
+    switch (room.gameState.phase) {
+      case 'WAIT_FOR_ROLL':
+        this.dispatchAction(roomId, activePlayer.id, { type: 'ROLL_DICE' });
+        break;
+      case 'AWAITING_BUY_DECISION':
+        this.dispatchAction(roomId, activePlayer.id, { type: 'SKIP_BUY' });
+        break;
+      case 'AWAITING_DEBT_RESOLUTION':
+        this.dispatchAction(roomId, activePlayer.id, { type: 'DECLARE_BANKRUPTCY' });
+        break;
+      case 'END_OF_TURN':
+        this.dispatchAction(roomId, activePlayer.id, { type: 'END_TURN' });
+        break;
+    }
+  }
+
+  public handleDisconnect(socketId: string): void {
+    for (const room of this.rooms.values()) {
+      const playerId = room.socketToPlayer.get(socketId);
+      if (playerId) {
+        room.socketToPlayer.delete(socketId);
+        const player = room.players.find((p) => p.id === playerId);
+        if (player) {
+          player.isOnline = false;
+        }
+
+        if (room.gameState) {
+          const gp = room.gameState.players.find((p) => p.id === playerId);
+          if (gp) gp.isOnline = false;
+        }
+
+        if (this.onLobbyUpdate) {
+          this.onLobbyUpdate(room.id);
+        }
+        break;
+      }
+    }
+  }
+}

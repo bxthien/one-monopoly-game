@@ -1,0 +1,30 @@
+{
+  "name": "one-monopoly",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Multiplayer Realtime Monopoly Game with ONE (Ocean Network Express) Theme",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build:shared": "npm run build --workspace=@one-monopoly/shared",
+    "test:shared": "npm test --workspace=@one-monopoly/shared",
+    "build:server": "npm run build --workspace=@one-monopoly/server",
+    "build:client": "npm run build --workspace=@one-monopoly/client",
+    "build": "npm run build:shared && npm run build:server && npm run build:client",
+    "dev:server": "npm run dev --workspace=@one-monopoly/server",
+    "dev:client": "npm run dev --workspace=@one-monopoly/client",
+    "start": "npm run start --workspace=@one-monopoly/server"
+  },
+  "keywords": [
+    "monopoly",
+    "one",
+    "logistics",
+    "multiplayer",
+    "socketio",
+    "react",
+    "fastify"
+  ],
+  "author": "ONE Engineering Team",
+  "license": "MIT"
+}
