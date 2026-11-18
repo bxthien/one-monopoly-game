@@ -138,15 +138,14 @@ export const DiceView: React.FC<Props> = ({ dice, isRolling = false, hasRolled =
 
   return (
     <div
-      className="flex flex-col items-center gap-2 select-none"
+      className="flex flex-col items-center gap-3 select-none"
       style={{ transformStyle: 'preserve-3d' }}
     >
-      {/* 3D Dice Stage / Khay Xúc Xắc 3D */}
+      {/* 3D Dice: Không còn background trắng đằng sau, 2 viên xúc xắc 3D tiếp đất tự nhiên trên sân */}
       <div
-        className="flex items-center justify-center gap-5 px-5 py-2.5 rounded-2xl bg-gradient-to-b from-white/90 via-pink-50/40 to-gray-100/90 border border-gray-200/90 shadow-[0_8px_20px_-4px_rgba(0,0,0,0.15)]"
+        className="flex items-center justify-center gap-6"
         style={{
           transformStyle: 'preserve-3d',
-          transform: 'translateZ(12px)',
         }}
       >
         {/* Viên 1: ONE Magenta */}
@@ -162,7 +161,7 @@ export const DiceView: React.FC<Props> = ({ dice, isRolling = false, hasRolled =
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           className="text-[11px] font-black tracking-wider text-emerald-700 bg-emerald-100 px-3 py-0.5 rounded-full border border-emerald-300 shadow-sm animate-pulse"
-          style={{ transform: 'translateZ(20px)' }}
+          style={{ transform: 'translateZ(10px)' }}
         >
           🎲 LẮC ĐƯỢC ĐÔI ({d1} - {d2})! ĐI TIẾP LƯỢT NỮA
         </motion.span>

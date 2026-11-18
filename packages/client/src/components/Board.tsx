@@ -190,61 +190,47 @@ export const Board: React.FC<Props> = ({
             >
               {/* Unified Center Courtyard: Nằm trong không gian 3D của bàn cờ */}
               <div
-                className="w-full h-full flex flex-col items-center justify-center gap-4 z-10 select-none py-2"
+                className="w-full h-full flex flex-col items-center justify-around z-10 select-none py-2"
                 style={{
                   transform: is3D ? 'rotateZ(45deg)' : undefined,
                   transformStyle: is3D ? 'preserve-3d' : undefined,
                   transformOrigin: 'center center',
                 }}
               >
-                {/* 1. LOGO & TÊN GAME CHỮ KHỐI 3D NỔI (3D Extruded Typography) */}
+                {/* 1. LOGO & TÊN GAME: DỰNG ĐỨNG (Billboard Standee) HƯỚNG THẲNG MẮT NGƯỜI DÙNG */}
                 <div
                   className="text-center w-full max-w-xs flex flex-col items-center"
                   style={{
+                    transform: is3D ? 'rotateX(-46deg) translateY(-12px)' : undefined,
                     transformStyle: is3D ? 'preserve-3d' : undefined,
+                    transformOrigin: 'bottom center',
                   }}
                 >
                   {/* Badge 3D nổi trên không */}
                   <div
-                    className="inline-block px-3.5 py-1 rounded-full bg-gradient-to-r from-pink-600 via-[#E1007A] to-pink-600 text-white font-black text-[9px] tracking-widest uppercase border border-pink-300 mb-1.5"
-                    style={{
-                      transform: is3D ? 'translateZ(10px)' : undefined,
-                      boxShadow: is3D
-                        ? '0 3px 0 #9D0055, 0 6px 12px rgba(225, 0, 122, 0.35)'
-                        : '0 2px 4px rgba(225, 0, 122, 0.2)',
-                    }}
+                    className="inline-block px-3.5 py-1 rounded-full bg-gradient-to-r from-pink-600 via-[#E1007A] to-pink-600 text-white font-black text-[9px] tracking-widest uppercase border border-pink-300 shadow-md shadow-pink-200 mb-1"
                   >
                     OCEAN NETWORK EXPRESS
                   </div>
 
-                  {/* Chữ ONE MONOPOLY 3D nguyên khối có độ dày đổ bóng chân thực */}
+                  {/* Chữ ONE MONOPOLY dựng đứng tự nhiên, sắc nét, không bị nén */}
                   <h1
-                    className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight my-0.5 leading-none"
-                    style={{
-                      transform: is3D ? 'translateZ(14px)' : undefined,
-                      textShadow: is3D
-                        ? '0 1px 0 #CBD5E1, 0 2px 0 #94A3B8, 0 3px 0 #64748B, 0 4px 0 #475569, 0 8px 16px rgba(0, 0, 0, 0.35)'
-                        : undefined,
-                    }}
+                    className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight my-0.5 leading-none drop-shadow-sm"
                   >
                     ONE MONOPOLY
                   </h1>
 
                   <span
                     className="text-[9px] font-black text-gray-500 tracking-[0.25em] uppercase mt-1 block"
-                    style={{
-                      transform: is3D ? 'translateZ(8px)' : undefined,
-                    }}
                   >
                     GLOBAL LOGISTICS HUB
                   </span>
                 </div>
 
-                {/* 2. KHAY XÚC XẮC 3D KHỐI LẬP PHƯƠNG */}
+                {/* 2. KHAY XÚC XẮC 3D KHỐI LẬP PHƯƠNG (Nằm phía dưới, không có nền trắng, không che text) */}
                 <div
-                  className="flex flex-col items-center mt-1"
+                  className="flex flex-col items-center mt-2"
                   style={{
-                    transform: is3D ? 'translateZ(12px)' : undefined,
                     transformStyle: is3D ? 'preserve-3d' : undefined,
                   }}
                 >
