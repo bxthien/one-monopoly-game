@@ -293,8 +293,8 @@ export class OneMonopolyEngine {
     resolveLanding = true
   ): void {
     const from = player.position;
-    let to = (from + steps) % 40;
-    if (to < 0) to += 40;
+    let to = (from + steps) % BOARD_TILES.length;
+    if (to < 0) to += BOARD_TILES.length;
 
     // Check passing GO (if stepped forward and wrapped around)
     if (steps > 0 && to < from) {
@@ -349,8 +349,8 @@ export class OneMonopolyEngine {
       case 'TAX': {
         const amount = tile.taxAmount || 100;
 
-        // Check Green Fleet exemption on Carbon Tax (Tile 38)
-        if (tileId === 38) {
+        // Check Green Fleet exemption on Carbon Tax
+        if (tile.code === 'CARBON-TAX') {
           const hasAnyGreenFleet = Object.values(state.properties).some(
             (prop) => prop.ownerId === player.id && prop.hasGreenFleet
           );
@@ -1184,45 +1184,45 @@ export class OneMonopolyEngine {
 
     switch (mission.id) {
       case 'MISSION-1':
-        // Cái Mép (3), Los Angeles (29), Tuyến PS3 (35)
+        // Cái Mép (3), Los Angeles (23), Tuyến PS3 (28)
         completed =
           state.properties[3]?.ownerId === player.id &&
-          state.properties[29]?.ownerId === player.id &&
-          state.properties[35]?.ownerId === player.id;
+          state.properties[23]?.ownerId === player.id &&
+          state.properties[28]?.ownerId === player.id;
         break;
 
       case 'MISSION-2':
-        // Tokyo (39), Busan (21), and 1 Siêu tàu ONE Innovation (level 5)
+        // Tokyo (31), Busan (17), and 1 Siêu tàu ONE Innovation (level 5)
         completed =
-          state.properties[39]?.ownerId === player.id &&
-          state.properties[21]?.ownerId === player.id &&
+          state.properties[31]?.ownerId === player.id &&
+          state.properties[17]?.ownerId === player.id &&
           Object.values(state.properties).some(
             (p) => p.ownerId === player.id && p.containerLevel === 5
           );
         break;
 
       case 'MISSION-3':
-        // ONE QUOTE (12), ONE Eco Calculator (28), and at least 1 Green Fleet
+        // ONE QUOTE (10), ONE Eco Calculator (22), and at least 1 Green Fleet
         completed =
-          state.properties[12]?.ownerId === player.id &&
-          state.properties[28]?.ownerId === player.id &&
+          state.properties[10]?.ownerId === player.id &&
+          state.properties[22]?.ownerId === player.id &&
           Object.values(state.properties).some(
             (p) => p.ownerId === player.id && p.hasGreenFleet
           );
         break;
 
       case 'MISSION-4':
-        // At least 3 of 4 service lines (5, 15, 25, 35)
+        // At least 3 of 4 service lines (4, 13, 20, 28)
         completed =
           SERVICE_LINES.filter((id) => state.properties[id]?.ownerId === player.id).length >= 3;
         break;
 
       case 'MISSION-5':
-        // Intra-Asia (1, 3) and Port Klang (8)
+        // Intra-Asia (1, 3) and Tuyến VSS (4)
         completed =
           state.properties[1]?.ownerId === player.id &&
           state.properties[3]?.ownerId === player.id &&
-          state.properties[8]?.ownerId === player.id;
+          state.properties[4]?.ownerId === player.id;
         break;
     }
 

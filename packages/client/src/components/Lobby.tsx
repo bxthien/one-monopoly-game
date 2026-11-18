@@ -60,7 +60,7 @@ export const Lobby: React.FC<Props> = ({
   if (room) {
     const isHost = room.hostId === myPlayerId;
     const myPlayer = room.players.find((p) => p.id === myPlayerId);
-    const canStart = isHost && room.players.length >= 2;
+    const canStart = isHost && room.players.length >= 1;
 
     return (
       <div className="max-w-2xl mx-auto my-12 p-8 bg-white rounded-3xl shadow-xl border border-gray-100">
@@ -182,7 +182,7 @@ export const Lobby: React.FC<Props> = ({
                 }`}
               >
                 <Play className="w-5 h-5 fill-current" />
-                {room.players.length < 2 ? 'Chờ thêm người chơi (tối thiểu 2)' : 'BẮT ĐẦU VÁN ĐẤU!'}
+                {room.players.length === 1 ? 'BẮT ĐẦU VÁN ĐẤU (CÙNG BOT)!' : 'BẮT ĐẦU VÁN ĐẤU!'}
               </button>
             )}
           </div>

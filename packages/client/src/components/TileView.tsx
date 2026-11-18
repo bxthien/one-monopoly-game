@@ -28,28 +28,28 @@ export const TileView: React.FC<Props> = ({
   const groupConfig = tile.group ? LOOP_GROUPS_CONFIG[tile.group] : null;
   const isCorner = orientation === 'corner';
 
-  // Hướng chữ theo trọng tâm bàn cờ:
-  // Đứng từ trọng tâm (tâm bàn cờ) nhìn ra 4 cạnh:
-  // - Top: nhìn lên -> 0deg
-  // - Bottom: nhìn xuống -> rotate-180 (chân chữ hướng vào tâm)
-  // - Left: nhìn sang trái -> -rotate-90 (chân chữ hướng vào tâm)
-  // - Right: nhìn sang phải -> rotate-90 (chân chữ hướng vào tâm)
+  // Hướng chữ tối ưu cho bàn cờ kim cương 3D:
+  // - Top (hàng có cảng ESVLC): rotate-180 (vạch màu hướng vào tâm bàn cờ, chữ đọc xuôi chiều)
+  // - Bottom (hàng có cảng HKHKG): '' (vạch màu hướng vào tâm bàn cờ, chữ đọc xuôi chiều)
+  // - Left (cạnh dưới-trái): rotate-90
+  // - Right (cạnh trên-phải: KRPUS..USLAX): rotate-90 (quay ngược vào trong theo yêu cầu)
   const getContentRotationClass = () => {
     if (isCorner) return '';
     switch (orientation) {
-      case 'bottom':
+      case 'top':
         return 'rotate-180';
+      case 'bottom':
+        return '';
       case 'left':
-        return '-rotate-90';
+        return 'rotate-90';
       case 'right':
         return 'rotate-90';
-      case 'top':
       default:
         return '';
     }
   };
 
-  // Format Container & ONE Innovation badge gọn gàng
+  // Format Container & ONE Innovation badge
   const renderContainers = () => {
     if (!property || property.containerLevel <= 0) return null;
 
@@ -76,7 +76,7 @@ export const TileView: React.FC<Props> = ({
     );
   };
 
-  // Hiển thị CƯỚC (khi đã mua) hoặc GIÁ (chưa mua) không bao giờ bị cắt chữ
+  // Hiển thị CƯỚC (khi đã mua) hoặc GIÁ (chưa mua)
   const renderPriceOrRent = () => {
     if (tile.type === 'GO') {
       return <span className="text-emerald-600 font-black text-[9px] sm:text-[10px] leading-none whitespace-nowrap">+$200M</span>;
@@ -118,7 +118,7 @@ export const TileView: React.FC<Props> = ({
     );
   };
 
-  // Rút gọn mã ô để không bao giờ bị cắt chữ
+  // Rút gọn mã ô hiển thị
   const getDisplayCode = () => {
     if (tile.code === 'CUSTOMS_HOLD') return 'HOLD';
     if (tile.code === 'FREE_ANCHOR') return 'ANCHOR';
@@ -134,47 +134,43 @@ export const TileView: React.FC<Props> = ({
   return (
     <div
       onClick={onClick}
-      className={`relative w-full h-full flex flex-col justify-between border border-gray-200 bg-white hover:bg-pink-50/40 transition cursor-pointer select-none overflow-hidden ${
-        isCorner ? 'p-1' : 'p-0.5'
+      className={`relative w-full h-full flex flex-col justify-between border-2 border-gray-200 bg-white hover:bg-pink-50/40 transition cursor-pointer select-none overflow-hidden ${
+        isCorner ? 'p-1.5' : 'p-0.5'
       } ${property?.isMortgaged ? 'opacity-65 bg-gray-50' : ''}`}
       style={{
         boxShadow: owner
-          ? `inset 0 0 0 2.5px ${TOKEN_CONFIG[owner.token].color}`
+          ? `inset 0 0 0 3px ${TOKEN_CONFIG[owner.token].color}`
           : undefined,
         transformStyle: is3D ? 'preserve-3d' : undefined,
       }}
     >
-      {/* Vạch màu nhóm tuyến */}
-      {groupConfig && (
-        <div
-          className={`w-full font-black text-white text-[7px] text-center tracking-tight truncate shrink-0 ${
-            orientation === 'bottom'
-              ? 'h-2.5 order-first rounded-t-xs'
-              : orientation === 'top'
-              ? 'h-2.5 order-last rounded-b-xs'
-              : 'h-2'
-          }`}
-          style={{ backgroundColor: groupConfig.color }}
-        />
-      )}
-
-      {/* Nội dung xoay về phía trọng tâm bàn cờ */}
+      {/* KHUNG NỘI DUNG XOAY ĐỒNG BỘ: Vạch màu nằm INSIDE để luôn ở phía trên của mã cảng và song song với chữ */}
       <div
-        className={`flex-1 flex flex-col items-center justify-center p-0.5 w-full text-center ${getContentRotationClass()}`}
+        className={`flex-1 flex flex-col items-center justify-between p-0.5 w-full h-full text-center ${getContentRotationClass()}`}
       >
-        {/* MÃ CẢNG - TO, ĐẬM, KHÔNG CẮT CHỮ */}
-        <div className="flex items-center justify-center gap-0.5 w-full">
-          <span className="text-[10px] sm:text-[11px] font-black text-gray-950 tracking-tighter leading-tight whitespace-nowrap">
+        {/* VẠCH MÀU PHÂN BIỆT NHÓM TUYẾN - LUÔN Ở PHÍA TRÊN CỦA MÃ CẢNG */}
+        {groupConfig ? (
+          <div
+            className="w-full h-2.5 rounded-t-xs font-black text-white text-[7px] text-center tracking-tight truncate shrink-0 mb-0.5"
+            style={{ backgroundColor: groupConfig.color }}
+          />
+        ) : (
+          <div className="h-1 shrink-0" />
+        )}
+
+        {/* MÃ CẢNG - ĐẶT NGAY DƯỚI VẠCH MÀU, CHỮ TO RÕ NÉT */}
+        <div className="flex items-center justify-center gap-0.5 w-full my-auto">
+          <span className="text-[10px] sm:text-[11px] font-black text-gray-950 tracking-tight leading-none whitespace-nowrap">
             {getDisplayCode()}
           </span>
           {property?.hasGreenFleet && (
             <span title="Tàu Nhiên Liệu Xanh">
-              <Leaf className="w-2 h-2 text-emerald-500 fill-emerald-500 shrink-0" />
+              <Leaf className="w-2.5 h-2.5 text-emerald-500 fill-emerald-500 shrink-0" />
             </span>
           )}
           {property?.slotCharter?.active && (
             <span title="Đang chia sẻ chỗ (Slot Charter)">
-              <Handshake className="w-2 h-2 text-blue-500 shrink-0" />
+              <Handshake className="w-2.5 h-2.5 text-blue-500 shrink-0" />
             </span>
           )}
         </div>
@@ -184,7 +180,7 @@ export const TileView: React.FC<Props> = ({
           <div className="my-0.5 shrink-0">{renderContainers()}</div>
         )}
 
-        {/* GIÁ / CƯỚC - GỌN GÀNG, ĐẬM NÉT */}
+        {/* CƯỚC HOẶC GIÁ */}
         <div className="mt-0.5 flex items-center justify-center w-full">
           {renderPriceOrRent()}
         </div>
@@ -193,7 +189,7 @@ export const TileView: React.FC<Props> = ({
       {/* Owner Badge */}
       {owner && (
         <div
-          className="absolute top-0.5 right-0.5 w-2.5 h-2.5 rounded-full flex items-center justify-center text-[6px] text-white font-black shadow-xs z-10"
+          className="absolute top-0.5 right-0.5 w-3 h-3 rounded-full flex items-center justify-center text-[7px] text-white font-black shadow-xs z-10"
           style={{ backgroundColor: TOKEN_CONFIG[owner.token].color }}
           title={`Chủ sở hữu: ${owner.name}`}
         >
@@ -201,7 +197,7 @@ export const TileView: React.FC<Props> = ({
         </div>
       )}
 
-      {/* Billboard Pawns (Quân cờ đặt ở góc ô, không che khuất chữ mã cảng) */}
+      {/* Billboard Pawns (Quân cờ) */}
       {playersOnTile.length > 0 && (
         <div
           className="absolute inset-0 flex items-end justify-center pb-0.5 gap-0.5 z-30 pointer-events-none"
@@ -226,7 +222,7 @@ export const TileView: React.FC<Props> = ({
                       ? `0 6px 12px -2px rgba(0, 0, 0, 0.45), 0 0 0 1px ${cfg.color}`
                       : undefined,
                     transform: is3D
-                      ? 'rotateZ(45deg) rotateX(-34deg) translateZ(16px) translateY(-8px)'
+                      ? 'rotateZ(45deg) rotateX(-46deg) translateZ(16px) translateY(-8px)'
                       : undefined,
                   }}
                   title={`${p.name} (${cfg.label})`}

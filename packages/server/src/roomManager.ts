@@ -190,12 +190,24 @@ export class RoomManager {
     const room = this.getRoom(roomId);
     if (!room) return { success: false, error: 'Phòng không tồn tại!' };
     if (room.hostId !== callerId) return { success: false, error: 'Chỉ phòng trưởng (Host) mới có quyền bắt đầu!' };
-    if (room.players.length < 2) return { success: false, error: 'Cần ít nhất 2 người chơi để bắt đầu!' };
     if (room.isGameStarted) return { success: false, error: 'Trò chơi đã bắt đầu!' };
+
+    // Tự động bổ sung AI Bot nếu chỉ có 1 người chơi
+    const playersToStart = [...room.players];
+    if (playersToStart.length === 1) {
+      playersToStart.push({
+        id: 'ai-mate-1',
+        name: 'AI Thuyền Phó (Bot)',
+        token: room.players[0].token === 'ONE_APUS' ? 'PILOT_BOAT' : 'ONE_APUS',
+        isReady: true,
+        isOnline: true,
+        sessionToken: 'bot-token-1',
+      });
+    }
 
     const gameState = OneMonopolyEngine.createGame(
       room.id,
-      room.players.map((p) => ({
+      playersToStart.map((p) => ({
         id: p.id,
         name: p.name,
         token: p.token,

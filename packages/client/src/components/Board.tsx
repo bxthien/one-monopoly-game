@@ -32,44 +32,53 @@ export const Board: React.FC<Props> = ({
     return gameState.players.filter((p) => p.position === tileId && !p.isBankrupt);
   };
 
-  // Helper to determine orientation
+  // Helper to determine orientation cho bàn cờ 32 ô (9 ô mỗi cạnh)
   const getTileOrientation = (
     id: number
   ): 'bottom' | 'left' | 'top' | 'right' | 'corner' => {
-    if (id === 0 || id === 10 || id === 20 || id === 30) return 'corner';
-    if (id > 0 && id < 10) return 'bottom';
-    if (id > 10 && id < 20) return 'left';
-    if (id > 20 && id < 30) return 'top';
-    return 'right';
+    if (id === 0 || id === 8 || id === 16 || id === 24) return 'corner';
+    if (id >= 1 && id <= 7) return 'left';
+    if (id >= 9 && id <= 15) return 'top';
+    if (id >= 17 && id <= 23) return 'right';
+    return 'bottom';
   };
 
-  // Build grid coordinate map for 40 tiles
+  // Build grid coordinate map cho bàn cờ 32 ô (Lưới 9x9):
+  // Tile 0 (SGSIN) nằm ở Row 9, Col 1 (Góc dưới-trái trong 2D, khi xoay -45 độ sẽ nằm CHÍNH DIỆN hướng vào người dùng)
   const getTileGridStyle = (id: number): React.CSSProperties => {
-    // Bottom row (Row 11): 0 is col 11, 10 is col 1
-    if (id >= 0 && id <= 10) {
+    // Cạnh Dưới-Trái (Row 9 down to 1, Col 1):
+    // id 0 (SGSIN): Row 9, Col 1
+    // id 1..7: Row 8..2, Col 1
+    if (id >= 0 && id <= 7) {
       return {
-        gridRow: 11,
-        gridColumn: 11 - id,
-      };
-    }
-    // Left col (Col 1): 11 is row 10, 20 is row 1
-    if (id >= 11 && id <= 20) {
-      return {
-        gridRow: 11 - (id - 10),
+        gridRow: 9 - id,
         gridColumn: 1,
       };
     }
-    // Top row (Row 1): 20 is col 1, 30 is col 11
-    if (id >= 21 && id <= 30) {
+    // Cạnh Trên-Trái (Row 1, Col 1..9 - Chứa cảng ESVLC ở id 12):
+    // id 8 (CUSTOMS_HOLD): Row 1, Col 1
+    // id 9..15: Row 1, Col 2..8
+    // id 16 (FREE_ANCHOR): Row 1, Col 9
+    if (id >= 8 && id <= 16) {
       return {
         gridRow: 1,
-        gridColumn: id - 20 + 1,
+        gridColumn: id - 8 + 1,
       };
     }
-    // Right col (Col 11): 31 is row 2, 39 is row 10
+    // Cạnh Trên-Phải (Col 9, Row 2..9):
+    // id 17..23: Row 2..8, Col 9
+    // id 24 (GO_TO_HOLD): Row 9, Col 9
+    if (id >= 17 && id <= 24) {
+      return {
+        gridRow: id - 16 + 1,
+        gridColumn: 9,
+      };
+    }
+    // Cạnh Dưới-Phải (Row 9, Col 8 down to 2 - Chứa cảng HKHKG ở id 30):
+    // id 25..31: Row 9, Col 8..2
     return {
-      gridRow: id - 30 + 1,
-      gridColumn: 11,
+      gridRow: 9,
+      gridColumn: 9 - (id - 24),
     };
   };
 
@@ -89,7 +98,7 @@ export const Board: React.FC<Props> = ({
                 : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
             }`}
           >
-            <span>🎲 3D Isometric</span>
+            <span>🎲 3D Isometric (Nâng cao)</span>
           </button>
           <button
             onClick={() => setIs3D(false)}
@@ -111,34 +120,38 @@ export const Board: React.FC<Props> = ({
       {/* 3D Perspective Scene Container */}
       <div
         className={`w-full flex items-center justify-center overflow-visible transition-all duration-700 ${
-          is3D ? 'pt-0 pb-4 min-h-[500px]' : 'p-2'
+          is3D ? 'pt-0 pb-1 min-h-[460px]' : 'p-2'
         }`}
         style={{
           perspective: is3D ? '1400px' : undefined,
           transformStyle: is3D ? 'preserve-3d' : undefined,
         }}
       >
-        {/* Main Board Slab */}
+        {/* Main Board Slab - Góc nghiêng 3D isometric chuẩn Business Tour */}
         <div
-          className={`relative w-full max-w-[700px] aspect-square bg-[#FDFDFE] rounded-3xl border-4 border-gray-200 p-2 select-none transition-all duration-700 ease-out ${
+          className={`relative w-full max-w-[680px] aspect-square bg-[#FDFDFE] rounded-3xl border-4 border-gray-200 p-2 select-none transition-all duration-700 ease-out ${
             is3D ? 'origin-center' : 'shadow-xl'
           }`}
           style={{
             transform: is3D
-              ? 'rotateX(34deg) rotateZ(-45deg) scale(0.70) translateY(-10px)'
+              ? 'rotateX(46deg) rotateZ(-45deg) scale(0.74) translateY(-20px)'
               : 'none',
             boxShadow: is3D
-              ? '0 30px 50px -10px rgba(0, 0, 0, 0.4), 0 10px 0 #CBD5E1, 0 18px 0 #94A3B8, 0 24px 30px rgba(0,0,0,0.25)'
+              ? '0 30px 55px -10px rgba(0, 0, 0, 0.42), 0 10px 0 #CBD5E1, 0 18px 0 #94A3B8, 0 24px 30px rgba(0,0,0,0.28)'
               : undefined,
             transformStyle: is3D ? 'preserve-3d' : undefined,
           }}
         >
-          {/* 11x11 Grid Perimeter */}
+          {/* Lưới 9x9: 4 ô góc hình vuông (1.35fr x 1.35fr), các ô cạnh hình chữ nhật (1fr x 1.35fr) */}
           <div
-            className="grid grid-cols-11 grid-rows-11 w-full h-full gap-1"
-            style={{ transformStyle: is3D ? 'preserve-3d' : undefined }}
+            className="w-full h-full gap-1 grid"
+            style={{
+              gridTemplateColumns: '1.35fr repeat(7, 1fr) 1.35fr',
+              gridTemplateRows: '1.35fr repeat(7, 1fr) 1.35fr',
+              transformStyle: is3D ? 'preserve-3d' : undefined,
+            }}
           >
-            {/* 40 Tiles */}
+            {/* 32 Ô Bàn Cờ */}
             {BOARD_TILES.map((tile) => {
               const prop = gameState.properties[tile.id];
               const owner = prop?.ownerId
@@ -166,66 +179,40 @@ export const Board: React.FC<Props> = ({
               );
             })}
 
-            {/* Sân Bến Cảng Trung Tâm (9x9) */}
+            {/* Sân Bến Cảng Trung Tâm (7x7) */}
             <div
               style={{
-                gridRow: '2 / 11',
-                gridColumn: '2 / 11',
+                gridRow: '2 / 9',
+                gridColumn: '2 / 9',
                 transformStyle: is3D ? 'preserve-3d' : undefined,
               }}
-              className="bg-radial from-pink-50/40 via-white to-gray-50 rounded-2xl border border-gray-200 shadow-inner relative overflow-hidden flex items-center justify-center p-2"
+              className="bg-radial from-pink-50/50 via-white to-gray-50 rounded-2xl border-2 border-gray-200/80 shadow-inner relative overflow-hidden flex items-center justify-center p-4"
             >
               {/* Unified Center Courtyard: Nằm chính giữa, hướng thẳng vào mắt người nhìn */}
               <div
-                className="w-full h-full flex flex-col items-center justify-center gap-2.5 z-10 select-none"
+                className="w-full h-full flex flex-col items-center justify-center gap-4 z-10 select-none"
                 style={{
                   transform: is3D
-                    ? 'rotateZ(45deg) rotateX(-34deg) translateZ(12px)'
+                    ? 'rotateZ(45deg) rotateX(-46deg) translateZ(14px)'
                     : undefined,
                   transformOrigin: 'center center',
                 }}
               >
-                {/* 1. KHAY 2 BỘ THẺ BÀI: BIẾN ĐỘNG THỊ TRƯỜNG & SỰ CỐ VẬN HÀNH */}
-                <div className="w-full flex items-center justify-around px-2">
-                  {/* Bộ Thẻ 1: Biến Động Thị Trường (Market Deck) */}
-                  <div className="flex flex-col items-center group cursor-pointer">
-                    <div className="relative w-22 sm:w-26 h-14 bg-gradient-to-tr from-pink-600 to-[#E1007A] rounded-xl shadow-[0_8px_16px_rgba(225,0,122,0.35)] border-2 border-white flex flex-col items-center justify-center text-white p-1 text-center transition transform group-hover:-translate-y-0.5">
-                      <div className="absolute -top-1 -left-1 w-full h-full bg-pink-700/60 rounded-xl -z-10" />
-                      <div className="absolute -top-1.5 -left-1.5 w-full h-full bg-pink-800/40 rounded-xl -z-20" />
-                      <span className="text-sm leading-none">📈</span>
-                      <span className="text-[8px] font-black uppercase tracking-tight leading-tight mt-0.5">
-                        THỊ TRƯỜNG
-                      </span>
-                    </div>
-                    <span className="text-[8px] font-bold text-gray-400 mt-0.5">10 THẺ BÀI</span>
-                  </div>
-
-                  {/* Bộ Thẻ 2: Sự Cố & Vận Hành (Ops Deck) */}
-                  <div className="flex flex-col items-center group cursor-pointer">
-                    <div className="relative w-22 sm:w-26 h-14 bg-gradient-to-tr from-amber-600 to-orange-500 rounded-xl shadow-[0_8px_16px_rgba(245,158,11,0.35)] border-2 border-white flex flex-col items-center justify-center text-white p-1 text-center transition transform group-hover:-translate-y-0.5">
-                      <div className="absolute -top-1 -right-1 w-full h-full bg-amber-700/60 rounded-xl -z-10" />
-                      <div className="absolute -top-1.5 -right-1.5 w-full h-full bg-amber-800/40 rounded-xl -z-20" />
-                      <span className="text-sm leading-none">⚙️</span>
-                      <span className="text-[8px] font-black uppercase tracking-tight leading-tight mt-0.5">
-                        VẬN HÀNH
-                      </span>
-                    </div>
-                    <span className="text-[8px] font-bold text-gray-400 mt-0.5">10 THẺ BÀI</span>
-                  </div>
-                </div>
-
-                {/* 2. LOGO & TÊN GAME - ĐẶT CHÍNH GIỮA BÀN CỜ THEO HƯỚNG MẮT NHÌN */}
-                <div className="text-center w-full max-w-xs my-0.5">
-                  <div className="inline-block px-2.5 py-0.5 rounded-full bg-[#E1007A] text-white font-black text-[8px] sm:text-[9px] tracking-widest shadow-md shadow-pink-200">
+                {/* 1. LOGO & TÊN GAME CHÍNH GIỮA BÀN CỜ */}
+                <div className="text-center w-full max-w-xs">
+                  <div className="inline-block px-3.5 py-1 rounded-full bg-[#E1007A] text-white font-black text-[10px] tracking-widest shadow-md shadow-pink-200">
                     OCEAN NETWORK EXPRESS
                   </div>
-                  <h1 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight mt-0.5 leading-none">
+                  <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight mt-1 leading-none">
                     ONE MONOPOLY
                   </h1>
+                  <span className="text-[9px] font-bold text-gray-400 tracking-widest uppercase mt-1 block">
+                    GLOBAL LOGISTICS HUB
+                  </span>
                 </div>
 
-                {/* 3. XÚC XẮC */}
-                <div className="flex flex-col items-center">
+                {/* 2. KHAY XÚC XẮC */}
+                <div className="flex flex-col items-center my-1">
                   <DiceView dice={gameState.dice} isRolling={isRolling} hasRolled={gameState.hasRolled} />
                 </div>
               </div>

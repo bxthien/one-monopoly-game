@@ -2,8 +2,8 @@ import { BoardTile, GameCard, LoopGroup, SecretMissionCard } from './types.js';
 
 export const STARTING_BALANCE = 1500;
 export const GO_REWARD = 200;
-export const HOLD_TILE_INDEX = 10;
-export const GO_TO_HOLD_TILE_INDEX = 30;
+export const HOLD_TILE_INDEX = 8;
+export const GO_TO_HOLD_TILE_INDEX = 24;
 export const HOLD_FINE_AMOUNT = 50;
 export const MAX_HOLD_TURNS = 3;
 export const GREEN_FLEET_COST = 150;
@@ -22,60 +22,62 @@ export const LOOP_GROUPS_CONFIG: Record<
   MIDDLE_EAST: {
     name: 'Middle East Route',
     color: '#70C1B3', // Xanh biển nhạt
-    tileIds: [6, 8, 9],
+    tileIds: [5, 7],
     buildCost: 50,
   },
   MEDITERRANEAN: {
     name: 'Mediterranean Route',
     color: '#C379B4', // Tím hồng
-    tileIds: [11, 13, 14],
+    tileIds: [9, 11, 12],
     buildCost: 100,
   },
   NORTH_EUROPE: {
     name: 'North Europe Route',
     color: '#F9844A', // Cam sáng
-    tileIds: [16, 18, 19],
+    tileIds: [14, 15],
     buildCost: 100,
   },
   TRANS_PACIFIC_WEST: {
     name: 'Trans-Pacific West',
     color: '#E63946', // Đỏ son
-    tileIds: [21, 23, 24],
+    tileIds: [17, 19],
     buildCost: 150,
   },
   TRANS_PACIFIC_EAST: {
     name: 'Trans-Pacific East',
     color: '#F4A261', // Vàng nghệ
-    tileIds: [26, 27, 29],
+    tileIds: [21, 23],
     buildCost: 150,
   },
   LATIN_AMERICA: {
     name: 'Latin America Route',
     color: '#2A9D8F', // Xanh lá ngọc
-    tileIds: [31, 32, 34],
+    tileIds: [25, 27],
     buildCost: 200,
   },
   GLOBAL_HUB: {
     name: 'Global Flagship Hub',
     color: '#1D3557', // Xanh hải quân
-    tileIds: [37, 39],
+    tileIds: [30, 31],
     buildCost: 200,
   },
 };
 
 // 4 Tuyến Dịch Vụ Huyết Mạch của ONE
-export const SERVICE_LINES = [5, 15, 25, 35]; // VSS, MD2, FE2, PS3
+export const SERVICE_LINES = [4, 13, 20, 28]; // VSS, MD2, FE2, PS3
 
 // 2 Nền Tảng Số Đột Phá của ONE
-export const INFRA_TILES = [12, 28]; // ONE QUOTE, ONE Eco Calculator
+export const INFRA_TILES = [10, 22]; // ONE QUOTE, ONE Eco Calculator
 
 export const BOARD_TILES: BoardTile[] = [
+  // --- GÓC DƯỚI (CHÍNH DIỆN NGƯỜI DÙNG) ---
   {
     id: 0,
     code: 'SGSIN',
     name: 'Singapore Global Hub',
     type: 'GO',
   },
+  // --- CẠNH DƯỚI-TRÁI (Tiles 1-7) ---
   {
     id: 1,
     code: 'VNSGN',
@@ -106,13 +108,6 @@ export const BOARD_TILES: BoardTile[] = [
   },
   {
     id: 4,
-    code: 'BAF',
-    name: 'Phụ Phí Nhiên Liệu BAF',
-    type: 'TAX',
-    taxAmount: 200,
-  },
-  {
-    id: 5,
     code: 'VSS',
     name: 'Tuyến Vietnam Straits Service (VSS)',
     type: 'SERVICE_LINE',
@@ -120,7 +115,7 @@ export const BOARD_TILES: BoardTile[] = [
     mortgageValue: 100,
   },
   {
-    id: 6,
+    id: 5,
     code: 'THLCH',
     name: 'Cảng Laem Chabang',
     type: 'PORT',
@@ -131,24 +126,13 @@ export const BOARD_TILES: BoardTile[] = [
     mortgageValue: 50,
   },
   {
-    id: 7,
+    id: 6,
     code: 'OPS-1',
     name: 'Sự Cố & Vận Hành',
     type: 'OPS_CARD',
   },
   {
-    id: 8,
-    code: 'MYPKG',
-    name: 'Cảng Port Klang',
-    type: 'PORT',
-    group: 'MIDDLE_EAST',
-    price: 100,
-    rentTiers: [6, 30, 90, 270, 400, 550],
-    buildCost: 50,
-    mortgageValue: 50,
-  },
-  {
-    id: 9,
+    id: 7,
     code: 'AEJEA',
     name: 'Cảng Jebel Ali (Dubai)',
     type: 'PORT',
@@ -158,14 +142,16 @@ export const BOARD_TILES: BoardTile[] = [
     buildCost: 50,
     mortgageValue: 60,
   },
+  // --- GÓC TRÁI (Tile 8) ---
   {
-    id: 10,
+    id: 8,
     code: 'CUSTOMS_HOLD',
     name: 'Khu Neo Chờ Thông Quan',
     type: 'CUSTOMS_HOLD',
   },
+  // --- CẠNH TRÊN-TRÁI (Tiles 9-15 - Chứa ESVLC) ---
   {
-    id: 11,
+    id: 9,
     code: 'GRPIR',
     name: 'Cảng Piraeus',
     type: 'PORT',
@@ -176,7 +162,7 @@ export const BOARD_TILES: BoardTile[] = [
     mortgageValue: 70,
   },
   {
-    id: 12,
+    id: 10,
     code: 'ONE-QUOTE',
     name: 'Nền Tảng Đặt Cước ONE QUOTE',
     type: 'INFRA',
@@ -184,7 +170,7 @@ export const BOARD_TILES: BoardTile[] = [
     mortgageValue: 75,
   },
   {
-    id: 13,
+    id: 11,
     code: 'ITGOA',
     name: 'Cảng Genoa',
     type: 'PORT',
@@ -195,7 +181,7 @@ export const BOARD_TILES: BoardTile[] = [
     mortgageValue: 70,
   },
   {
-    id: 14,
+    id: 12,
     code: 'ESVLC',
     name: 'Cảng Valencia',
     type: 'PORT',
@@ -206,7 +192,7 @@ export const BOARD_TILES: BoardTile[] = [
     mortgageValue: 80,
   },
   {
-    id: 15,
+    id: 13,
     code: 'MD2',
     name: 'Tuyến Mediterranean 2 (MD2)',
     type: 'SERVICE_LINE',
@@ -214,24 +200,7 @@ export const BOARD_TILES: BoardTile[] = [
     mortgageValue: 100,
   },
   {
-    id: 16,
-    code: 'BEANR',
-    name: 'Cảng Antwerp',
-    type: 'PORT',
-    group: 'NORTH_EUROPE',
-    price: 180,
-    rentTiers: [14, 70, 200, 550, 750, 950],
-    buildCost: 100,
-    mortgageValue: 90,
-  },
-  {
-    id: 17,
-    code: 'MARKET-2',
-    name: 'Biến Động Thị Trường',
-    type: 'MARKET_CARD',
-  },
-  {
-    id: 18,
+    id: 14,
     code: 'DEHAM',
     name: 'Cảng Hamburg',
     type: 'PORT',
@@ -242,7 +211,7 @@ export const BOARD_TILES: BoardTile[] = [
     mortgageValue: 90,
   },
   {
-    id: 19,
+    id: 15,
     code: 'NLRTM',
     name: 'Cảng Rotterdam',
     type: 'PORT',
@@ -252,14 +221,16 @@ export const BOARD_TILES: BoardTile[] = [
     buildCost: 100,
     mortgageValue: 100,
   },
+  // --- GÓC TRÊN (Tile 16) ---
   {
-    id: 20,
+    id: 16,
     code: 'FREE_ANCHOR',
     name: 'Vùng Neo Đậu Miễn Phí',
     type: 'FREE_ANCHOR',
   },
+  // --- CẠNH TRÊN-PHẢI (Tiles 17-23) ---
   {
-    id: 21,
+    id: 17,
     code: 'KRPUS',
     name: 'Cảng Busan',
     type: 'PORT',
@@ -270,24 +241,13 @@ export const BOARD_TILES: BoardTile[] = [
     mortgageValue: 110,
   },
   {
-    id: 22,
+    id: 18,
     code: 'OPS-2',
     name: 'Sự Cố & Vận Hành',
     type: 'OPS_CARD',
   },
   {
-    id: 23,
-    code: 'TWKHH',
-    name: 'Cảng Kaohsiung',
-    type: 'PORT',
-    group: 'TRANS_PACIFIC_WEST',
-    price: 220,
-    rentTiers: [18, 90, 250, 700, 875, 1050],
-    buildCost: 150,
-    mortgageValue: 110,
-  },
-  {
-    id: 24,
+    id: 19,
     code: 'CNYTN',
     name: 'Cảng Yantian (Thâm Quyến)',
     type: 'PORT',
@@ -298,7 +258,7 @@ export const BOARD_TILES: BoardTile[] = [
     mortgageValue: 120,
   },
   {
-    id: 25,
+    id: 20,
     code: 'FE2',
     name: 'Tuyến Far East Europe 2 (FE2)',
     type: 'SERVICE_LINE',
@@ -306,7 +266,7 @@ export const BOARD_TILES: BoardTile[] = [
     mortgageValue: 100,
   },
   {
-    id: 26,
+    id: 21,
     code: 'USOAK',
     name: 'Cảng Oakland',
     type: 'PORT',
@@ -317,18 +277,7 @@ export const BOARD_TILES: BoardTile[] = [
     mortgageValue: 130,
   },
   {
-    id: 27,
-    code: 'USLGB',
-    name: 'Cảng Long Beach',
-    type: 'PORT',
-    group: 'TRANS_PACIFIC_EAST',
-    price: 260,
-    rentTiers: [22, 110, 330, 800, 975, 1150],
-    buildCost: 150,
-    mortgageValue: 130,
-  },
-  {
-    id: 28,
+    id: 22,
     code: 'ECO-CALC',
     name: 'Nền Tảng ONE Eco Calculator',
     type: 'INFRA',
@@ -336,7 +285,7 @@ export const BOARD_TILES: BoardTile[] = [
     mortgageValue: 75,
   },
   {
-    id: 29,
+    id: 23,
     code: 'USLAX',
     name: 'Cảng Los Angeles',
     type: 'PORT',
@@ -346,14 +295,16 @@ export const BOARD_TILES: BoardTile[] = [
     buildCost: 150,
     mortgageValue: 140,
   },
+  // --- GÓC PHẢI (Tile 24) ---
   {
-    id: 30,
+    id: 24,
     code: 'GO_TO_HOLD',
     name: 'Lệnh Giữ Tàu Kiểm Hóa',
     type: 'GO_TO_HOLD',
   },
+  // --- CẠNH DƯỚI-PHẢI (Tiles 25-31 - Chứa HKHKG) ---
   {
-    id: 31,
+    id: 25,
     code: 'USSAV',
     name: 'Cảng Savannah',
     type: 'PORT',
@@ -364,24 +315,13 @@ export const BOARD_TILES: BoardTile[] = [
     mortgageValue: 150,
   },
   {
-    id: 32,
-    code: 'PAMIT',
-    name: 'Cảng Manzanillo (Panama)',
-    type: 'PORT',
-    group: 'LATIN_AMERICA',
-    price: 300,
-    rentTiers: [26, 130, 390, 900, 1100, 1275],
-    buildCost: 200,
-    mortgageValue: 150,
-  },
-  {
-    id: 33,
-    code: 'MARKET-3',
+    id: 26,
+    code: 'MARKET-2',
     name: 'Biến Động Thị Trường',
     type: 'MARKET_CARD',
   },
   {
-    id: 34,
+    id: 27,
     code: 'BRSSZ',
     name: 'Cảng Santos (Brazil)',
     type: 'PORT',
@@ -392,7 +332,7 @@ export const BOARD_TILES: BoardTile[] = [
     mortgageValue: 160,
   },
   {
-    id: 35,
+    id: 28,
     code: 'PS3',
     name: 'Tuyến Pacific South 3 (PS3)',
     type: 'SERVICE_LINE',
@@ -400,15 +340,16 @@ export const BOARD_TILES: BoardTile[] = [
     mortgageValue: 100,
   },
   {
-    id: 36,
-    code: 'OPS-3',
-    name: 'Sự Cố & Vận Hành',
-    type: 'OPS_CARD',
+    id: 29,
+    code: 'CARBON-TAX',
+    name: 'Thuế Carbon & Phạt Phát Thải',
+    type: 'TAX',
+    taxAmount: 100,
   },
   {
-    id: 37,
+    id: 30,
     code: 'HKHKG',
-    name: 'Cảng Hồng Kông Hub',
+    name: 'Hong Kong Flagship Hub',
     type: 'PORT',
     group: 'GLOBAL_HUB',
     price: 350,
@@ -417,14 +358,7 @@ export const BOARD_TILES: BoardTile[] = [
     mortgageValue: 175,
   },
   {
-    id: 38,
-    code: 'CARBON-TAX',
-    name: 'Thuế Phát Thải Carbon Hàng Hải',
-    type: 'TAX',
-    taxAmount: 100,
-  },
-  {
-    id: 39,
+    id: 31,
     code: 'JPTYO',
     name: 'Tokyo Flagship Hub',
     type: 'PORT',
@@ -470,8 +404,8 @@ export const GAME_CARDS: GameCard[] = [
     id: 'MKT-05',
     type: 'MARKET',
     title: 'Khảo Sát Tuyến Á - Âu',
-    description: 'Di chuyển thẳng đến Cảng Rotterdam (NLRTM - Ô 19). Nếu qua ô xuất phát, nhận $200M.',
-    effect: { type: 'MOVE_TO', targetTile: 19 },
+    description: 'Di chuyển thẳng đến Cảng Rotterdam (NLRTM - Ô 15). Nếu qua ô xuất phát, nhận $200M.',
+    effect: { type: 'MOVE_TO', targetTile: 15 },
   },
   {
     id: 'MKT-06',
@@ -514,8 +448,8 @@ export const GAME_CARDS: GameCard[] = [
     id: 'OPS-01',
     type: 'OPS',
     title: 'Kênh Đào Suez Ùn Tắc Khẩn Cấp',
-    description: 'Hải quân thông báo phong tỏa hải trình. Tàu của bạn phải quay về Vùng Neo Đậu Miễn Phí (Ô 20).',
-    effect: { type: 'MOVE_TO', targetTile: 20 },
+    description: 'Hải quân thông báo phong tỏa hải trình. Tàu của bạn phải quay về Vùng Neo Đậu Miễn Phí (Ô 16).',
+    effect: { type: 'MOVE_TO', targetTile: 16 },
   },
   {
     id: 'OPS-02',
@@ -528,7 +462,7 @@ export const GAME_CARDS: GameCard[] = [
     id: 'OPS-03',
     type: 'OPS',
     title: 'Nghi Vấn Vi Phạm Quy Định Tải Trọng (VGM)',
-    description: 'Cơ quan kiểm định cảng yêu cầu giữ tàu. Đi thẳng vào Khu Neo Chờ Thông Quan (Ô 10). Không nhận tiền xuất phát.',
+    description: 'Cơ quan kiểm định cảng yêu cầu giữ tàu. Đi thẳng vào Khu Neo Chờ Thông Quan (Ô 8). Không nhận tiền xuất phát.',
     effect: { type: 'GO_TO_HOLD' },
   },
   {
@@ -615,7 +549,7 @@ export const SECRET_MISSIONS: SecretMissionCard[] = [
   {
     id: 'MISSION-5',
     title: 'Hợp Đồng 5: Trục Vận Tải Châu Á Thần Tốc',
-    description: 'Sở hữu trọn bộ Tuyến Intra-Asia (Cát Lái, Cái Mép) và Cảng Port Klang.',
+    description: 'Sở hữu trọn bộ Tuyến Intra-Asia (Cát Lái, Cái Mép) và Tuyến VSS.',
     reward: 350,
     isCompleted: false,
   },

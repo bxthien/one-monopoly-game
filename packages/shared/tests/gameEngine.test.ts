@@ -68,9 +68,9 @@ describe('OneMonopolyEngine Unit Tests', () => {
 
   it('Passed GO awards $200M', () => {
     const state = OneMonopolyEngine.createGame('room-1', initialPlayers);
-    state.players[0].position = 38;
+    state.players[0].position = 30;
 
-    // Roll 3 -> 38 + 3 = 41 % 40 = 1 (VNSGN, passed 0)
+    // Roll 3 -> 30 + 3 = 33 % 32 = 1 (VNSGN, passed 0)
     const { state: nextState, events } = OneMonopolyEngine.dispatch(state, {
       type: 'ROLL_DICE',
       forcedDice: [1, 2],
@@ -120,35 +120,35 @@ describe('OneMonopolyEngine Unit Tests', () => {
 
   it('Green Fleet Upgrade & Carbon Tax Exemption', () => {
     const state = OneMonopolyEngine.createGame('room-1', initialPlayers);
-    // Player 1 owns Tokyo Hub (Tile 39) with Siêu tàu ONE Innovation (level 5)
-    state.properties[39].ownerId = 'p1';
-    state.properties[39].containerLevel = 5;
+    // Player 1 owns Tokyo Hub (Tile 31) with Siêu tàu ONE Innovation (level 5)
+    state.properties[31].ownerId = 'p1';
+    state.properties[31].containerLevel = 5;
 
     const initialBal = state.players[0].balance;
 
     // Upgrade to Green Fleet
     const res1 = OneMonopolyEngine.dispatch(state, {
       type: 'UPGRADE_GREEN_FLEET',
-      tileId: 39,
+      tileId: 31,
     });
 
-    assert.equal(res1.state.properties[39].hasGreenFleet, true);
+    assert.equal(res1.state.properties[31].hasGreenFleet, true);
     assert.equal(res1.state.players[0].balance, initialBal - GREEN_FLEET_COST);
 
     const upgradeEvent = res1.events.find((e) => e.type === 'GREEN_FLEET_UPGRADED');
     assert.ok(upgradeEvent);
 
-    // Now Player 1 lands on Carbon Tax (Tile 38)
-    res1.state.players[0].position = 36;
+    // Now Player 1 lands on Carbon Tax (Tile 29)
+    res1.state.players[0].position = 27;
     res1.state.phase = 'WAIT_FOR_ROLL';
     res1.state.hasRolled = false;
 
     const res2 = OneMonopolyEngine.dispatch(res1.state, {
       type: 'ROLL_DICE',
-      forcedDice: [1, 1], // Lands on 38
+      forcedDice: [1, 1], // Lands on 29
     });
 
-    assert.equal(res2.state.players[0].position, 38);
+    assert.equal(res2.state.players[0].position, 29);
     // Should be exempted from $100M tax!
     assert.equal(res2.state.players[0].balance, initialBal - GREEN_FLEET_COST);
     const exemptEvent = res2.events.find((e) => e.type === 'CARBON_TAX_EXEMPTED');
@@ -165,8 +165,8 @@ describe('OneMonopolyEngine Unit Tests', () => {
     state.properties[1].ownerId = 'p2';
     state.properties[1].containerLevel = 2;
 
-    // P1 owns Service Line VSS (Tile 5)
-    state.properties[5].ownerId = 'p1';
+    // P1 owns Service Line VSS (Tile 4)
+    state.properties[4].ownerId = 'p1';
 
     // P1 rolls and lands on Tile 1
     const rollRes = OneMonopolyEngine.dispatch(state, {
@@ -212,7 +212,7 @@ describe('OneMonopolyEngine Unit Tests', () => {
 
   it('Secret Mission completion awards bonus cash', () => {
     const state = OneMonopolyEngine.createGame('room-1', initialPlayers);
-    // Assign Mission 1: Cái Mép (3), Los Angeles (29), Tuyến PS3 (35) -> $400M
+    // Assign Mission 1: Cái Mép (3), Los Angeles (23), Tuyến PS3 (28) -> $400M
     state.players[0].secretMission = {
       id: 'MISSION-1',
       title: 'Hợp Đồng 1: Cầu Nối Việt Nam – Mỹ',
@@ -222,8 +222,8 @@ describe('OneMonopolyEngine Unit Tests', () => {
     };
 
     state.properties[3].ownerId = 'p1';
-    state.properties[29].ownerId = 'p1';
-    state.properties[35].ownerId = 'p1';
+    state.properties[23].ownerId = 'p1';
+    state.properties[28].ownerId = 'p1';
 
     const res = OneMonopolyEngine.dispatch(state, {
       type: 'CLAIM_MISSION_REWARD',
