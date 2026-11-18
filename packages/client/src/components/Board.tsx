@@ -179,63 +179,29 @@ export const Board: React.FC<Props> = ({
               );
             })}
 
-            {/* Sân Bến Cảng Trung Tâm (7x7) - Mở rộng 3D perspective context */}
+            {/* Sân Bến Cảng Trung Tâm (7x7) - Chỉ hiển thị xúc xắc, không còn text che khuất */}
             <div
               style={{
                 gridRow: '2 / 9',
                 gridColumn: '2 / 9',
                 transformStyle: is3D ? 'preserve-3d' : undefined,
               }}
-              className="bg-radial from-pink-50/60 via-white to-gray-50 rounded-2xl border-2 border-gray-200/80 shadow-inner relative flex items-center justify-center p-4"
+              className="bg-radial from-pink-50/70 via-white to-gray-50 rounded-2xl border-2 border-gray-200/90 shadow-inner relative flex items-center justify-center p-3"
             >
-              {/* Unified Center Courtyard: Nằm trong không gian 3D của bàn cờ */}
+              {/* Vòng tròn sân đỗ hải trình trang trí nhẹ (Maritime Dock Rings) */}
+              <div className="absolute inset-6 rounded-full border border-pink-100/80 pointer-events-none" />
+              <div className="absolute inset-14 rounded-full border border-dashed border-gray-200/60 pointer-events-none" />
+
+              {/* Khối xúc xắc 3D khối hộp Magenta & Navy nằm trên mặt sân trung tâm */}
               <div
-                className="w-full h-full flex flex-col items-center justify-around z-10 select-none py-2"
+                className="w-full h-full flex items-center justify-center select-none z-10"
                 style={{
-                  transform: is3D ? 'rotateZ(45deg)' : undefined,
+                  transform: is3D ? 'rotateZ(45deg) translateZ(18px)' : undefined,
                   transformStyle: is3D ? 'preserve-3d' : undefined,
                   transformOrigin: 'center center',
                 }}
               >
-                {/* 1. LOGO & TÊN GAME: DỰNG ĐỨNG (Billboard Standee) HƯỚNG THẲNG MẮT NGƯỜI DÙNG */}
-                <div
-                  className="text-center w-full max-w-xs flex flex-col items-center"
-                  style={{
-                    transform: is3D ? 'rotateX(-46deg) translateY(-12px)' : undefined,
-                    transformStyle: is3D ? 'preserve-3d' : undefined,
-                    transformOrigin: 'bottom center',
-                  }}
-                >
-                  {/* Badge 3D nổi trên không */}
-                  <div
-                    className="inline-block px-3.5 py-1 rounded-full bg-gradient-to-r from-pink-600 via-[#E1007A] to-pink-600 text-white font-black text-[9px] tracking-widest uppercase border border-pink-300 shadow-md shadow-pink-200 mb-1"
-                  >
-                    OCEAN NETWORK EXPRESS
-                  </div>
-
-                  {/* Chữ ONE MONOPOLY dựng đứng tự nhiên, sắc nét, không bị nén */}
-                  <h1
-                    className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight my-0.5 leading-none drop-shadow-sm"
-                  >
-                    ONE MONOPOLY
-                  </h1>
-
-                  <span
-                    className="text-[9px] font-black text-gray-500 tracking-[0.25em] uppercase mt-1 block"
-                  >
-                    GLOBAL LOGISTICS HUB
-                  </span>
-                </div>
-
-                {/* 2. KHAY XÚC XẮC 3D KHỐI LẬP PHƯƠNG (Nằm phía dưới, không có nền trắng, không che text) */}
-                <div
-                  className="flex flex-col items-center mt-2"
-                  style={{
-                    transformStyle: is3D ? 'preserve-3d' : undefined,
-                  }}
-                >
-                  <DiceView dice={gameState.dice} isRolling={isRolling} hasRolled={gameState.hasRolled} />
-                </div>
+                <DiceView dice={gameState.dice} isRolling={isRolling} hasRolled={gameState.hasRolled} />
               </div>
             </div>
           </div>

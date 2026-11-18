@@ -48,13 +48,13 @@ const Die3D: React.FC<{
   const rightValue = value === 1 ? 4 : (value + 2) % 6 || 6;
 
   return (
-    <div className="relative w-12 h-12 flex items-center justify-center">
+    <div className="relative w-14 h-14 flex items-center justify-center">
       {/* Bóng đổ 3D tiếp đất */}
-      <div className="absolute -bottom-2 w-10 h-6 bg-black/35 rounded-full filter blur-[3px] transform scale-y-50" />
+      <div className="absolute -bottom-2 w-12 h-6 bg-black/40 rounded-full filter blur-[4px] transform scale-y-50" />
 
       {/* Khối Lập Phương 3D (Cube) */}
       <motion.div
-        className="w-11 h-11 relative"
+        className="w-12 h-12 relative cursor-pointer"
         style={{
           transformStyle: 'preserve-3d',
         }}
@@ -64,7 +64,7 @@ const Die3D: React.FC<{
                 rotateX: [0, 360, 720, 1080],
                 rotateY: [0, -360, -720, -1080],
                 rotateZ: [0, 180, 360, 540],
-                y: [0, -28, 0, -14, 0],
+                y: [0, -30, 0, -15, 0],
                 scale: [1, 1.15, 1, 1.05, 1],
               }
             : {
@@ -75,6 +75,7 @@ const Die3D: React.FC<{
                 scale: 1,
               }
         }
+        whileHover={{ scale: 1.08 }}
         transition={
           isRolling
             ? { duration: 0.6, repeat: Infinity, ease: 'linear' }
@@ -83,20 +84,21 @@ const Die3D: React.FC<{
       >
         {/* MẶT TRÊN (TOP FACE - Hiển thị giá trị xúc xắc chính xác) */}
         <div
-          className={`absolute inset-0 rounded-lg border border-white/40 shadow-inner flex items-center justify-center ${topBg}`}
+          className={`absolute inset-0 rounded-xl border border-white/40 shadow-inner flex items-center justify-center ${topBg}`}
           style={{
-            transform: 'rotateX(90deg) translateZ(22px)',
-            boxShadow: 'inset 0 1px 2px rgba(255,255,255,0.6)',
+            transform: 'rotateX(90deg) translateZ(24px)',
+            boxShadow: 'inset 0 1px 3px rgba(255,255,255,0.6)',
           }}
         >
+          <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-white/30 pointer-events-none rounded-xl" />
           {renderPips(value)}
         </div>
 
         {/* MẶT TRƯỚC (FRONT FACE - Tạo độ dày khối nhìn từ góc người chơi) */}
         <div
-          className={`absolute inset-0 rounded-lg border border-black/20 flex items-center justify-center ${frontBg}`}
+          className={`absolute inset-0 rounded-xl border border-black/20 flex items-center justify-center ${frontBg}`}
           style={{
-            transform: 'rotateX(0deg) translateZ(22px)',
+            transform: 'rotateX(0deg) translateZ(24px)',
           }}
         >
           {renderPips(frontValue, 'rgba(255,255,255,0.75)')}
@@ -104,9 +106,9 @@ const Die3D: React.FC<{
 
         {/* MẶT PHẢI (RIGHT FACE - Tạo góc nhìn 3D Isometric chuẩn) */}
         <div
-          className={`absolute inset-0 rounded-lg border border-black/30 flex items-center justify-center ${rightBg}`}
+          className={`absolute inset-0 rounded-xl border border-black/30 flex items-center justify-center ${rightBg}`}
           style={{
-            transform: 'rotateY(90deg) translateZ(22px)',
+            transform: 'rotateY(90deg) translateZ(24px)',
           }}
         >
           {renderPips(rightValue, 'rgba(255,255,255,0.6)')}
@@ -114,17 +116,17 @@ const Die3D: React.FC<{
 
         {/* MẶT TRÁI (LEFT FACE) */}
         <div
-          className={`absolute inset-0 rounded-lg border border-black/20 ${leftBg}`}
+          className={`absolute inset-0 rounded-xl border border-black/20 ${leftBg}`}
           style={{
-            transform: 'rotateY(-90deg) translateZ(22px)',
+            transform: 'rotateY(-90deg) translateZ(24px)',
           }}
         />
 
         {/* MẶT ĐÁY (BOTTOM FACE) */}
         <div
-          className="absolute inset-0 rounded-lg bg-black/60"
+          className="absolute inset-0 rounded-xl bg-black/60"
           style={{
-            transform: 'rotateX(-90deg) translateZ(22px)',
+            transform: 'rotateX(-90deg) translateZ(24px)',
           }}
         />
       </motion.div>
@@ -141,7 +143,7 @@ export const DiceView: React.FC<Props> = ({ dice, isRolling = false, hasRolled =
       className="flex flex-col items-center gap-3 select-none"
       style={{ transformStyle: 'preserve-3d' }}
     >
-      {/* 3D Dice: Không còn background trắng đằng sau, 2 viên xúc xắc 3D tiếp đất tự nhiên trên sân */}
+      {/* 2 Viên Xúc Xắc 3D: Khối hộp Magenta & Navy nguyên bản, không có background trắng */}
       <div
         className="flex items-center justify-center gap-6"
         style={{
@@ -160,8 +162,8 @@ export const DiceView: React.FC<Props> = ({ dice, isRolling = false, hasRolled =
         <motion.span
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className="text-[11px] font-black tracking-wider text-emerald-700 bg-emerald-100 px-3 py-0.5 rounded-full border border-emerald-300 shadow-sm animate-pulse"
-          style={{ transform: 'translateZ(10px)' }}
+          className="text-xs font-black tracking-wider text-emerald-700 bg-emerald-100/95 px-3 py-1 rounded-full border border-emerald-300 shadow-md animate-pulse whitespace-nowrap"
+          style={{ transform: 'translateZ(20px)' }}
         >
           🎲 LẮC ĐƯỢC ĐÔI ({d1} - {d2})! ĐI TIẾP LƯỢT NỮA
         </motion.span>
