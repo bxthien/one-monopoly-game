@@ -5,7 +5,7 @@ import { DiceView } from './DiceView.js';
 import { ActionControls } from './ActionControls.js';
 import { PropertyModal } from './PropertyModal.js';
 import { CardModal } from './CardModal.js';
-import { Eye, Layers, Compass } from 'lucide-react';
+import { Eye } from 'lucide-react';
 
 interface Props {
   gameState: GameState;
@@ -74,55 +74,61 @@ export const Board: React.FC<Props> = ({
   };
 
   return (
-    <div className="flex flex-col items-center w-full">
+    <div className="flex flex-col items-center w-full max-w-[840px]">
       {/* View Mode Toggle Switch */}
-      <div className="flex items-center gap-2 mb-3 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-2xl shadow-sm border border-gray-200 z-30">
-        <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1">
-          <Eye className="w-3.5 h-3.5" /> Góc Nhìn:
-        </span>
-        <button
-          onClick={() => setIs3D(true)}
-          className={`px-3 py-1 rounded-xl text-xs font-black transition flex items-center gap-1.5 cursor-pointer ${
-            is3D
-              ? 'bg-[#E1007A] text-white shadow-sm'
-              : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-          }`}
-        >
-          <span>🎲 3D Isometric</span>
-        </button>
-        <button
-          onClick={() => setIs3D(false)}
-          className={`px-3 py-1 rounded-xl text-xs font-black transition flex items-center gap-1.5 cursor-pointer ${
-            !is3D
-              ? 'bg-gray-900 text-white shadow-sm'
-              : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-          }`}
-        >
-          <span>📐 2D Phẳng</span>
-        </button>
+      <div className="flex items-center justify-between w-full mb-3 px-2 z-30">
+        <div className="flex items-center gap-1.5 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-2xl shadow-sm border border-gray-200">
+          <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1">
+            <Eye className="w-3.5 h-3.5" /> Góc Nhìn:
+          </span>
+          <button
+            onClick={() => setIs3D(true)}
+            className={`px-3 py-1 rounded-xl text-xs font-black transition flex items-center gap-1.5 cursor-pointer ${
+              is3D
+                ? 'bg-[#E1007A] text-white shadow-sm'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+            }`}
+          >
+            <span>🎲 3D Isometric (Nâng cao)</span>
+          </button>
+          <button
+            onClick={() => setIs3D(false)}
+            className={`px-3 py-1 rounded-xl text-xs font-black transition flex items-center gap-1.5 cursor-pointer ${
+              !is3D
+                ? 'bg-gray-900 text-white shadow-sm'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+            }`}
+          >
+            <span>📐 2D Phẳng</span>
+          </button>
+        </div>
+
+        <div className="text-xs font-bold text-gray-500 bg-white/80 px-3 py-1.5 rounded-xl border border-gray-200">
+          VÒNG {gameState.turnCount} • PHÒNG {gameState.roomId}
+        </div>
       </div>
 
       {/* 3D Perspective Scene Container */}
       <div
-        className={`w-full flex items-center justify-center overflow-visible ${
-          is3D ? 'py-0 min-h-[640px]' : 'p-2 sm:p-4'
+        className={`w-full flex items-center justify-center overflow-visible transition-all duration-700 ${
+          is3D ? 'pt-0 pb-2 min-h-[480px]' : 'p-2'
         }`}
         style={{
           perspective: is3D ? '1400px' : undefined,
           transformStyle: is3D ? 'preserve-3d' : undefined,
         }}
       >
-        {/* Main Board Slab */}
+        {/* Main Board Slab - Góc nghiêng 34 độ chuẩn Netmarble Let's Get Rich */}
         <div
-          className={`relative w-full max-w-[760px] aspect-square bg-[#FDFDFE] rounded-3xl border-4 border-gray-200 p-2 select-none transition-all duration-700 ease-out ${
-            is3D ? 'origin-center' : 'shadow-2xl'
+          className={`relative w-full max-w-[680px] aspect-square bg-[#FDFDFE] rounded-3xl border-4 border-gray-200 p-2 select-none transition-all duration-700 ease-out ${
+            is3D ? 'origin-center' : 'shadow-xl'
           }`}
           style={{
             transform: is3D
-              ? 'rotateX(52deg) rotateZ(-45deg) scale(0.68) translateY(-70px)'
+              ? 'rotateX(34deg) rotateZ(-45deg) scale(0.68) translateY(-10px)'
               : 'none',
             boxShadow: is3D
-              ? '0 30px 60px -15px rgba(0, 0, 0, 0.45), 0 12px 0 #CBD5E1, 0 20px 0 #94A3B8, 0 28px 35px rgba(0,0,0,0.3)'
+              ? '0 25px 45px -10px rgba(0, 0, 0, 0.35), 0 10px 0 #CBD5E1, 0 18px 0 #94A3B8, 0 24px 30px rgba(0,0,0,0.25)'
               : undefined,
             transformStyle: is3D ? 'preserve-3d' : undefined,
           }}
@@ -158,82 +164,44 @@ export const Board: React.FC<Props> = ({
               );
             })}
 
-            {/* Center Area (9x9) with Courtyard & 3D Deck Boxes */}
+            {/* Center Area (9x9) - Sân Bến Cảng Trung Tâm */}
             <div
               style={{
                 gridRow: '2 / 11',
                 gridColumn: '2 / 11',
                 transformStyle: is3D ? 'preserve-3d' : undefined,
               }}
-              className="bg-radial from-pink-50/50 via-white to-gray-50 flex flex-col items-center justify-between p-4 sm:p-6 rounded-2xl border border-gray-200/80 shadow-inner relative overflow-hidden"
+              className="bg-radial from-pink-50/50 via-white to-gray-50 flex flex-col items-center justify-between p-4 sm:p-6 rounded-2xl border border-gray-200 shadow-inner relative overflow-hidden"
             >
-              {/* Top Courtyard Branding */}
-              <div
-                className="text-center z-10"
-                style={{
-                  transform: is3D
-                    ? 'rotateZ(45deg) rotateX(-52deg) translateZ(8px)'
-                    : undefined,
-                }}
-              >
-                <div className="inline-block px-3.5 py-1 rounded-full bg-[#E1007A] text-white font-black text-[10px] tracking-widest shadow-md shadow-pink-200">
-                  OCEAN NETWORK EXPRESS
-                </div>
-                <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tighter mt-1">
-                  ONE MONOPOLY
-                </h1>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                  VÒNG {gameState.turnCount} • PHÒNG {gameState.roomId}
-                </p>
-              </div>
-
-              {/* 3D Decorative Deck Boxes on the Field (Like Reference Image!) */}
-              {is3D && (
-                <div className="absolute inset-0 pointer-events-none flex items-center justify-between px-10">
-                  {/* Market Chest Box (Top Left) */}
-                  <div className="w-16 h-12 bg-gradient-to-tr from-pink-600 to-[#E1007A] rounded-xl shadow-[0_10px_15px_rgba(225,0,122,0.35)] border-2 border-white flex flex-col items-center justify-center text-white transform -rotate-12 translate-y-4">
-                    <span className="text-xs">📈</span>
-                    <span className="text-[8px] font-black uppercase tracking-tighter">THỊ TRƯỜNG</span>
-                  </div>
-
-                  {/* Ops Tool Chest (Bottom Right) */}
-                  <div className="w-16 h-12 bg-gradient-to-tr from-amber-600 to-orange-500 rounded-xl shadow-[0_10px_15px_rgba(245,158,11,0.35)] border-2 border-white flex flex-col items-center justify-center text-white transform rotate-12 -translate-y-4">
-                    <span className="text-xs">⚙️</span>
-                    <span className="text-[8px] font-black uppercase tracking-tighter">VẬN HÀNH</span>
-                  </div>
-                </div>
-              )}
-
               {/* Center Courtyard: Interactive Dice Display */}
-              <div
-                className="my-auto flex flex-col items-center gap-2 z-10"
-                style={{
-                  transform: is3D
-                    ? 'rotateZ(45deg) rotateX(-52deg) translateZ(14px)'
-                    : undefined,
-                }}
-              >
+              <div className="my-auto flex flex-col items-center gap-2 z-20">
                 <DiceView dice={gameState.dice} isRolling={isRolling} hasRolled={gameState.hasRolled} />
               </div>
 
-              {/* Bottom Courtyard: Interactive Action Controls */}
-              <div
-                className="w-full max-w-md z-20"
-                style={{
-                  transform: is3D
-                    ? 'rotateZ(45deg) rotateX(-52deg) translateZ(10px)'
-                    : undefined,
-                }}
-              >
-                <ActionControls
-                  gameState={gameState}
-                  myPlayerId={myPlayerId}
-                  onAction={onAction}
-                  isRolling={isRolling}
-                />
+              {/* Bottom Courtyard Logo */}
+              <div className="text-center z-10 my-2">
+                <div className="inline-block px-3 py-0.5 rounded-full bg-[#E1007A] text-white font-black text-[9px] tracking-widest shadow-sm">
+                  OCEAN NETWORK EXPRESS
+                </div>
+                <h1 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tighter mt-0.5">
+                  ONE MONOPOLY
+                </h1>
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* DOCKED HUD CONTROLS: Đặt tách biệt ở tầng giao diện 2D phẳng phía dưới */}
+      {/* Giống chuẩn Netmarble Let's Get Rich: Nút bấm to rõ, không bị lệch góc, không đè lấn lên các ô cờ */}
+      <div className="w-full max-w-lg mt-2 px-2 z-30">
+        <div className="bg-white/95 backdrop-blur-md p-4 rounded-3xl shadow-xl border-2 border-pink-100">
+          <ActionControls
+            gameState={gameState}
+            myPlayerId={myPlayerId}
+            onAction={onAction}
+            isRolling={isRolling}
+          />
         </div>
       </div>
 
