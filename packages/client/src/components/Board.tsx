@@ -87,7 +87,7 @@ export const Board: React.FC<Props> = ({
       <div
         className="w-full flex items-center justify-center overflow-visible transition-all duration-700"
         style={{
-          perspective: is3D ? '1400px' : undefined,
+          perspective: is3D ? '2000px' : undefined,
           transformStyle: is3D ? 'preserve-3d' : undefined,
         }}
       >
