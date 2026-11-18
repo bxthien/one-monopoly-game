@@ -158,11 +158,11 @@ export const Board: React.FC<Props> = ({
               <div className="absolute inset-6 rounded-full border border-pink-100/80 pointer-events-none" />
               <div className="absolute inset-14 rounded-full border border-dashed border-gray-200/60 pointer-events-none" />
 
-              {/* Khối xúc xắc 3D khối hộp Magenta & Navy nằm trên mặt sân trung tâm */}
+              {/* Khối xúc xắc 3D khối hộp Magenta & Navy - Billboard counter-rotate để không bị cấn móp, giống y chang 2D */}
               <div
                 className="w-full h-full flex items-center justify-center select-none z-10"
                 style={{
-                  transform: is3D ? 'rotateZ(45deg) translateZ(18px)' : undefined,
+                  transform: is3D ? 'rotateZ(45deg) rotateX(-46deg) translateZ(30px)' : undefined,
                   transformStyle: is3D ? 'preserve-3d' : undefined,
                   transformOrigin: 'center center',
                 }}
