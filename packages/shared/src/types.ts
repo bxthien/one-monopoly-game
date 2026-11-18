@@ -2,6 +2,8 @@ export type VesselToken =
   | 'ONE_APUS'
   | 'ONE_MAGENTA'
   | 'GANTRY_CRANE'
+  | 'CONTAINER_TRUCK'
+  | 'FREIGHT_TRAIN'
   | 'REEFER_TRUCK'
   | 'PILOT_BOAT'
   | 'BUNKER_BARGE';

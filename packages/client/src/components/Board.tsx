@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BOARD_TILES, GameAction, GameCard, GameState, OneMonopolyEngine, Player } from '@one-monopoly/shared';
 import { TileView } from './TileView.js';
 import { DiceView } from './DiceView.js';
@@ -26,9 +26,67 @@ export const Board: React.FC<Props> = ({
 }) => {
   const [selectedTileId, setSelectedTileId] = useState<number | null>(null);
 
-  // Group players by current position on the board
+  // Quản lý vị trí hiển thị từng bước (Step-by-step path traversal animation)
+  const [displayPositions, setDisplayPositions] = useState<Record<string, number>>({});
+  const [movingPlayerIds, setMovingPlayerIds] = useState<Set<string>>(new Set());
+  const activeAnimationsRef = useRef<Record<string, boolean>>({});
+
+  useEffect(() => {
+    gameState.players.forEach((p) => {
+      const currentDisplayed = displayPositions[p.id];
+
+      // Khởi tạo ban đầu
+      if (currentDisplayed === undefined) {
+        setDisplayPositions((prev) => ({ ...prev, [p.id]: p.position }));
+        return;
+      }
+
+      // Khi nhân vật di chuyển và chưa có luồng animation
+      if (currentDisplayed !== p.position && !activeAnimationsRef.current[p.id]) {
+        const start = currentDisplayed;
+        const target = p.position;
+        const stepCount = (target - start + 32) % 32;
+
+        // Nếu là di chuyển cờ xúc xắc bình thường (1-12 ô)
+        if (stepCount > 0 && stepCount <= 12) {
+          activeAnimationsRef.current[p.id] = true;
+          setMovingPlayerIds((prev) => new Set(prev).add(p.id));
+
+          const path: number[] = [];
+          for (let i = 1; i <= stepCount; i++) {
+            path.push((start + i) % 32);
+          }
+
+          let stepIndex = 0;
+          const interval = setInterval(() => {
+            if (stepIndex < path.length) {
+              const nextTile = path[stepIndex];
+              setDisplayPositions((prev) => ({ ...prev, [p.id]: nextTile }));
+              stepIndex++;
+            } else {
+              clearInterval(interval);
+              activeAnimationsRef.current[p.id] = false;
+              setMovingPlayerIds((prev) => {
+                const next = new Set(prev);
+                next.delete(p.id);
+                return next;
+              });
+            }
+          }, 220); // 220ms mỗi bước: tạo nhịp bước đi chân thực
+        } else {
+          // Trường hợp dịch chuyển tức thời (vào Hold / phá sản)
+          setDisplayPositions((prev) => ({ ...prev, [p.id]: p.position }));
+        }
+      }
+    });
+  }, [gameState.players]);
+
+  // Group players by current position on the board (sử dụng displayPositions động)
   const getPlayersOnTile = (tileId: number): Player[] => {
-    return gameState.players.filter((p) => p.position === tileId && !p.isBankrupt);
+    return gameState.players.filter((p) => {
+      const pos = displayPositions[p.id] !== undefined ? displayPositions[p.id] : p.position;
+      return pos === tileId && !p.isBankrupt;
+    });
   };
 
   // Helper to determine orientation cho bàn cờ 32 ô (9 ô mỗi cạnh)
@@ -139,6 +197,8 @@ export const Board: React.FC<Props> = ({
                     playersOnTile={getPlayersOnTile(tile.id)}
                     orientation={getTileOrientation(tile.id)}
                     is3D={is3D}
+                    movingPlayerIds={movingPlayerIds}
+                    myPlayerId={myPlayerId}
                     onClick={() => setSelectedTileId(tile.id)}
                   />
                 </div>

@@ -135,9 +135,9 @@ export class RoomManager {
         'ONE_APUS',
         'ONE_MAGENTA',
         'GANTRY_CRANE',
+        'CONTAINER_TRUCK',
+        'FREIGHT_TRAIN',
         'REEFER_TRUCK',
-        'PILOT_BOAT',
-        'BUNKER_BARGE',
       ];
       const available = allTokens.find((t) => !room.players.some((p) => p.token === t));
       if (available) token = available;

@@ -2,6 +2,7 @@ import React from 'react';
 import { BoardTile, LOOP_GROUPS_CONFIG, Player, PropertyState } from '@one-monopoly/shared';
 import { motion } from 'framer-motion';
 import { TOKEN_CONFIG } from './TokenBadge.js';
+import { Pawn3D } from './Pawn3D.js';
 import { Leaf, Handshake } from 'lucide-react';
 
 interface Props {
@@ -13,6 +14,8 @@ interface Props {
   onClick?: () => void;
   orientation: 'bottom' | 'left' | 'top' | 'right' | 'corner';
   is3D?: boolean;
+  movingPlayerIds?: Set<string>;
+  myPlayerId?: string | null;
 }
 
 export const TileView: React.FC<Props> = ({
@@ -24,6 +27,8 @@ export const TileView: React.FC<Props> = ({
   onClick,
   orientation,
   is3D = false,
+  movingPlayerIds,
+  myPlayerId,
 }) => {
   const groupConfig = tile.group ? LOOP_GROUPS_CONFIG[tile.group] : null;
   const isCorner = orientation === 'corner';
@@ -197,41 +202,21 @@ export const TileView: React.FC<Props> = ({
         </div>
       )}
 
-      {/* Billboard Pawns (Quân cờ) */}
+      {/* 3D Character Pawns (Mô hình 3D nhân vật với hiệu ứng đặc trưng) */}
       {playersOnTile.length > 0 && (
         <div
-          className="absolute inset-0 flex items-end justify-center pb-0.5 gap-0.5 z-30 pointer-events-none"
+          className="absolute inset-0 flex items-center justify-center gap-1 z-30 pointer-events-none"
           style={{ transformStyle: is3D ? 'preserve-3d' : undefined }}
         >
-          {playersOnTile.map((p) => {
-            const cfg = TOKEN_CONFIG[p.token];
-
-            return (
-              <div key={p.id} className="relative flex flex-col items-center justify-center">
-                {is3D && (
-                  <div className="absolute -bottom-0.5 w-4 h-1.5 bg-black/40 rounded-full filter blur-[0.5px] transform scale-x-125" />
-                )}
-
-                <motion.div
-                  layoutId={`token-${p.id}`}
-                  transition={{ type: 'spring', stiffness: 350, damping: 25 }}
-                  className="w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[10px] sm:text-xs shadow-xl border border-white text-white font-black cursor-pointer pointer-events-auto select-none"
-                  style={{
-                    backgroundColor: cfg.color,
-                    boxShadow: is3D
-                      ? `0 6px 12px -2px rgba(0, 0, 0, 0.45), 0 0 0 1px ${cfg.color}`
-                      : undefined,
-                    transform: is3D
-                      ? 'rotateZ(45deg) rotateX(-46deg) translateZ(16px) translateY(-8px)'
-                      : undefined,
-                  }}
-                  title={`${p.name} (${cfg.label})`}
-                >
-                  <span className="filter drop-shadow-sm">{cfg.emoji}</span>
-                </motion.div>
-              </div>
-            );
-          })}
+          {playersOnTile.map((p) => (
+            <Pawn3D
+              key={p.id}
+              player={p}
+              isMoving={movingPlayerIds?.has(p.id)}
+              is3D={is3D}
+              isMe={p.id === myPlayerId}
+            />
+          ))}
         </div>
       )}
     </div>
