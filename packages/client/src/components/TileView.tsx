@@ -29,15 +29,15 @@ export const TileView: React.FC<Props> = ({
   const isCorner = orientation === 'corner';
 
   // Hướng chữ tối ưu cho bàn cờ kim cương 3D:
-  // - Top (hàng có cảng ESVLC): rotate-180 (vạch màu hướng vào tâm bàn cờ, chữ đọc xuôi chiều)
-  // - Bottom (hàng có cảng HKHKG): '' (vạch màu hướng vào tâm bàn cờ, chữ đọc xuôi chiều)
+  // - Top (hàng có cảng ESVLC: GRPIR..NLRTM): '' (quay ngược lại để chữ đọc xuôi không bị lộn ngược)
+  // - Bottom (hàng có cảng HKHKG): ''
   // - Left (cạnh dưới-trái): rotate-90
-  // - Right (cạnh trên-phải: KRPUS..USLAX): rotate-90 (quay ngược vào trong theo yêu cầu)
+  // - Right (cạnh trên-phải: KRPUS..USLAX): rotate-90
   const getContentRotationClass = () => {
     if (isCorner) return '';
     switch (orientation) {
       case 'top':
-        return 'rotate-180';
+        return '';
       case 'bottom':
         return '';
       case 'left':
