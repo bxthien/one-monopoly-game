@@ -11,6 +11,7 @@ interface Props {
   playersOnTile: Player[];
   onClick?: () => void;
   orientation: 'bottom' | 'left' | 'top' | 'right' | 'corner';
+  is3D?: boolean;
 }
 
 export const TileView: React.FC<Props> = ({
@@ -20,32 +21,47 @@ export const TileView: React.FC<Props> = ({
   playersOnTile,
   onClick,
   orientation,
+  is3D = false,
 }) => {
   const groupConfig = tile.group ? LOOP_GROUPS_CONFIG[tile.group] : null;
   const isCorner = orientation === 'corner';
 
-  // Format containers & ONE Innovation display
+  // Format 3D Containers & ONE Innovation display
   const renderContainers = () => {
     if (!property || property.containerLevel <= 0) return null;
+
     if (property.containerLevel === 5) {
       return (
-        <div className="flex items-center gap-0.5 bg-gradient-to-r from-pink-600 to-[#E1007A] text-white px-1 py-0.5 rounded text-[8px] font-black shadow-sm">
-          <span>🛳️</span>
-          <span>ONE INNOVATION</span>
+        <div
+          className={`flex items-center gap-0.5 bg-gradient-to-r from-pink-600 to-[#E1007A] text-white px-1.5 py-0.5 rounded-md text-[8px] font-black shadow-md border border-white/40 ${
+            is3D ? 'shadow-pink-400/50 transform -translate-y-0.5' : ''
+          }`}
+        >
+          <span className="text-[10px]">🛳️</span>
+          <span className="tracking-tighter">INNOVATION</span>
           {property.hasGreenFleet && (
-            <span className="text-emerald-300" title="Green Fleet Ready">🌱</span>
+            <span className="text-emerald-300 ml-0.5" title="Green Fleet Ready">🌱</span>
           )}
         </div>
       );
     }
+
     return (
-      <div className="flex items-center gap-0.5">
+      <div className="flex items-center gap-1">
         {Array.from({ length: property.containerLevel }).map((_, i) => (
-          <span
+          <div
             key={i}
-            className="w-2.5 h-2 rounded-[2px] bg-[#E1007A] border border-white shadow-xs"
+            className={`w-3 h-2.5 rounded-[2px] bg-[#E1007A] border border-white/90 flex flex-col justify-between p-[0.5px] shadow-sm ${
+              is3D
+                ? 'shadow-[1px_2px_3px_rgba(0,0,0,0.3)] transform -translate-y-0.5'
+                : ''
+            }`}
             title={`Lô Container Magenta ${i + 1}`}
-          />
+          >
+            {/* Corrugated container rib lines */}
+            <div className="w-full h-[0.5px] bg-pink-300/60" />
+            <div className="w-full h-[0.5px] bg-pink-300/60" />
+          </div>
         ))}
       </div>
     );
@@ -54,21 +70,24 @@ export const TileView: React.FC<Props> = ({
   return (
     <div
       onClick={onClick}
-      className={`relative flex flex-col justify-between border border-gray-200 bg-white hover:bg-pink-50/20 transition cursor-pointer select-none overflow-hidden ${
+      className={`relative flex flex-col justify-between border border-gray-200 bg-white hover:bg-pink-50/30 transition cursor-pointer select-none overflow-visible ${
         isCorner ? 'p-1.5' : 'p-1'
       } ${property?.isMortgaged ? 'opacity-60 bg-gray-100' : ''}`}
       style={{
-        boxShadow: owner ? `inset 0 0 0 2px ${TOKEN_CONFIG[owner.token].color}` : undefined,
+        boxShadow: owner
+          ? `inset 0 0 0 2px ${TOKEN_CONFIG[owner.token].color}`
+          : undefined,
+        transformStyle: is3D ? 'preserve-3d' : undefined,
       }}
     >
       {/* Group Color Bar for Ports */}
       {groupConfig && (
         <div
-          className={`w-full font-black text-white text-[9px] text-center tracking-tighter truncate ${
+          className={`w-full font-black text-white text-[9px] text-center tracking-tighter truncate shadow-xs ${
             orientation === 'bottom'
-              ? 'h-3.5 order-first mb-0.5 rounded-t-sm'
+              ? 'h-3.5 order-first mb-0.5 rounded-t-xs'
               : orientation === 'top'
-              ? 'h-3.5 order-last mt-0.5 rounded-b-sm'
+              ? 'h-3.5 order-last mt-0.5 rounded-b-xs'
               : 'h-3 mb-0.5'
           }`}
           style={{ backgroundColor: groupConfig.color }}
@@ -98,7 +117,7 @@ export const TileView: React.FC<Props> = ({
       </div>
 
       {/* Center status: Containers or Special Icon */}
-      <div className="flex items-center justify-center my-0.5">
+      <div className="flex items-center justify-center my-0.5 min-h-[14px]">
         {renderContainers()}
         {tile.type === 'GO' && (
           <div className="text-center">
@@ -107,28 +126,28 @@ export const TileView: React.FC<Props> = ({
           </div>
         )}
         {tile.type === 'CUSTOMS_HOLD' && (
-          <div className="text-center text-amber-600 font-extrabold text-[9px]">
+          <div className="text-center text-amber-600 font-extrabold text-[9px] leading-tight">
             KIỂM HÓA
           </div>
         )}
         {tile.type === 'FREE_ANCHOR' && (
-          <div className="text-center text-teal-600 font-extrabold text-[9px]">
+          <div className="text-center text-teal-600 font-extrabold text-[9px] leading-tight">
             NEO ĐẬU
           </div>
         )}
         {tile.type === 'GO_TO_HOLD' && (
-          <div className="text-center text-red-600 font-extrabold text-[9px]">
+          <div className="text-center text-red-600 font-extrabold text-[9px] leading-tight">
             VÀO HOLD
           </div>
         )}
         {tile.type === 'MARKET_CARD' && (
-          <span className="text-xs">📈</span>
+          <span className="text-sm filter drop-shadow-xs">📈</span>
         )}
         {tile.type === 'OPS_CARD' && (
-          <span className="text-xs">⚙️</span>
+          <span className="text-sm filter drop-shadow-xs">⚙️</span>
         )}
         {tile.type === 'TAX' && (
-          <span className="text-[9px] font-bold text-red-600">-${tile.taxAmount}M</span>
+          <span className="text-[9px] font-black text-red-600">-${tile.taxAmount}M</span>
         )}
       </div>
 
@@ -150,7 +169,7 @@ export const TileView: React.FC<Props> = ({
         )}
         {owner && (
           <span
-            className="w-2.5 h-2.5 rounded-full flex items-center justify-center text-[7px] text-white font-black"
+            className="w-2.5 h-2.5 rounded-full flex items-center justify-center text-[7px] text-white font-black shadow-xs"
             style={{ backgroundColor: TOKEN_CONFIG[owner.token].color }}
             title={`Chủ sở hữu: ${owner.name}`}
           >
@@ -159,22 +178,45 @@ export const TileView: React.FC<Props> = ({
         )}
       </div>
 
-      {/* Floating Vessel Tokens standing on this tile */}
+      {/* Billboard Pawns (Quân Cờ Đứng Thẳng 3D với Bóng Đổ Tròn) */}
       {playersOnTile.length > 0 && (
-        <div className="absolute inset-0 flex items-center justify-center gap-1 z-20 pointer-events-none p-1 flex-wrap">
+        <div
+          className="absolute inset-0 flex items-center justify-center gap-1.5 z-30 pointer-events-none"
+          style={{ transformStyle: is3D ? 'preserve-3d' : undefined }}
+        >
           {playersOnTile.map((p) => {
             const cfg = TOKEN_CONFIG[p.token];
+
             return (
-              <motion.div
-                key={p.id}
-                layoutId={`token-${p.id}`}
-                transition={{ type: 'spring', stiffness: 350, damping: 25 }}
-                className="w-5 h-5 rounded-full flex items-center justify-center text-xs shadow-lg border border-white text-white font-extrabold"
-                style={{ backgroundColor: cfg.color }}
-                title={`${p.name} (${cfg.label})`}
-              >
-                <span>{cfg.emoji}</span>
-              </motion.div>
+              <div key={p.id} className="relative flex flex-col items-center justify-center">
+                {/* 3D Soft Drop Shadow on Board Ground */}
+                {is3D && (
+                  <div className="absolute -bottom-1 w-5 h-2.5 bg-black/40 rounded-full filter blur-[1px] transform scale-x-125" />
+                )}
+
+                {/* Billboard Standee Token (Counter-Rotated to stand upright towards camera) */}
+                <motion.div
+                  layoutId={`token-${p.id}`}
+                  transition={{ type: 'spring', stiffness: 350, damping: 25 }}
+                  className={`w-7 h-7 rounded-full flex items-center justify-center text-sm shadow-xl border-2 border-white text-white font-black cursor-pointer pointer-events-auto select-none ${
+                    is3D
+                      ? 'transform transition-transform hover:scale-125'
+                      : ''
+                  }`}
+                  style={{
+                    backgroundColor: cfg.color,
+                    boxShadow: is3D
+                      ? `0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -4px rgba(0, 0, 0, 0.3), 0 0 0 1px ${cfg.color}`
+                      : undefined,
+                    transform: is3D
+                      ? 'rotateZ(45deg) rotateX(-52deg) translateZ(16px) translateY(-14px)'
+                      : undefined,
+                  }}
+                  title={`${p.name} (${cfg.label})`}
+                >
+                  <span className="filter drop-shadow-sm">{cfg.emoji}</span>
+                </motion.div>
+              </div>
             );
           })}
         </div>

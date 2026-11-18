@@ -171,7 +171,7 @@ export const App: React.FC = () => {
               />
 
               {/* Live Activity Log */}
-              <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+              <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mb-16">
                 <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
                   NHẬT KÝ VẬN HÀNH (LOGISTICS LOG)
                 </div>

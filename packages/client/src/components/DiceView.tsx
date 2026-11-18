@@ -4,9 +4,10 @@ import { motion } from 'framer-motion';
 interface Props {
   dice: [number, number];
   isRolling?: boolean;
+  hasRolled?: boolean;
 }
 
-export const DiceView: React.FC<Props> = ({ dice, isRolling = false }) => {
+export const DiceView: React.FC<Props> = ({ dice, isRolling = false, hasRolled = false }) => {
   const [d1, d2] = dice;
   const isDouble = d1 === d2;
 
@@ -54,7 +55,7 @@ export const DiceView: React.FC<Props> = ({ dice, isRolling = false }) => {
         </motion.div>
       </div>
 
-      {isDouble && !isRolling && (
+      {isDouble && !isRolling && hasRolled && (
         <span className="text-[11px] font-black tracking-wider text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 animate-pulse">
           LẮC ĐƯỢC ĐÔI!
         </span>
