@@ -1,6 +1,6 @@
 import React from 'react';
 import { BOARD_TILES, GameAction, GameState } from '@one-monopoly/shared';
-import { Dices, Check, X, DollarSign, ShieldCheck, Ticket, AlertTriangle } from 'lucide-react';
+import { Dices, Check, X, DollarSign, ShieldCheck, Ticket, AlertTriangle, Handshake, Leaf } from 'lucide-react';
 
 interface Props {
   gameState: GameState;
@@ -19,6 +19,68 @@ export const ActionControls: React.FC<Props> = ({
   const isMyTurn = activePlayer.id === myPlayerId;
   const currentTile = BOARD_TILES[activePlayer.position];
 
+  // ==================== 1. Awaiting Slot Charter Response ==================== //
+  if (gameState.phase === 'AWAITING_SLOT_CHARTER_RESPONSE' && gameState.pendingSlotCharter) {
+    const charter = gameState.pendingSlotCharter;
+    const isOwner = myPlayerId === charter.ownerId;
+    const isRequester = myPlayerId === charter.requesterId;
+    const requester = gameState.players.find((p) => p.id === charter.requesterId);
+    const owner = gameState.players.find((p) => p.id === charter.ownerId);
+    const tile = BOARD_TILES[charter.tileId];
+
+    if (isOwner) {
+      return (
+        <div className="flex flex-col gap-3 p-4 bg-blue-50/70 rounded-2xl border-2 border-blue-500 animate-pulse-fast">
+          <div className="flex items-center gap-2 text-blue-900 font-black text-sm">
+            <Handshake className="w-5 h-5 text-blue-600" />
+            <span>ĐỀ NGHỊ CHIA SẺ CHỖ: "AS ONE, WE CAN"</span>
+          </div>
+          <p className="text-xs text-blue-800 leading-relaxed font-medium">
+            <span className="font-bold text-gray-900">{requester?.name}</span> sở hữu Tuyến Dịch Vụ và đề nghị kích hoạt Slot Chartering tại <span className="font-bold">{tile.name}</span>:
+            <br />
+            • Bạn nhận ngay <strong className="text-emerald-700">${charter.discountedRent}M</strong> (50% cước).
+            <br />
+            • Lượt khách tiếp theo dừng tại cảng này sẽ được <strong>chia đôi 50/50 doanh thu</strong> cho bạn và {requester?.name}!
+          </p>
+          <div className="flex items-center gap-3 mt-1">
+            <button
+              onClick={() => onAction({ type: 'RESPOND_SLOT_CHARTER', accept: true })}
+              className="flex-1 py-3 px-4 rounded-xl font-black text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-200 transition flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <Check className="w-5 h-5" /> ĐỒNG Ý LIÊN MINH (50/50)
+            </button>
+            <button
+              onClick={() => onAction({ type: 'RESPOND_SLOT_CHARTER', accept: false })}
+              className="py-3 px-4 rounded-xl font-bold bg-gray-200 hover:bg-gray-300 text-gray-700 transition"
+            >
+              TỪ CHỐI (THU 100%)
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    if (isRequester) {
+      return (
+        <div className="flex flex-col gap-2 p-4 bg-blue-50/50 rounded-2xl border border-blue-300 text-center">
+          <div className="flex items-center justify-center gap-2 text-blue-700 font-black text-sm">
+            <Handshake className="w-5 h-5 animate-bounce" />
+            <span>ĐÃ GỬI ĐỀ NGHỊ "AS ONE, WE CAN"</span>
+          </div>
+          <p className="text-xs text-gray-600">
+            Đang chờ chủ cảng <span className="font-bold text-gray-900">{owner?.name}</span> phản hồi đề nghị chia sẻ chỗ (giảm 50% cước)...
+          </p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="text-center py-3 px-4 bg-gray-50 rounded-2xl border border-gray-200 text-gray-500 font-semibold text-sm">
+        Đang thương lượng thỏa thuận Slot Chartering giữa {requester?.name} và {owner?.name}...
+      </div>
+    );
+  }
+
   if (!isMyTurn) {
     return (
       <div className="text-center py-3 px-4 bg-gray-50 rounded-2xl border border-gray-200 text-gray-500 font-semibold text-sm">
@@ -27,7 +89,7 @@ export const ActionControls: React.FC<Props> = ({
     );
   }
 
-  // 1. Awaiting Buy Decision
+  // ==================== 2. Awaiting Buy Decision ==================== //
   if (gameState.phase === 'AWAITING_BUY_DECISION') {
     const price = currentTile.price || 0;
     const canAfford = activePlayer.balance >= price;
@@ -67,7 +129,7 @@ export const ActionControls: React.FC<Props> = ({
     );
   }
 
-  // 2. Awaiting Debt Resolution
+  // ==================== 3. Awaiting Debt Resolution ==================== //
   if (gameState.phase === 'AWAITING_DEBT_RESOLUTION' && gameState.pendingDebt) {
     const debt = gameState.pendingDebt;
     const canSettle = activePlayer.balance >= debt.amount;
@@ -78,7 +140,7 @@ export const ActionControls: React.FC<Props> = ({
           <AlertTriangle className="w-5 h-5" /> BẠN ĐANG MẮC NỢ ${debt.amount}M
         </div>
         <p className="text-xs text-red-800 font-medium">
-          Lý do: {debt.reason}. Bạn có thể thế chấp tài sản hoặc bán container để gom tiền.
+          Lý do: {debt.reason}. Bạn có thể thế chấp tài sản hoặc bán bớt container để gom tiền.
         </p>
 
         <div className="flex items-center gap-3 mt-1">
@@ -104,7 +166,7 @@ export const ActionControls: React.FC<Props> = ({
     );
   }
 
-  // 3. In Customs Hold (Wait for Roll)
+  // ==================== 4. In Customs Hold (Wait for Roll) ==================== //
   if (activePlayer.inHold && gameState.phase === 'WAIT_FOR_ROLL') {
     return (
       <div className="flex flex-col gap-3 p-4 bg-amber-50 rounded-2xl border-2 border-amber-400">
@@ -141,7 +203,7 @@ export const ActionControls: React.FC<Props> = ({
     );
   }
 
-  // 4. Normal Wait for Roll
+  // ==================== 5. Normal Wait for Roll ==================== //
   if (gameState.phase === 'WAIT_FOR_ROLL') {
     return (
       <button
@@ -155,7 +217,7 @@ export const ActionControls: React.FC<Props> = ({
     );
   }
 
-  // 5. End of Turn
+  // ==================== 6. End of Turn ==================== //
   return (
     <button
       onClick={() => onAction({ type: 'END_TURN' })}

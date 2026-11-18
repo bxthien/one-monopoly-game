@@ -35,16 +35,31 @@ export interface BoardTile {
   type: TileType;
   group?: LoopGroup;
   price?: number;
-  rentTiers?: [number, number, number, number, number, number]; // [base, 1c, 2c, 3c, 4c, mega]
+  rentTiers?: [number, number, number, number, number, number]; // [base, 1c, 2c, 3c, 4c, ONE Innovation]
   buildCost?: number;
   mortgageValue?: number;
   taxAmount?: number;
 }
 
+export interface SlotCharterAgreement {
+  partnerId: string; // The partner sharing the slot
+  active: boolean; // True until a 3rd party triggers the split
+}
+
 export interface PropertyState {
   ownerId: string | null;
-  containerLevel: number; // 0..4 (Containers), 5 = Mega Terminal
+  containerLevel: number; // 0..4 (Lô Container Magenta), 5 = Siêu tàu ONE Innovation (24.000 TEU)
   isMortgaged: boolean;
+  hasGreenFleet?: boolean; // Nâng cấp Tàu Nhiên liệu Xanh (Methanol / Ammonia)
+  slotCharter?: SlotCharterAgreement | null; // Cơ chế "As ONE, We Can"
+}
+
+export interface SecretMissionCard {
+  id: string;
+  title: string;
+  description: string;
+  reward: number;
+  isCompleted: boolean;
 }
 
 export interface Player {
@@ -59,6 +74,7 @@ export interface Player {
   isBankrupt: boolean;
   bankruptTo?: string | 'BANK';
   isOnline: boolean;
+  secretMission?: SecretMissionCard;
 }
 
 export type CardType = 'MARKET' | 'OPS';
@@ -93,6 +109,7 @@ export interface GameCard {
 export type TurnPhase =
   | 'WAIT_FOR_ROLL'
   | 'AWAITING_BUY_DECISION'
+  | 'AWAITING_SLOT_CHARTER_RESPONSE'
   | 'AWAITING_DEBT_RESOLUTION'
   | 'END_OF_TURN';
 
@@ -101,6 +118,14 @@ export interface DebtInfo {
   amount: number;
   reason: string;
   tileId?: number;
+}
+
+export interface PendingSlotCharter {
+  requesterId: string;
+  ownerId: string;
+  tileId: number;
+  originalRent: number;
+  discountedRent: number;
 }
 
 export interface GameState {
@@ -115,6 +140,7 @@ export interface GameState {
   marketDeck: string[]; // Card IDs
   opsDeck: string[]; // Card IDs
   pendingDebt: DebtInfo | null;
+  pendingSlotCharter: PendingSlotCharter | null;
   winnerId: string | null;
   turnCount: number;
   gameStarted: boolean;
@@ -126,6 +152,10 @@ export type GameAction =
   | { type: 'SKIP_BUY' }
   | { type: 'BUILD_CONTAINER'; tileId: number }
   | { type: 'SELL_CONTAINER'; tileId: number }
+  | { type: 'UPGRADE_GREEN_FLEET'; tileId: number }
+  | { type: 'PROPOSE_SLOT_CHARTER'; tileId: number }
+  | { type: 'RESPOND_SLOT_CHARTER'; accept: boolean }
+  | { type: 'CLAIM_MISSION_REWARD' }
   | { type: 'MORTGAGE_TILE'; tileId: number }
   | { type: 'UNMORTGAGE_TILE'; tileId: number }
   | { type: 'PAY_HOLD_FINE' }
@@ -143,10 +173,17 @@ export type GameEvent =
   | { type: 'TILE_PURCHASED'; playerId: string; tileId: number; price: number }
   | { type: 'CONTAINER_BUILT'; playerId: string; tileId: number; newLevel: number; cost: number }
   | { type: 'CONTAINER_SOLD'; playerId: string; tileId: number; newLevel: number; refund: number }
+  | { type: 'GREEN_FLEET_UPGRADED'; playerId: string; tileId: number; cost: number }
+  | { type: 'SLOT_CHARTER_PROPOSED'; requesterId: string; ownerId: string; tileId: number }
+  | { type: 'SLOT_CHARTER_ACCEPTED'; requesterId: string; ownerId: string; tileId: number; rentPaid: number }
+  | { type: 'SLOT_CHARTER_REJECTED'; requesterId: string; ownerId: string; tileId: number }
+  | { type: 'SLOT_CHARTER_RENT_SPLIT'; visitorId: string; ownerId: string; partnerId: string; tileId: number; splitAmount: number }
+  | { type: 'MISSION_COMPLETED'; playerId: string; mission: SecretMissionCard; reward: number }
   | { type: 'TILE_MORTGAGED'; playerId: string; tileId: number; amount: number }
   | { type: 'TILE_UNMORTGAGED'; playerId: string; tileId: number; cost: number }
   | { type: 'DEMURRAGE_PAID'; debtorId: string; creditorId: string; tileId: number; amount: number }
   | { type: 'TAX_PAID'; playerId: string; tileId: number; amount: number }
+  | { type: 'CARBON_TAX_EXEMPTED'; playerId: string; tileId: number; reason: string }
   | { type: 'CARD_DRAWN'; playerId: string; card: GameCard }
   | { type: 'DEBT_CREATED'; debtorId: string; creditorId: string | 'BANK'; amount: number; reason: string }
   | { type: 'DEBT_SETTLED'; debtorId: string; creditorId: string | 'BANK'; amount: number }

@@ -248,12 +248,18 @@ export class RoomManager {
     const activePlayer = room.gameState.players[room.gameState.activePlayerIndex];
 
     // Some actions can only be triggered by the active player
-    if (
+    // Slot Charter response can only be answered by the property owner
+    if (action.type === 'RESPOND_SLOT_CHARTER') {
+      if (room.gameState.pendingSlotCharter?.ownerId !== playerId) {
+        return { success: false, error: 'Chỉ chủ sở hữu cảng mới có quyền quyết định thỏa thuận chia sẻ chỗ!' };
+      }
+    } else if (
       action.type === 'ROLL_DICE' ||
       action.type === 'BUY_PROPERTY' ||
       action.type === 'SKIP_BUY' ||
       action.type === 'PAY_HOLD_FINE' ||
       action.type === 'USE_CLEARANCE_PASS' ||
+      action.type === 'PROPOSE_SLOT_CHARTER' ||
       action.type === 'END_TURN'
     ) {
       if (activePlayer.id !== playerId) {

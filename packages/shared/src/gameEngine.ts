@@ -7,8 +7,10 @@ import {
   GameEvent,
   GameState,
   LoopGroup,
+  PendingSlotCharter,
   Player,
   PropertyState,
+  SecretMissionCard,
   VesselToken,
 } from './types.js';
 import {
@@ -16,11 +18,14 @@ import {
   GAME_CARDS,
   GO_REWARD,
   GO_TO_HOLD_TILE_INDEX,
+  GREEN_FLEET_COST,
+  GREEN_FLEET_ESG_BONUS,
   HOLD_FINE_AMOUNT,
   HOLD_TILE_INDEX,
   INFRA_TILES,
   LOOP_GROUPS_CONFIG,
   MAX_HOLD_TURNS,
+  SECRET_MISSIONS,
   SERVICE_LINES,
   STARTING_BALANCE,
 } from './boardData.js';
@@ -39,7 +44,9 @@ export class OneMonopolyEngine {
     roomId: string,
     playersData: Array<{ id: string; name: string; token: VesselToken }>
   ): GameState {
-    const players: Player[] = playersData.map((p) => ({
+    const shuffledMissions = shuffle(SECRET_MISSIONS);
+
+    const players: Player[] = playersData.map((p, idx) => ({
       id: p.id,
       name: p.name,
       token: p.token,
@@ -50,6 +57,9 @@ export class OneMonopolyEngine {
       customsClearancePasses: 0,
       isBankrupt: false,
       isOnline: true,
+      secretMission: JSON.parse(
+        JSON.stringify(shuffledMissions[idx % shuffledMissions.length])
+      ),
     }));
 
     const properties: Record<number, PropertyState> = {};
@@ -59,6 +69,8 @@ export class OneMonopolyEngine {
           ownerId: null,
           containerLevel: 0,
           isMortgaged: false,
+          hasGreenFleet: false,
+          slotCharter: null,
         };
       }
     }
@@ -82,6 +94,7 @@ export class OneMonopolyEngine {
       marketDeck: marketCardIds,
       opsDeck: opsCardIds,
       pendingDebt: null,
+      pendingSlotCharter: null,
       winnerId: null,
       turnCount: 1,
       gameStarted: true,
@@ -119,6 +132,22 @@ export class OneMonopolyEngine {
         OneMonopolyEngine.handleSellContainer(nextState, events, activePlayer, action.tileId);
         break;
 
+      case 'UPGRADE_GREEN_FLEET':
+        OneMonopolyEngine.handleUpgradeGreenFleet(nextState, events, activePlayer, action.tileId);
+        break;
+
+      case 'PROPOSE_SLOT_CHARTER':
+        OneMonopolyEngine.handleProposeSlotCharter(nextState, events, activePlayer, action.tileId);
+        break;
+
+      case 'RESPOND_SLOT_CHARTER':
+        OneMonopolyEngine.handleRespondSlotCharter(nextState, events, action.accept);
+        break;
+
+      case 'CLAIM_MISSION_REWARD':
+        OneMonopolyEngine.checkMissionCompletion(nextState, events, activePlayer);
+        break;
+
       case 'MORTGAGE_TILE':
         OneMonopolyEngine.handleMortgageTile(nextState, events, activePlayer, action.tileId);
         break;
@@ -146,6 +175,11 @@ export class OneMonopolyEngine {
       case 'END_TURN':
         OneMonopolyEngine.handleEndTurn(nextState, events, activePlayer);
         break;
+    }
+
+    // Check mission completion after actions
+    if (activePlayer && !activePlayer.isBankrupt) {
+      OneMonopolyEngine.checkMissionCompletion(nextState, events, activePlayer);
     }
 
     return { state: nextState, events };
@@ -314,6 +348,24 @@ export class OneMonopolyEngine {
 
       case 'TAX': {
         const amount = tile.taxAmount || 100;
+
+        // Check Green Fleet exemption on Carbon Tax (Tile 38)
+        if (tileId === 38) {
+          const hasAnyGreenFleet = Object.values(state.properties).some(
+            (prop) => prop.ownerId === player.id && prop.hasGreenFleet
+          );
+          if (hasAnyGreenFleet) {
+            events.push({
+              type: 'CARBON_TAX_EXEMPTED',
+              playerId: player.id,
+              tileId,
+              reason: 'Sở hữu Huy hiệu Tàu Nhiên Liệu Xanh (Green Fuel Ready)',
+            });
+            OneMonopolyEngine.finishStepPhase(state);
+            return;
+          }
+        }
+
         if (player.balance >= amount) {
           player.balance -= amount;
           events.push({
@@ -361,13 +413,96 @@ export class OneMonopolyEngine {
             // Mortgaged: 0 rent
             OneMonopolyEngine.finishStepPhase(state);
           } else {
-            const rent = OneMonopolyEngine.calculateRent(state, tileId, state.dice);
             const owner = state.players.find((p) => p.id === prop.ownerId);
             if (!owner || owner.isBankrupt) {
               OneMonopolyEngine.finishStepPhase(state);
               return;
             }
 
+            const rent = OneMonopolyEngine.calculateRent(state, tileId, state.dice);
+
+            // Check if player can propose Slot Chartering ("As ONE, We Can")
+            const playerOwnsServiceLine = SERVICE_LINES.some(
+              (lineId) => state.properties[lineId]?.ownerId === player.id
+            );
+            if (tile.type === 'PORT' && prop.containerLevel >= 1 && playerOwnsServiceLine) {
+              // Pause and offer Slot Chartering proposal
+              state.pendingSlotCharter = {
+                requesterId: player.id,
+                ownerId: owner.id,
+                tileId,
+                originalRent: rent,
+                discountedRent: Math.floor(rent * 0.5),
+              };
+              // Note: Phase stays in AWAITING_BUY_DECISION or special charter state
+              // We transition to AWAITING_SLOT_CHARTER_RESPONSE so player can choose to propose or pay regular
+              state.phase = 'AWAITING_SLOT_CHARTER_RESPONSE';
+              return;
+            }
+
+            // Check if there is an active Slot Charter agreement on this tile (split rent with partner)
+            if (prop.slotCharter && prop.slotCharter.active) {
+              const partnerId = prop.slotCharter.partnerId;
+              const partner = state.players.find((p) => p.id === partnerId);
+
+              if (partner && !partner.isBankrupt && partner.id !== player.id) {
+                // Third party visitor! Split 50/50 between owner and partner
+                const halfRent = Math.floor(rent * 0.5);
+                if (player.balance >= rent) {
+                  player.balance -= rent;
+                  owner.balance += halfRent;
+                  partner.balance += halfRent;
+
+                  events.push({
+                    type: 'SLOT_CHARTER_RENT_SPLIT',
+                    visitorId: player.id,
+                    ownerId: owner.id,
+                    partnerId: partner.id,
+                    tileId,
+                    splitAmount: halfRent,
+                  });
+                  events.push({
+                    type: 'BALANCE_CHANGED',
+                    playerId: player.id,
+                    newBalance: player.balance,
+                    delta: -rent,
+                    reason: `Cước cảng liên minh tại ${tile.name}`,
+                  });
+                  events.push({
+                    type: 'BALANCE_CHANGED',
+                    playerId: owner.id,
+                    newBalance: owner.balance,
+                    delta: halfRent,
+                    reason: `Nhận 50% cước liên minh từ ${player.name}`,
+                  });
+                  events.push({
+                    type: 'BALANCE_CHANGED',
+                    playerId: partner.id,
+                    newBalance: partner.balance,
+                    delta: halfRent,
+                    reason: `Nhận 50% cước chia sẻ chỗ (Slot Charter) từ ${player.name}`,
+                  });
+
+                  // Deactivate charter agreement
+                  prop.slotCharter.active = false;
+                  OneMonopolyEngine.finishStepPhase(state);
+                  return;
+                } else {
+                  OneMonopolyEngine.createDebt(
+                    state,
+                    events,
+                    player.id,
+                    owner.id,
+                    rent,
+                    `Tiền lưu bãi tại ${tile.name}`,
+                    tileId
+                  );
+                  return;
+                }
+              }
+            }
+
+            // Normal Demurrage Payment
             if (player.balance >= rent) {
               player.balance -= rent;
               owner.balance += rent;
@@ -605,7 +740,7 @@ export class OneMonopolyEngine {
             playerId: player.id,
             newBalance: player.balance,
             delta: -totalFine,
-            reason: 'Bảo trì container / Mega terminal',
+            reason: 'Bảo trì Lô container / Siêu tàu ONE Innovation',
           });
           OneMonopolyEngine.finishStepPhase(state);
         } else {
@@ -615,7 +750,7 @@ export class OneMonopolyEngine {
             player.id,
             'BANK',
             totalFine,
-            'Bảo trì container / Mega terminal'
+            'Bảo trì Lô container / Siêu tàu ONE Innovation'
           );
         }
         break;
@@ -823,7 +958,10 @@ export class OneMonopolyEngine {
       playerId: player.id,
       newBalance: player.balance,
       delta: -cost,
-      reason: `Xây container tại ${tile.name}`,
+      reason:
+        prop.containerLevel === 5
+          ? `Nâng cấp Siêu tàu ONE Innovation (24.000 TEU) tại ${tile.name}`
+          : `Đặt Lô Container Magenta thứ ${prop.containerLevel} tại ${tile.name}`,
     });
   }
 
@@ -851,6 +989,10 @@ export class OneMonopolyEngine {
     const refund = Math.floor(cost * 0.5);
 
     prop.containerLevel--;
+    // If downgraded from level 5, also remove green fleet
+    if (prop.containerLevel < 5) {
+      prop.hasGreenFleet = false;
+    }
     player.balance += refund;
 
     events.push({
@@ -867,6 +1009,240 @@ export class OneMonopolyEngine {
       delta: refund,
       reason: `Bán bớt container tại ${tile.name}`,
     });
+  }
+
+  // ==================== TÍNH NĂNG MỚI: TÀU NHIÊN LIỆU XANH ==================== //
+  private static handleUpgradeGreenFleet(
+    state: GameState,
+    events: GameEvent[],
+    player: Player,
+    tileId: number
+  ): void {
+    const tile = BOARD_TILES[tileId];
+    const prop = state.properties[tileId];
+    if (!tile || !prop || prop.ownerId !== player.id || prop.isMortgaged) return;
+    if (prop.containerLevel !== 5) return; // Chỉ áp dụng cho Siêu tàu ONE Innovation (Mức 5)
+    if (prop.hasGreenFleet) return; // Đã nâng cấp rồi
+    if (player.balance < GREEN_FLEET_COST) return;
+
+    player.balance -= GREEN_FLEET_COST;
+    prop.hasGreenFleet = true;
+
+    events.push({
+      type: 'GREEN_FLEET_UPGRADED',
+      playerId: player.id,
+      tileId,
+      cost: GREEN_FLEET_COST,
+    });
+    events.push({
+      type: 'BALANCE_CHANGED',
+      playerId: player.id,
+      newBalance: player.balance,
+      delta: -GREEN_FLEET_COST,
+      reason: `Nâng cấp Tàu Nhiên Liệu Xanh (Green Fuel Ready) tại ${tile.name}`,
+    });
+  }
+
+  // ==================== TÍNH NĂNG MỚI: SLOT CHARTERING (AS ONE, WE CAN) ==================== //
+  private static handleProposeSlotCharter(
+    state: GameState,
+    events: GameEvent[],
+    player: Player,
+    tileId: number
+  ): void {
+    if (state.phase !== 'AWAITING_SLOT_CHARTER_RESPONSE' || !state.pendingSlotCharter) return;
+    const charter = state.pendingSlotCharter;
+    if (charter.requesterId !== player.id || charter.tileId !== tileId) return;
+
+    events.push({
+      type: 'SLOT_CHARTER_PROPOSED',
+      requesterId: player.id,
+      ownerId: charter.ownerId,
+      tileId,
+    });
+    // Awaiting owner response
+  }
+
+  private static handleRespondSlotCharter(
+    state: GameState,
+    events: GameEvent[],
+    accept: boolean
+  ): void {
+    if (state.phase !== 'AWAITING_SLOT_CHARTER_RESPONSE' || !state.pendingSlotCharter) return;
+    const charter = state.pendingSlotCharter;
+    const requester = state.players.find((p) => p.id === charter.requesterId);
+    const owner = state.players.find((p) => p.id === charter.ownerId);
+    const prop = state.properties[charter.tileId];
+    const tile = BOARD_TILES[charter.tileId];
+
+    if (!requester || !owner || !prop || !tile) return;
+
+    if (accept) {
+      // 50% discount accepted!
+      const rent = charter.discountedRent;
+      requester.balance -= rent;
+      owner.balance += rent;
+
+      // Set slot charter agreement for future 3rd party split
+      prop.slotCharter = {
+        partnerId: requester.id,
+        active: true,
+      };
+
+      events.push({
+        type: 'SLOT_CHARTER_ACCEPTED',
+        requesterId: requester.id,
+        ownerId: owner.id,
+        tileId: charter.tileId,
+        rentPaid: rent,
+      });
+      events.push({
+        type: 'DEMURRAGE_PAID',
+        debtorId: requester.id,
+        creditorId: owner.id,
+        tileId: charter.tileId,
+        amount: rent,
+      });
+      events.push({
+        type: 'BALANCE_CHANGED',
+        playerId: requester.id,
+        newBalance: requester.balance,
+        delta: -rent,
+        reason: `Trả 50% cước chia sẻ chỗ tại ${tile.name}`,
+      });
+      events.push({
+        type: 'BALANCE_CHANGED',
+        playerId: owner.id,
+        newBalance: owner.balance,
+        delta: rent,
+        reason: `Thu 50% cước chia sẻ chỗ từ ${requester.name}`,
+      });
+
+      state.pendingSlotCharter = null;
+      OneMonopolyEngine.finishStepPhase(state);
+    } else {
+      // Rejected: Requester must pay full 100% rent
+      const rent = charter.originalRent;
+      events.push({
+        type: 'SLOT_CHARTER_REJECTED',
+        requesterId: requester.id,
+        ownerId: owner.id,
+        tileId: charter.tileId,
+      });
+
+      state.pendingSlotCharter = null;
+
+      if (requester.balance >= rent) {
+        requester.balance -= rent;
+        owner.balance += rent;
+        events.push({
+          type: 'DEMURRAGE_PAID',
+          debtorId: requester.id,
+          creditorId: owner.id,
+          tileId: charter.tileId,
+          amount: rent,
+        });
+        events.push({
+          type: 'BALANCE_CHANGED',
+          playerId: requester.id,
+          newBalance: requester.balance,
+          delta: -rent,
+          reason: `Tiền lưu bãi tại ${tile.name}`,
+        });
+        events.push({
+          type: 'BALANCE_CHANGED',
+          playerId: owner.id,
+          newBalance: owner.balance,
+          delta: rent,
+          reason: `Thu tiền lưu bãi từ ${requester.name}`,
+        });
+        OneMonopolyEngine.finishStepPhase(state);
+      } else {
+        OneMonopolyEngine.createDebt(
+          state,
+          events,
+          requester.id,
+          owner.id,
+          rent,
+          `Tiền lưu bãi tại ${tile.name}`,
+          charter.tileId
+        );
+      }
+    }
+  }
+
+  // ==================== TÍNH NĂNG MỚI: KIỂM TRA THẺ NHIỆM VỤ BÍ MẬT ==================== //
+  public static checkMissionCompletion(
+    state: GameState,
+    events: GameEvent[],
+    player: Player
+  ): void {
+    if (!player.secretMission || player.secretMission.isCompleted || player.isBankrupt) return;
+
+    const mission = player.secretMission;
+    let completed = false;
+
+    switch (mission.id) {
+      case 'MISSION-1':
+        // Cái Mép (3), Los Angeles (29), Tuyến PS3 (35)
+        completed =
+          state.properties[3]?.ownerId === player.id &&
+          state.properties[29]?.ownerId === player.id &&
+          state.properties[35]?.ownerId === player.id;
+        break;
+
+      case 'MISSION-2':
+        // Tokyo (39), Busan (21), and 1 Siêu tàu ONE Innovation (level 5)
+        completed =
+          state.properties[39]?.ownerId === player.id &&
+          state.properties[21]?.ownerId === player.id &&
+          Object.values(state.properties).some(
+            (p) => p.ownerId === player.id && p.containerLevel === 5
+          );
+        break;
+
+      case 'MISSION-3':
+        // ONE QUOTE (12), ONE Eco Calculator (28), and at least 1 Green Fleet
+        completed =
+          state.properties[12]?.ownerId === player.id &&
+          state.properties[28]?.ownerId === player.id &&
+          Object.values(state.properties).some(
+            (p) => p.ownerId === player.id && p.hasGreenFleet
+          );
+        break;
+
+      case 'MISSION-4':
+        // At least 3 of 4 service lines (5, 15, 25, 35)
+        completed =
+          SERVICE_LINES.filter((id) => state.properties[id]?.ownerId === player.id).length >= 3;
+        break;
+
+      case 'MISSION-5':
+        // Intra-Asia (1, 3) and Port Klang (8)
+        completed =
+          state.properties[1]?.ownerId === player.id &&
+          state.properties[3]?.ownerId === player.id &&
+          state.properties[8]?.ownerId === player.id;
+        break;
+    }
+
+    if (completed) {
+      mission.isCompleted = true;
+      player.balance += mission.reward;
+      events.push({
+        type: 'MISSION_COMPLETED',
+        playerId: player.id,
+        mission,
+        reward: mission.reward,
+      });
+      events.push({
+        type: 'BALANCE_CHANGED',
+        playerId: player.id,
+        newBalance: player.balance,
+        delta: mission.reward,
+        reason: `Hoàn thành ${mission.title}`,
+      });
+    }
   }
 
   private static handleMortgageTile(
@@ -1048,6 +1424,8 @@ export class OneMonopolyEngine {
           if (prop && prop.ownerId === player.id) {
             prop.ownerId = creditor.id;
             prop.containerLevel = 0;
+            prop.hasGreenFleet = false;
+            prop.slotCharter = null;
           }
         }
       }
@@ -1059,6 +1437,8 @@ export class OneMonopolyEngine {
           prop.ownerId = null;
           prop.containerLevel = 0;
           prop.isMortgaged = false;
+          prop.hasGreenFleet = false;
+          prop.slotCharter = null;
         }
       }
       player.balance = 0;
@@ -1086,7 +1466,7 @@ export class OneMonopolyEngine {
     _events: GameEvent[],
     _player: Player
   ): void {
-    if (state.pendingDebt !== null) return;
+    if (state.pendingDebt !== null || state.pendingSlotCharter !== null) return;
 
     let nextIndex = (state.activePlayerIndex + 1) % state.players.length;
     let loopCount = 0;

@@ -64,6 +64,16 @@ export const App: React.FC = () => {
         logMsg = `📦 Nâng cấp container lên cấp ${evt.newLevel}`;
       } else if (evt.type === 'CONTAINER_SOLD') {
         logMsg = `💰 Bán bớt container thu hồi $${evt.refund}M`;
+      } else if (evt.type === 'GREEN_FLEET_UPGRADED') {
+        logMsg = `🌱 Nâng cấp Tàu Nhiên Liệu Xanh (Green Fuel Ready)`;
+      } else if (evt.type === 'SLOT_CHARTER_ACCEPTED') {
+        logMsg = `🤝 Liên minh "As ONE, We Can": Chia sẻ chỗ thành công (giảm 50% cước)`;
+      } else if (evt.type === 'SLOT_CHARTER_RENT_SPLIT') {
+        logMsg = `⚓ Chia đôi 50/50 doanh thu cước cảng cho 2 bên liên minh`;
+      } else if (evt.type === 'MISSION_COMPLETED') {
+        logMsg = `🎯 Hoàn thành ${evt.mission.title} (+${evt.reward}M)!`;
+      } else if (evt.type === 'CARBON_TAX_EXEMPTED') {
+        logMsg = `🌱 Miễn 100% Thuế Carbon nhờ Tàu Nhiên Liệu Xanh`;
       } else if (evt.type === 'PLAYER_BANKRUPT') {
         logMsg = `💥 Người chơi đã tuyên bố phá sản!`;
       }
@@ -157,6 +167,7 @@ export const App: React.FC = () => {
                 gameState={gameState}
                 myPlayerId={myPlayerId}
                 turnTimer={turnTimer}
+                onAction={sendAction}
               />
 
               {/* Live Activity Log */}

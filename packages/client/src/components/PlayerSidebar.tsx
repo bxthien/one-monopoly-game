@@ -1,24 +1,30 @@
 import React from 'react';
-import { BOARD_TILES, GameState, Player } from '@one-monopoly/shared';
+import { BOARD_TILES, GameAction, GameState, GREEN_FLEET_ESG_BONUS, Player } from '@one-monopoly/shared';
 import { TOKEN_CONFIG, TokenBadge } from './TokenBadge.js';
-import { Clock, ShieldAlert, Award, Wallet, DollarSign, Ticket } from 'lucide-react';
+import { Clock, ShieldAlert, Award, Leaf, Handshake, DollarSign, Ticket } from 'lucide-react';
+import { SecretMissionCardView } from './SecretMissionCardView.js';
 
 interface Props {
   gameState: GameState;
   myPlayerId: string | null;
   turnTimer: { seconds: number; playerId: string } | null;
+  onAction?: (action: GameAction) => void;
 }
 
 export const PlayerSidebar: React.FC<Props> = ({
   gameState,
   myPlayerId,
   turnTimer,
+  onAction,
 }) => {
   const activePlayer = gameState.players[gameState.activePlayerIndex];
+  const myPlayer = gameState.players.find((p) => p.id === myPlayerId);
 
-  // Helper to calculate net worth: cash + sum of property prices + sum of containers buildCost
+  // Helper to calculate net worth: cash + sum of property prices + containers + Green Fleet ESG bonus
   const calculateNetWorth = (player: Player): number => {
     let total = player.balance;
+    let hasGreenFleetBonus = false;
+
     for (const tileId of Object.keys(gameState.properties)) {
       const prop = gameState.properties[Number(tileId)];
       if (prop?.ownerId === player.id) {
@@ -30,14 +36,30 @@ export const PlayerSidebar: React.FC<Props> = ({
           } else if (prop.containerLevel > 0) {
             total += (tile.buildCost || 50) * prop.containerLevel;
           }
+          if (prop.hasGreenFleet) {
+            hasGreenFleetBonus = true;
+          }
         }
       }
     }
+
+    if (hasGreenFleetBonus) {
+      total += GREEN_FLEET_ESG_BONUS; // +$300M điểm thưởng ESG
+    }
+
     return total;
   };
 
   return (
     <div className="flex flex-col gap-4 w-full">
+      {/* Secret Mission Card Widget for Current Player */}
+      {myPlayer && (
+        <SecretMissionCardView
+          player={myPlayer}
+          onClaim={() => onAction && onAction({ type: 'CLAIM_MISSION_REWARD' })}
+        />
+      )}
+
       {/* Turn Timer & Active Turn Header */}
       <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -73,9 +95,11 @@ export const PlayerSidebar: React.FC<Props> = ({
           const netWorth = calculateNetWorth(p);
           const cfg = TOKEN_CONFIG[p.token];
 
-          const ownedPropsCount = Object.values(gameState.properties).filter(
-            (prop) => prop.ownerId === p.id
-          ).length;
+          const ownedProps = Object.entries(gameState.properties).filter(
+            ([_, prop]) => prop.ownerId === p.id
+          );
+          const ownedPropsCount = ownedProps.length;
+          const hasGreen = ownedProps.some(([_, prop]) => prop.hasGreenFleet);
 
           return (
             <div
@@ -99,6 +123,11 @@ export const PlayerSidebar: React.FC<Props> = ({
                       {isMe && (
                         <span className="text-[9px] bg-gray-200 text-gray-700 px-1 rounded font-bold">
                           Bạn
+                        </span>
+                      )}
+                      {hasGreen && (
+                        <span className="text-[9px] bg-emerald-100 text-emerald-800 px-1 rounded font-bold flex items-center gap-0.5" title="Huy hiệu Tàu Nhiên Liệu Xanh">
+                          <Leaf className="w-2.5 h-2.5 fill-emerald-600 text-emerald-600" /> ESG
                         </span>
                       )}
                     </div>
@@ -128,7 +157,9 @@ export const PlayerSidebar: React.FC<Props> = ({
                   </span>
                 </div>
                 <div>
-                  <span className="text-gray-400 block text-[10px] font-medium">TỔNG TÀI SẢN</span>
+                  <span className="text-gray-400 block text-[10px] font-medium">
+                    TỔNG TÀI SẢN {hasGreen && '(+ESG)'}
+                  </span>
                   <span className="font-extrabold text-gray-800 text-sm">
                     ${netWorth}M
                   </span>

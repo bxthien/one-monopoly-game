@@ -21,14 +21,19 @@ Bàn cờ hình vuông kích thước 11x11 ô, đánh số từ `0` đến `39`
 ### 2.1. Phân loại 40 ô
 - **1 ô Xuất phát (`GO` - Ô 0):** `Singapore Global Hub` (`SGSIN`). Nhận `$200M`.
 - **22 ô Cảng biển quốc tế (`PORT`):** Phân bố trong 8 nhóm tuyến dịch vụ (`LoopGroup`).
-- **4 ô Tuyến dịch vụ hàng hải (`SERVICE_LINE`):** Ô 5 (`LINE-IA`), Ô 15 (`LINE-AE`), Ô 25 (`LINE-TP`), Ô 35 (`LINE-LA`). Giá `$200M`, thế chấp `$100M`.
-- **2 ô Cơ sở hạ tầng công nghệ (`INFRA`):**
-  - Ô 12: `ONE eCommerce & EDI` (`EDI-SYS`)
-  - Ô 28: `Trạm Nhiên Liệu Xanh (LNG)` (`BUNKER`)
-  - Giá `$150M`, thế chấp `$75M`.
+- **4 ô Tuyến dịch vụ hàng hải (`SERVICE_LINE`):**
+  - Ô 5: `Tuyến VSS (Vietnam Straits Service)`
+  - Ô 15: `Tuyến MD2 (Mediterranean 2)`
+  - Ô 25: `Tuyến FE2 (Far East Europe 2)`
+  - Ô 35: `Tuyến PS3 (Pacific South 3)`
+  - Giá `$200M`, thế chấp `$100M`. Cước phí: 1 tuyến $25M, 2 tuyến $50M, 3 tuyến $100M, trọn bộ 4 tuyến $200M.
+- **2 ô Nền tảng công nghệ số (`INFRA`):**
+  - Ô 12: `Nền tảng Đặt Cước ONE QUOTE`
+  - Ô 28: `Nền tảng Tính Phát Thải ONE Eco Calculator`
+  - Giá `$150M`, thế chấp `$75M`. Cước phí: 1 nền tảng thu $4 \times$ xúc xắc; cả 2 nền tảng thu $10 \times$ xúc xắc.
 - **2 ô Thuế & Phụ phí (`TAX`):**
   - Ô 4: `Phụ phí nhiên liệu BAF` (`BAF`) - Nộp `$200M`.
-  - Ô 38: `Bảo hiểm & Phí An ninh Cảng biển` (`INS-TAX`) - Nộp `$100M`.
+  - Ô 38: `Thuế Phát Thải Carbon Hàng Hải` (`CARBON-TAX`) - Nộp `$100M` (được miễn nếu sở hữu Tàu Nhiên Liệu Xanh).
 - **3 ô Ô Đặc biệt:**
   - Ô 10: `Khu Neo Chờ Thông Quan` (`CUSTOMS_HOLD` - Vừa là ô thăm viếng vừa là nơi bị giữ tàu).
   - Ô 20: `Vùng Neo Đậu Miễn Phí` (`FREE_ANCHOR` - Nghỉ ngơi an toàn).
@@ -113,3 +118,30 @@ Khi đang ở `CUSTOMS_HOLD`, người chơi có 3 cách để thoát:
        - Nếu nợ người chơi khác: Toàn bộ tiền mặt còn lại và các tài sản bất động sản (đã đưa container về 0) được chuyển giao cho chủ nợ. Các tài sản đang thế chấp vẫn giữ trạng thái thế chấp.
        - Nếu nợ ngân hàng/thuế: Giải phóng toàn bộ tài sản về trạng thái tự do (chưa có chủ) để người khác mua.
 - Khi chỉ còn 1 người chơi duy nhất chưa phá sản $\rightarrow$ Kích hoạt `GAME_OVER` và vinh danh người chiến thắng.
+
+---
+
+## 7. Các Cơ Chế Chiến Lược Đặc Thù Của ONE Logistics
+
+### 7.1. Cơ Chế "As ONE, We Can" (Thỏa Thuận Chia Sẻ Chỗ – Slot Chartering)
+- Khi Người chơi A đi vào cảng của Người chơi B (đã có tối thiểu 1 Lô Container Magenta, tức `containerLevel >= 1`), nếu A đang sở hữu **ít nhất 1 Tuyến Dịch Vụ** (`VSS`, `MD2`, `FE2`, `PS3`), hệ thống cho phép A kích hoạt đề xuất **Slot Chartering**:
+  - Nếu B đồng ý:
+    - A được **giảm 50% cước phí** cho lượt này.
+    - Cảng đó được kích hoạt Thỏa thuận Liên minh: Ở lượt kế tiếp khi có **bất kỳ người chơi thứ ba nào** đi vào cảng, A và B sẽ **chia đôi 50/50 doanh thu** cước thu được!
+  - Nếu B từ chối: A phải nộp đủ 100% cước phí bình thường.
+
+### 7.2. Nâng Cấp "Tàu Nhiên Liệu Xanh" (Green Fleet Upgrade – Methanol / Ammonia)
+- Tại bất kỳ cảng nào đã nâng cấp tối đa lên **Siêu tàu ONE Innovation (24.000 TEU)**, chủ sở hữu có thể trả thêm **$150M** để gắn **Huy Hiệu Xanh (Green Fuel Ready)**.
+- **Quyền lợi:**
+  1. **Miễn 100% thuế tại Ô 38 (Thuế Carbon)** và các thẻ phạt môi trường trong suốt ván đấu.
+  2. Được cộng thêm **+$300M điểm thưởng ESG** khi tính Tổng Giá Trị Tài Sản (Net Worth) tổng kết cuối game!
+
+### 7.3. Thẻ Hợp Đồng Chiến Lược Premier Alliance (Secret Mission Cards)
+- Đầu ván, mỗi thuyền trưởng được hệ thống phát ngẫu nhiên **1 thẻ nhiệm vụ bí mật** (giữ kín với đối thủ cho đến khi hoàn thành).
+- Giúp định hướng mục tiêu sớm và tạo bất ngờ lớn:
+  - **Hợp đồng 1 – Cầu Nối Việt Nam – Mỹ:** Sở hữu đồng thời Cảng Cái Mép (`VNVUT`), Cảng Los Angeles (`USLAX`) và Tuyến `PS3` $\rightarrow$ Thưởng ngay **$400M**.
+  - **Hợp đồng 2 – Di Sản Nhật – Singapore:** Sở hữu Cụm cảng Tokyo Hub (`JPTYO`), Cảng Busan (`KRPUS`) và 1 Siêu tàu ONE Innovation $\rightarrow$ Thưởng ngay **$500M**.
+  - **Hợp đồng 3 – Tiên Phong Số & Xanh:** Sở hữu cả 2 nền tảng `ONE QUOTE`, `ONE Eco Calculator` và có ít nhất 1 Huy hiệu Tàu Nhiên Liệu Xanh $\rightarrow$ Thưởng ngay **$350M**.
+  - **Hợp đồng 4 – Vua Tuyến Dịch Vụ Huyết Mạch:** Sở hữu ít nhất 3 trong 4 Tuyến Dịch Vụ Toàn Cầu (`VSS`, `MD2`, `FE2`, `PS3`) $\rightarrow$ Thưởng ngay **$450M**.
+  - **Hợp đồng 5 – Trục Vận Tải Châu Á Thần Tốc:** Sở hữu trọn bộ Tuyến Intra-Asia (`VNSGN`, `VNVUT`) và Cảng Port Klang (`MYPKG`) $\rightarrow$ Thưởng ngay **$350M**.
+- Người chơi có thể bấm "Kiểm Tra & Nhận Thưởng" bất cứ lúc nào trong ván đấu khi hoàn tất điều kiện.

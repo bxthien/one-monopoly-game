@@ -2,7 +2,7 @@ import React from 'react';
 import { BoardTile, LOOP_GROUPS_CONFIG, Player, PropertyState } from '@one-monopoly/shared';
 import { motion } from 'framer-motion';
 import { TOKEN_CONFIG } from './TokenBadge.js';
-import { ShieldAlert, Package, Award } from 'lucide-react';
+import { Leaf, Handshake } from 'lucide-react';
 
 interface Props {
   tile: BoardTile;
@@ -24,13 +24,17 @@ export const TileView: React.FC<Props> = ({
   const groupConfig = tile.group ? LOOP_GROUPS_CONFIG[tile.group] : null;
   const isCorner = orientation === 'corner';
 
-  // Format containers display
+  // Format containers & ONE Innovation display
   const renderContainers = () => {
     if (!property || property.containerLevel <= 0) return null;
     if (property.containerLevel === 5) {
       return (
-        <div className="flex items-center gap-0.5 bg-amber-500 text-white px-1 py-0.5 rounded text-[9px] font-black shadow-sm">
-          <Award className="w-2.5 h-2.5" /> MEGA
+        <div className="flex items-center gap-0.5 bg-gradient-to-r from-pink-600 to-[#E1007A] text-white px-1 py-0.5 rounded text-[8px] font-black shadow-sm">
+          <span>🛳️</span>
+          <span>ONE INNOVATION</span>
+          {property.hasGreenFleet && (
+            <span className="text-emerald-300" title="Green Fleet Ready">🌱</span>
+          )}
         </div>
       );
     }
@@ -39,8 +43,8 @@ export const TileView: React.FC<Props> = ({
         {Array.from({ length: property.containerLevel }).map((_, i) => (
           <span
             key={i}
-            className="w-2 h-2 rounded-[2px] bg-[#E1007A] border border-white shadow-xs"
-            title={`Container ${i + 1}`}
+            className="w-2.5 h-2 rounded-[2px] bg-[#E1007A] border border-white shadow-xs"
+            title={`Lô Container Magenta ${i + 1}`}
           />
         ))}
       </div>
@@ -75,8 +79,18 @@ export const TileView: React.FC<Props> = ({
 
       {/* Tile Header & Code */}
       <div className="text-center w-full">
-        <div className="text-[10px] font-black text-gray-800 leading-none truncate">
-          {tile.code}
+        <div className="text-[10px] font-black text-gray-800 leading-none truncate flex items-center justify-center gap-1">
+          <span>{tile.code}</span>
+          {property?.hasGreenFleet && (
+            <span title="Tàu Nhiên Liệu Xanh">
+              <Leaf className="w-2.5 h-2.5 text-emerald-500 fill-emerald-500" />
+            </span>
+          )}
+          {property?.slotCharter?.active && (
+            <span title="Đang chia sẻ chỗ (Slot Charter)">
+              <Handshake className="w-2.5 h-2.5 text-blue-500" />
+            </span>
+          )}
         </div>
         <div className="text-[8px] font-medium text-gray-500 line-clamp-1 leading-tight mt-0.5">
           {tile.name}

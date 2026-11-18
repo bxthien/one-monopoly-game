@@ -1,4 +1,4 @@
-import { BoardTile, GameCard, LoopGroup } from './types.js';
+import { BoardTile, GameCard, LoopGroup, SecretMissionCard } from './types.js';
 
 export const STARTING_BALANCE = 1500;
 export const GO_REWARD = 200;
@@ -6,6 +6,8 @@ export const HOLD_TILE_INDEX = 10;
 export const GO_TO_HOLD_TILE_INDEX = 30;
 export const HOLD_FINE_AMOUNT = 50;
 export const MAX_HOLD_TURNS = 3;
+export const GREEN_FLEET_COST = 150;
+export const GREEN_FLEET_ESG_BONUS = 300;
 
 export const LOOP_GROUPS_CONFIG: Record<
   LoopGroup,
@@ -61,8 +63,11 @@ export const LOOP_GROUPS_CONFIG: Record<
   },
 };
 
-export const SERVICE_LINES = [5, 15, 25, 35];
-export const INFRA_TILES = [12, 28];
+// 4 Tuyến Dịch Vụ Huyết Mạch của ONE
+export const SERVICE_LINES = [5, 15, 25, 35]; // VSS, MD2, FE2, PS3
+
+// 2 Nền Tảng Số Đột Phá của ONE
+export const INFRA_TILES = [12, 28]; // ONE QUOTE, ONE Eco Calculator
 
 export const BOARD_TILES: BoardTile[] = [
   {
@@ -108,8 +113,8 @@ export const BOARD_TILES: BoardTile[] = [
   },
   {
     id: 5,
-    code: 'LINE-IA',
-    name: 'Tuyến Vận Tải Nội Á',
+    code: 'VSS',
+    name: 'Tuyến Vietnam Straits Service (VSS)',
     type: 'SERVICE_LINE',
     price: 200,
     mortgageValue: 100,
@@ -172,8 +177,8 @@ export const BOARD_TILES: BoardTile[] = [
   },
   {
     id: 12,
-    code: 'EDI-SYS',
-    name: 'ONE eCommerce & EDI',
+    code: 'ONE-QUOTE',
+    name: 'Nền Tảng Đặt Cước ONE QUOTE',
     type: 'INFRA',
     price: 150,
     mortgageValue: 75,
@@ -202,8 +207,8 @@ export const BOARD_TILES: BoardTile[] = [
   },
   {
     id: 15,
-    code: 'LINE-AE',
-    name: 'Tuyến Vận Tải Á - Âu',
+    code: 'MD2',
+    name: 'Tuyến Mediterranean 2 (MD2)',
     type: 'SERVICE_LINE',
     price: 200,
     mortgageValue: 100,
@@ -294,8 +299,8 @@ export const BOARD_TILES: BoardTile[] = [
   },
   {
     id: 25,
-    code: 'LINE-TP',
-    name: 'Tuyến Xuyên Thái Bình Dương',
+    code: 'FE2',
+    name: 'Tuyến Far East Europe 2 (FE2)',
     type: 'SERVICE_LINE',
     price: 200,
     mortgageValue: 100,
@@ -324,8 +329,8 @@ export const BOARD_TILES: BoardTile[] = [
   },
   {
     id: 28,
-    code: 'BUNKER',
-    name: 'Trạm Nhiên Liệu Xanh (LNG)',
+    code: 'ECO-CALC',
+    name: 'Nền Tảng ONE Eco Calculator',
     type: 'INFRA',
     price: 150,
     mortgageValue: 75,
@@ -388,8 +393,8 @@ export const BOARD_TILES: BoardTile[] = [
   },
   {
     id: 35,
-    code: 'LINE-LA',
-    name: 'Tuyến Vận Tải Mỹ Latinh',
+    code: 'PS3',
+    name: 'Tuyến Pacific South 3 (PS3)',
     type: 'SERVICE_LINE',
     price: 200,
     mortgageValue: 100,
@@ -413,8 +418,8 @@ export const BOARD_TILES: BoardTile[] = [
   },
   {
     id: 38,
-    code: 'INS-TAX',
-    name: 'Bảo Hiểm & An Ninh Cảng',
+    code: 'CARBON-TAX',
+    name: 'Thuế Phát Thải Carbon Hàng Hải',
     type: 'TAX',
     taxAmount: 100,
   },
@@ -486,7 +491,7 @@ export const GAME_CARDS: GameCard[] = [
     id: 'MKT-08',
     type: 'MARKET',
     title: 'Phí Thẩm Định Tiêu Chuẩn Xanh Cảng Biển',
-    description: 'Bảo trì hệ thống bến bãi: Nộp $25M cho mỗi chồng Container và $100M cho mỗi Mega Terminal.',
+    description: 'Bảo trì hệ thống bến bãi: Nộp $25M cho mỗi Lô Container và $100M cho mỗi Siêu tàu ONE Innovation.',
     effect: { type: 'PAY_PER_CONTAINER', perContainerAmount: 25, perMegaTerminalAmount: 100 },
   },
   {
@@ -558,7 +563,7 @@ export const GAME_CARDS: GameCard[] = [
     id: 'OPS-08',
     type: 'OPS',
     title: 'Nâng Cấp Hệ Thống Cẩu Bờ Cảng Biển',
-    description: 'Bảo dưỡng định kỳ: Nộp $40M cho mỗi chồng Container và $115M cho mỗi Mega Terminal bạn sở hữu.',
+    description: 'Bảo dưỡng định kỳ: Nộp $40M cho mỗi Lô Container và $115M cho mỗi Siêu tàu ONE Innovation bạn sở hữu.',
     effect: { type: 'PAY_PER_CONTAINER', perContainerAmount: 40, perMegaTerminalAmount: 115 },
   },
   {
@@ -574,5 +579,44 @@ export const GAME_CARDS: GameCard[] = [
     title: 'Thưởng Dịch Vụ Vận Chuyển Đúng Giờ (On-Time Delivery)',
     description: 'Chỉ số KPI vận hành quý đạt hạng 1 thế giới. Nhận thưởng $50M.',
     effect: { type: 'CASH', amount: 50 },
+  },
+];
+
+// Thẻ Hợp Đồng Chiến Lược Premier Alliance (Secret Mission Cards)
+export const SECRET_MISSIONS: SecretMissionCard[] = [
+  {
+    id: 'MISSION-1',
+    title: 'Hợp Đồng 1: Cầu Nối Việt Nam – Mỹ',
+    description: 'Sở hữu đồng thời Cảng Cái Mép (VNVUT), Cảng Los Angeles (USLAX) và Tuyến PS3.',
+    reward: 400,
+    isCompleted: false,
+  },
+  {
+    id: 'MISSION-2',
+    title: 'Hợp Đồng 2: Di Sản Nhật – Singapore',
+    description: 'Sở hữu Tokyo Flagship Hub (JPTYO), Cảng Busan (KRPUS) và 1 Siêu tàu ONE Innovation (Mức 5).',
+    reward: 500,
+    isCompleted: false,
+  },
+  {
+    id: 'MISSION-3',
+    title: 'Hợp Đồng 3: Tiên Phong Số & Xanh',
+    description: 'Sở hữu cả ONE QUOTE, ONE Eco Calculator và có ít nhất 1 Huy hiệu Tàu Nhiên Liệu Xanh.',
+    reward: 350,
+    isCompleted: false,
+  },
+  {
+    id: 'MISSION-4',
+    title: 'Hợp Đồng 4: Vua Tuyến Dịch Vụ Huyết Mạch',
+    description: 'Sở hữu ít nhất 3 trong 4 Tuyến Dịch Vụ Toàn Cầu (VSS, MD2, FE2, PS3).',
+    reward: 450,
+    isCompleted: false,
+  },
+  {
+    id: 'MISSION-5',
+    title: 'Hợp Đồng 5: Trục Vận Tải Châu Á Thần Tốc',
+    description: 'Sở hữu trọn bộ Tuyến Intra-Asia (Cát Lái, Cái Mép) và Cảng Port Klang.',
+    reward: 350,
+    isCompleted: false,
   },
 ];
