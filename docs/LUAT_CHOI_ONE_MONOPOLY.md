@@ -1,0 +1,159 @@
+# 🚢 BỘ LUẬT CHƠI ONE MONOPOLY (OCEAN NETWORK EXPRESS)
+> **Bản quyền thiết kế:** Chủ đề Hãng tàu Container Toàn cầu Ocean Network Express (ONE)  
+> **Quy mô bàn cờ:** 32 Ô (Lưới 9x9 - Góc nhìn 3D Isometric chuẩn Business Tour)  
+> **Số người chơi:** 2 – 4 Thuyền trưởng  
+> **Vốn khởi điểm:** **$1,500M** (Triệu Đô la Mỹ Logistics)
+
+---
+
+## 1. MỤC TIÊU VÀ ĐIỀU KIỆN CHIẾN THẮNG
+
+Trong **ONE Monopoly**, người chơi hóa thân thành các Giám đốc Điều hành Hãng tàu Container thuộc liên minh toàn cầu. Mục tiêu là:
+1. Thu gom và sở hữu các bến cảng trọng yếu trên 8 hải trình xuyên lục địa.
+2. Thiết lập 4 Tuyến Dịch Vụ Huyết Mạch (VSS, MD2, FE2, PS3) và làm chủ 2 Nền Tảng Số Đột Phá.
+3. Nâng cấp bến bãi bằng các **Lô Container Magenta** và Siêu tàu **ONE Innovation (24.000 TEU)**.
+4. Kích hoạt liên minh chia sẻ chỗ **"As ONE, We Can" (Slot Chartering)** và phủ xanh đội tàu **Green Fleet**.
+5. **Chiến thắng:** Khi tất cả đối thủ khác bị phá sản (Bankruptcy) do cạn kiệt dòng tiền, người trụ lại cuối cùng sẽ giành vinh quang **Đại Hãng Tàu Toàn Cầu**.
+
+---
+
+## 2. BỐ CỤC BÀN CỜ 32 Ô (LƯỚI 9x9)
+
+Bàn cờ gồm **4 ô góc hình vuông** và **28 ô cạnh hình chữ nhật** chia đều cho 4 hải trình:
+
+```
+                      [Ô 16: FREE ANCHOR]
+                     /                   \
+       Cạnh Trên-Trái                      Cạnh Trên-Phải
+    (GRPIR .. NLRTM)                    (KRPUS .. USLAX)
+           /                                       \
+[Ô 8: CUSTOMS HOLD]                         [Ô 24: GO TO HOLD]
+           \                                       /
+       Cạnh Dưới-Trái                      Cạnh Dưới-Phải
+    (VNSGN .. AEJEA)                    (USSAV .. JPTYO)
+                     \                   /
+                      [Ô 0: SGSIN (GO)]
+                       (Chính diện)
+```
+
+### 2.1. Bốn Ô Góc Đặc Biệt
+| Ô | Ký hiệu | Tên gọi & Chức năng |
+|---|:---:|---|
+| **0** | **SGSIN** | **Singapore Global Hub (Điểm Xuất Phát - GO):** Mỗi khi di chuyển ngang qua hoặc đáp trúng ô này, thuyền trưởng nhận ngay **+$200M** dòng tiền trợ cấp logistics. |
+| **8** | **HOLD** | **Khu Neo Chờ Thông Quan (Customs Hold):** Nơi tàu bị giữ do kiểm hóa hoặc sự cố. Tàu dừng tại đây tối đa 3 lượt; có thể ra bằng cách: đổ xúc xắc đôi, trả phạt **$50M**, hoặc dùng Thẻ Đặc Cách Hải Quan. |
+| **16** | **ANCHOR** | **Vùng Neo Đậu Miễn Phí (Free Anchor):** Khu vực nghỉ chân an toàn giữa hải trình, không tốn bất kỳ chi phí nào. |
+| **24** | **TO HOLD** | **Lệnh Giữ Tàu Kiểm Hóa (Go to Hold):** Tàu lập tức bị áp giải về Ô 8 (Khu Neo Chờ Thông Quan). **Không** được nhận tiền thưởng xuất phát $200M. |
+
+---
+
+## 3. DANH MỤC CẢNG BIỂN, TUYẾN DỊCH VỤ & NỀN TẢNG SỐ
+
+### 3.1. 16 Bến Cảng Biển (8 Nhóm Tuyến Thương Mại)
+Khi sở hữu trọn bộ màu của tuyến, tiền cước đất trống (chưa có container) được **nhân đôi (x2)**!
+
+| Tuyến (Màu) | Ô | Cảng biển | Mã | Giá Mua | Cước Cơ Bản | 1 Lô | 2 Lô | 3 Lô | 4 Lô | Siêu Tàu 24K | Phí Nâng Cấp |
+|---|:---:|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| **Intra-Asia**<br>*(Nâu)* | 1<br>3 | Cát Lái (Sài Gòn)<br>Cái Mép (Vũng Tàu) | VNSGN<br>VNVUT | $60M<br>$60M | $2M<br>$4M | $10M<br>$20M | $30M<br>$60M | $90M<br>$180M | $160M<br>$320M | $250M<br>$450M | $50M/lô<br>$50M/lô |
+| **Middle East**<br>*(Xanh biển)* | 5<br>7 | Laem Chabang<br>Jebel Ali (Dubai) | THLCH<br>AEJEA | $100M<br>$120M | $6M<br>$8M | $30M<br>$40M | $90M<br>$100M | $270M<br>$300M | $400M<br>$450M | $550M<br>$600M | $50M/lô<br>$50M/lô |
+| **Mediterranean**<br>*(Tím hồng)* | 9<br>11<br>12 | Piraeus<br>Genoa<br>Valencia | GRPIR<br>ITGOA<br>ESVLC | $140M<br>$140M<br>$160M | $10M<br>$10M<br>$12M | $50M<br>$50M<br>$60M | $150M<br>$150M<br>$180M | $450M<br>$450M<br>$500M | $625M<br>$625M<br>$700M | $750M<br>$750M<br>$900M | $100M/lô<br>$100M/lô<br>$100M/lô |
+| **North Europe**<br>*(Cam)* | 14<br>15 | Hamburg<br>Rotterdam | DEHAM<br>NLRTM | $180M<br>$200M | $14M<br>$16M | $70M<br>$80M | $200M<br>$220M | $550M<br>$600M | $750M<br>$800M | $950M<br>$1000M | $100M/lô<br>$100M/lô |
+| **Trans-Pacific West**<br>*(Đỏ)* | 17<br>19 | Busan<br>Yantian (Thâm Quyến) | KRPUS<br>CNYTN | $220M<br>$240M | $18M<br>$20M | $90M<br>$100M | $250M<br>$300M | $700M<br>$750M | $875M<br>$925M | $1050M<br>$1100M | $150M/lô<br>$150M/lô |
+| **Trans-Pacific East**<br>*(Vàng nghệ)* | 21<br>23 | Oakland<br>Los Angeles | USOAK<br>USLAX | $260M<br>$280M | $22M<br>$24M | $110M<br>$120M | $330M<br>$360M | $800M<br>$850M | $975M<br>$1025M | $1150M<br>$1200M | $150M/lô<br>$150M/lô |
+| **Latin America**<br>*(Xanh ngọc)* | 25<br>27 | Savannah<br>Santos (Brazil) | USSAV<br>BRSSZ | $300M<br>$320M | $26M<br>$28M | $130M<br>$150M | $390M<br>$450M | $900M<br>$1000M | $1100M<br>$1200M | $1275M<br>$1400M | $200M/lô<br>$200M/lô |
+| **Global Hub**<br>*(Xanh hải quân)* | 30<br>31 | Hong Kong Hub<br>Tokyo Flagship Hub | HKHKG<br>JPTYO | $350M<br>$400M | $35M<br>$50M | $175M<br>$200M | $500M<br>$600M | $1100M<br>$1400M | $1300M<br>$1700M | $1500M<br>$2000M | $200M/lô<br>$200M/lô |
+
+### 3.2. Bốn Tuyến Dịch Vụ Huyết Mạch (Service Lines)
+Gồm 4 ô: **VSS (Ô 4)**, **MD2 (Ô 13)**, **FE2 (Ô 20)**, **PS3 (Ô 28)**. Giá mua đồng giá **$200M/tuyến**.
+- Sở hữu 1 tuyến: Thu **$25M**.
+- Sở hữu 2 tuyến: Thu **$50M**.
+- Sở hữu 3 tuyến: Thu **$100M**.
+- Sở hữu trọn bộ 4 tuyến: Thu **$200M** mỗi khi đối thủ ghé thăm!
+
+### 3.3. Hai Nền Tảng Số Đột Phá (Digital Platforms)
+Gồm 2 ô: **ONE QUOTE (Ô 10)** và **ONE Eco Calculator (Ô 22)**. Giá mua **$150M/nền tảng**.
+- Sở hữu 1 nền tảng: Cước bằng **4x** tổng số nút xúc xắc của đối thủ.
+- Sở hữu cả 2 nền tảng: Cước bằng **10x** tổng số nút xúc xắc của đối thủ.
+
+### 3.4. Ô Thuế Carbon & Phát Thải (Ô 29)
+- Người chơi đáp vào phải nộp phạt **$100M** vào quỹ bảo vệ môi trường biển.
+- *(Được miễn phí hoàn toàn nếu sở hữu Tàu Nhiên Liệu Xanh).*
+
+---
+
+## 4. QUY TẮC NÂNG CẤP HẠ TẦNG CẢNG BIỂN
+
+> [!IMPORTANT]
+> **Quy Tắc Xây Dựng Đồng Đều (Even Building Rule):**  
+> Bạn chỉ được nâng cấp cảng khi đã sở hữu đủ tất cả cảng trong cùng nhóm màu. Khi nâng cấp, số lượng Lô Container giữa các cảng trong nhóm không được chênh lệch nhau quá 1 lô (Ví dụ: Không được lên 2 lô ở Cát Lái nếu Cái Mép vẫn đang ở mức 0).
+
+- **Mức 1 – 4 (Lô Container Magenta):** Đặt từ 1 đến 4 lô container lên cảng để nâng mức thu phí cước bốc dỡ theo bảng biểu.
+- **Mức 5 (Cực đại - Siêu tàu ONE Innovation 24.000 TEU):** Khi cảng đã có 4 lô container, trả thêm chi phí nâng cấp để đổi lấy biểu tượng Siêu Tàu Megaship. Cước phí đạt mức khủng khiếp nhất game!
+
+---
+
+## 5. CƠ CHẾ ĐẶC QUYỀN HÀNG HẢI ONE (EXCLUSIVE LOGISTICS MECHANICS)
+
+### 5.1. Thỏa Thuận Chia Sẻ Chỗ "As ONE, We Can" (Slot Chartering)
+Mô phỏng chân thực nghiệp vụ liên minh hàng hải thực tế:
+- **Điều kiện kích hoạt:** Khi Thuyền trưởng **A** đi vào cảng của Thuyền trưởng **B** (cảng đã có ít nhất 1 lô container), nếu **A đang sở hữu ít nhất 1 Tuyến Dịch Vụ Huyết Mạch (VSS, MD2, FE2, PS3)**, hệ thống sẽ đề xuất kích hoạt cơ chế *Slot Chartering*.
+- **Quyền lợi đôi bên:**
+  1. Thuyền trưởng **A** chỉ phải thanh toán **50% tiền cước** của lượt đi này.
+  2. Ở lượt đi kế tiếp, khi có bất kỳ người chơi thứ ba nào khác ghé vào cảng này, **doanh thu tiền cước được chia đôi (50/50) tự động giữa A và B**.
+
+### 5.2. Nâng Cấp "Tàu Nhiên Liệu Xanh" (Green Fleet Upgrade - Methanol / Ammonia)
+- **Điều kiện:** Tại bất kỳ bến cảng nào đã nâng cấp lên Siêu tàu ONE Innovation (Mức 5), chủ cảng có quyền chi thêm **$150M** để gắn **Huy Hiệu Xanh (Green Fuel Ready 🌱)**.
+- **Quyền lợi siêu việt:**
+  - Miễn **100% chi phí** tại Ô 29 (Thuế Carbon & Phạt Phát Thải) trong suốt phần còn lại của ván đấu.
+  - Miễn toàn bộ các thẻ phạt môi trường / bảo trì phát thải từ bộ thẻ Sự Cố & Vận Hành.
+  - Được cộng thêm **+$300M điểm thưởng ESG** khi tính tổng giá trị tài sản tổng kết.
+
+### 5.3. Thẻ Hợp Đồng Chiến Lược Premier Alliance (Secret Missions)
+Đầu ván đấu, mỗi thuyền trưởng được bốc bí mật **1 Hợp Đồng Chiến Lược**. Hoàn thành điều kiện sẽ mở khóa tiền mặt thưởng ngay lập tức:
+- **Hợp Đồng 1: Cầu Nối Việt Nam – Mỹ:** Sở hữu đồng thời Cảng Cái Mép (VNVUT), Los Angeles (USLAX) và Tuyến PS3 $\rightarrow$ **Thưởng ngay $400M**.
+- **Hợp Đồng 2: Di Sản Nhật – Singapore:** Sở hữu Tokyo Hub (JPTYO), Busan (KRPUS) và 1 Siêu tàu ONE Innovation (Mức 5) $\rightarrow$ **Thưởng ngay $500M**.
+- **Hợp Đồng 3: Tiên Phong Số & Xanh:** Sở hữu cả ONE QUOTE, ONE Eco Calculator và có ít nhất 1 Huy hiệu Tàu Nhiên Liệu Xanh $\rightarrow$ **Thưởng ngay $350M**.
+- **Hợp Đồng 4: Vua Tuyến Huyết Mạch:** Sở hữu ít nhất 3 trong 4 Tuyến Dịch Vụ (VSS, MD2, FE2, PS3) $\rightarrow$ **Thưởng ngay $450M**.
+- **Hợp Đồng 5: Trục Vận Tải Châu Á Thần Tốc:** Sở hữu trọn bộ Tuyến Intra-Asia (Cát Lái, Cái Mép) và Tuyến VSS $\rightarrow$ **Thưởng ngay $350M**.
+
+---
+
+## 6. QUY TRÌNH MỘT LƯỢT CHƠI (TURN PHASES)
+
+```mermaid
+flowchart TD
+    A["Bắt đầu lượt"] --> B["Lắc Xúc Xắc (Roll Dice)"]
+    B --> C["Tàu di chuyển theo số nút"]
+    C --> D{"Ô đáp xuống là gì?"}
+    D -->|Cảng chưa có chủ| E["Mua Cảng hoặc Bỏ qua"]
+    D -->|Cảng đối thủ| F{"Đủ điều kiện Slot Chartering?"}
+    F -->|Có| G["Đề xuất Slot Chartering (50% cước)"]
+    F -->|Không| H["Trả 100% cước cho Chủ cảng"]
+    D -->|Thẻ Thị Trường / Vận Hành| I["Rút thẻ & Nhận hiệu ứng"]
+    D -->|Lệnh Giữ Tàu| J["Vào Khu Neo Đậu Kiểm Hóa"]
+    E --> K["Thao tác Quản trị (Xây dựng, Cầm cố, Trả nợ)"]
+    G --> K
+    H --> K
+    I --> K
+    J --> K
+    K --> L["Kết thúc lượt (Chuyển người tiếp theo)"]
+```
+
+1. **Giai đoạn Đổ Xúc Xắc:** Thuyền trưởng nhấn nút đổ xúc xắc. Nếu ra **Đôi (Doubles)**, người chơi được đi tiếp lượt nữa. Nếu đổ đôi **3 lần liên tiếp**, tàu bị phạt chạy quá tốc độ và áp giải thẳng vào Khu Neo Chờ Thông Quan!
+2. **Giai đoạn Đáp Ô:**
+   - Nếu vào cảng trống: Chọn **MUA CẢNG** hoặc bỏ qua.
+   - Nếu vào cảng đối thủ: Trả cước xếp dỡ (hoặc đề xuất Slot Chartering).
+   - Nếu vào ô thẻ: Rút thẻ bài ngẫu nhiên (nhận thưởng tiền mặt, cứu hộ, phạt bảo trì, dịch chuyển tàu,...).
+3. **Giai đoạn Quản Trị Cuối Lượt:**
+   - Nâng cấp Lô Container / Siêu Tàu nếu đủ điều kiện tài chính và bộ màu.
+   - Nâng cấp Huy hiệu Tàu Nhiên Liệu Xanh.
+   - Trả nợ hoặc cầm cố tài sản nếu cần thiết.
+   - Nhấn **KẾT THÚC LƯỢT**.
+
+---
+
+## 7. CẦM CỐ (MORTGAGE), NỢ NẦN & PHÁ SẢN (BANKRUPTCY)
+
+- **Cầm cố tài sản:** Khi thiếu tiền mặt, người chơi có thể cầm cố các bến cảng chưa nâng cấp container với giá trị bằng **50% giá mua ban đầu**. Cảng đang cầm cố sẽ không thể thu cước của đối thủ.
+- **Chuộc cảng:** Để gỡ cầm cố, người chơi phải trả lại 50% tiền gốc kèm **10% lãi suất tái cấp vốn**.
+- **Xử lý Nợ (Debt Resolution):** Khi số tiền phải nộp lớn hơn số dư tài khoản, hệ thống sẽ đưa người chơi vào trạng thái giải quyết nợ. Người chơi có thể bán container hoặc cầm cố cảng để xoay tiền.
+- **Tuyên bố Phá sản:** Nếu sau khi đã giải chấp và cầm cố toàn bộ tài sản mà vẫn không đủ khả năng thanh toán khoản nợ, thuyền trưởng buộc phải **Tuyên Bố Phá Sản**. Toàn bộ tài sản sẽ chuyển giao cho chủ nợ và thuyền trưởng bị loại khỏi hải trình!
