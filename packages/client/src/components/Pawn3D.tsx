@@ -8,6 +8,7 @@ interface Props {
   isMoving?: boolean;
   is3D?: boolean;
   isMe?: boolean;
+  stackIndex?: number;
 }
 
 // ==================== 1. TÀU ONE APUS (Ultra Large Container Vessel) ==================== //
@@ -558,7 +559,13 @@ const ReeferTruckModel: React.FC<{ isMoving?: boolean }> = ({ isMoving }) => {
 };
 
 // ==================== MAIN COMPONENT: PAWN 3D ==================== //
-export const Pawn3D: React.FC<Props> = ({ player, isMoving = false, is3D = false, isMe = false }) => {
+export const Pawn3D: React.FC<Props> = ({
+  player,
+  isMoving = false,
+  is3D = false,
+  isMe = false,
+  stackIndex = 0,
+}) => {
   const cfg = TOKEN_CONFIG[player.token] || TOKEN_CONFIG.ONE_APUS;
 
   // Render mô hình 3D tương ứng theo loại nhân vật
@@ -584,49 +591,20 @@ export const Pawn3D: React.FC<Props> = ({ player, isMoving = false, is3D = false
   };
 
   return (
-    <motion.div
-      layoutId={`pawn-${player.id}`}
-      transition={{
-        type: 'spring',
-        stiffness: 380,
-        damping: 28,
-        mass: 0.8,
-      }}
-      className="relative flex flex-col items-center justify-end select-none pointer-events-auto cursor-pointer"
+    <div
+      className="relative flex items-center justify-center select-none pointer-events-auto cursor-pointer"
       style={{
         transformStyle: is3D ? 'preserve-3d' : undefined,
         transform: is3D
-          ? 'rotateZ(45deg) rotateX(-46deg) translateZ(24px) translateY(-6px)'
+          ? `rotateZ(45deg) rotateX(-46deg) translateZ(${22 + stackIndex * 4}px) translateY(-6px)`
           : undefined,
       }}
       title={`${player.name} (${cfg.label})`}
     >
-      {/* THẺ TÊN PLAYER (MINI BILLBOARD BADGE) */}
-      <motion.div
-        animate={isMoving ? { y: [-2, 0, -2] } : undefined}
-        transition={{ repeat: Infinity, duration: 0.3 }}
-        className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-white/95 backdrop-blur-md shadow-md border text-[8px] font-black tracking-tight whitespace-nowrap mb-0.5 z-20"
-        style={{
-          borderColor: cfg.color,
-          boxShadow: `0 2px 6px rgba(0,0,0,0.15), 0 0 0 1px ${cfg.color}40`,
-        }}
-      >
-        <span
-          className="w-1.5 h-1.5 rounded-full shrink-0"
-          style={{ backgroundColor: cfg.color }}
-        />
-        <span className="text-gray-900 truncate max-w-[50px]">{player.name}</span>
-        {isMe && (
-          <span className="bg-[#E1007A] text-white px-1 py-0.1 rounded text-[7px] font-black">
-            BẠN
-          </span>
-        )}
-      </motion.div>
-
-      {/* MÔ HÌNH 3D CHI TIẾT CỦA NHÂN VẬT */}
+      {/* MÔ HÌNH 3D CHI TIẾT CỦA NHÂN VẬT - KHÔNG CÒN THẺ TÊN CỒNG KỀNH */}
       <div className="relative flex items-center justify-center">
         {renderModel()}
       </div>
-    </motion.div>
+    </div>
   );
 };

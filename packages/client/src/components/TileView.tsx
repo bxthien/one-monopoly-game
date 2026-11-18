@@ -2,14 +2,13 @@ import React from 'react';
 import { BoardTile, LOOP_GROUPS_CONFIG, Player, PropertyState } from '@one-monopoly/shared';
 import { motion } from 'framer-motion';
 import { TOKEN_CONFIG } from './TokenBadge.js';
-import { Pawn3D } from './Pawn3D.js';
 import { Leaf, Handshake } from 'lucide-react';
 
 interface Props {
   tile: BoardTile;
   property?: PropertyState;
   owner?: Player;
-  playersOnTile: Player[];
+  playersOnTile?: Player[];
   currentRent?: number;
   onClick?: () => void;
   orientation: 'bottom' | 'left' | 'top' | 'right' | 'corner';
@@ -199,24 +198,6 @@ export const TileView: React.FC<Props> = ({
           title={`Chủ sở hữu: ${owner.name}`}
         >
           ✓
-        </div>
-      )}
-
-      {/* 3D Character Pawns (Mô hình 3D nhân vật với hiệu ứng đặc trưng) */}
-      {playersOnTile.length > 0 && (
-        <div
-          className="absolute inset-0 flex items-center justify-center gap-1 z-30 pointer-events-none"
-          style={{ transformStyle: is3D ? 'preserve-3d' : undefined }}
-        >
-          {playersOnTile.map((p) => (
-            <Pawn3D
-              key={p.id}
-              player={p}
-              isMoving={movingPlayerIds?.has(p.id)}
-              is3D={is3D}
-              isMe={p.id === myPlayerId}
-            />
-          ))}
         </div>
       )}
     </div>

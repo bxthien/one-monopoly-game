@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { motion } from 'framer-motion';
 import { BOARD_TILES, GameAction, GameCard, GameState, OneMonopolyEngine, Player } from '@one-monopoly/shared';
 import { TileView } from './TileView.js';
 import { DiceView } from './DiceView.js';
 import { PropertyModal } from './PropertyModal.js';
 import { CardModal } from './CardModal.js';
+import { Pawn3D } from './Pawn3D.js';
 
 interface Props {
   gameState: GameState;
@@ -13,6 +15,48 @@ interface Props {
   activeCard: GameCard | null;
   onCloseCard: () => void;
   is3D?: boolean;
+}
+
+// Bảng toạ độ phần trăm chính xác theo tâm từng ô cờ (0..31) trên lưới 9x9 (1.35fr + 7*1fr + 1.35fr)
+const TILE_CENTER_PERCENT: Record<number, { x: number; y: number }> = {
+  0: { x: 6.96, y: 93.04 }, // Cảng Singapore SGSIN (Xuất phát)
+  1: { x: 6.96, y: 80.93 },
+  2: { x: 6.96, y: 70.62 },
+  3: { x: 6.96, y: 60.31 },
+  4: { x: 6.96, y: 50.00 },
+  5: { x: 6.96, y: 39.69 },
+  6: { x: 6.96, y: 29.38 },
+  7: { x: 6.96, y: 19.07 },
+  8: { x: 6.96, y: 6.96 }, // Giữ Hàng Hải Quan CUSTOMS_HOLD
+  9: { x: 19.07, y: 6.96 },
+  10: { x: 29.38, y: 6.96 },
+  11: { x: 39.69, y: 6.96 },
+  12: { x: 50.00, y: 6.96 },
+  13: { x: 60.31, y: 6.96 },
+  14: { x: 70.62, y: 6.96 },
+  15: { x: 80.93, y: 6.96 },
+  16: { x: 93.04, y: 6.96 }, // Cảng Neo Đậu FREE_ANCHOR
+  17: { x: 93.04, y: 19.07 },
+  18: { x: 93.04, y: 29.38 },
+  19: { x: 93.04, y: 39.69 },
+  20: { x: 93.04, y: 50.00 },
+  21: { x: 93.04, y: 60.31 },
+  22: { x: 93.04, y: 70.62 },
+  23: { x: 93.04, y: 80.93 },
+  24: { x: 93.04, y: 93.04 }, // Vào Khu Hải Quan GO_TO_HOLD
+  25: { x: 80.93, y: 93.04 },
+  26: { x: 70.62, y: 93.04 },
+  27: { x: 60.31, y: 93.04 },
+  28: { x: 50.00, y: 93.04 },
+  29: { x: 39.69, y: 93.04 },
+  30: { x: 29.38, y: 93.04 },
+  31: { x: 19.07, y: 93.04 },
+};
+
+interface PawnAnimState {
+  currentTile: number;
+  keyframes: number[] | null;
+  isMoving: boolean;
 }
 
 export const Board: React.FC<Props> = ({
@@ -26,68 +70,59 @@ export const Board: React.FC<Props> = ({
 }) => {
   const [selectedTileId, setSelectedTileId] = useState<number | null>(null);
 
-  // Quản lý vị trí hiển thị từng bước (Step-by-step path traversal animation)
-  const [displayPositions, setDisplayPositions] = useState<Record<string, number>>({});
-  const [movingPlayerIds, setMovingPlayerIds] = useState<Set<string>>(new Set());
-  const activeAnimationsRef = useRef<Record<string, boolean>>({});
+  // Quản lý trạng thái lướt mượt mà của từng nhân vật qua các cảng (Continuous Gliding Traversal)
+  const [animStates, setAnimStates] = useState<Record<string, PawnAnimState>>({});
+  const settledPositionsRef = useRef<Record<string, number>>({});
 
   useEffect(() => {
     gameState.players.forEach((p) => {
-      const currentDisplayed = displayPositions[p.id];
+      const settled = settledPositionsRef.current[p.id];
 
-      // Khởi tạo ban đầu
-      if (currentDisplayed === undefined) {
-        setDisplayPositions((prev) => ({ ...prev, [p.id]: p.position }));
+      // Khởi tạo vị trí ban đầu
+      if (settled === undefined) {
+        settledPositionsRef.current[p.id] = p.position;
+        setAnimStates((prev) => ({
+          ...prev,
+          [p.id]: { currentTile: p.position, keyframes: null, isMoving: false },
+        }));
         return;
       }
 
-      // Khi nhân vật di chuyển và chưa có luồng animation
-      if (currentDisplayed !== p.position && !activeAnimationsRef.current[p.id]) {
-        const start = currentDisplayed;
+      // Khi người chơi di chuyển tới vị trí mới
+      if (settled !== p.position) {
+        const start = settled;
         const target = p.position;
         const stepCount = (target - start + 32) % 32;
+        settledPositionsRef.current[p.id] = target;
 
-        // Nếu là di chuyển cờ xúc xắc bình thường (1-12 ô)
+        // Nếu di chuyển bình thường theo xúc xắc (1-12 ô)
         if (stepCount > 0 && stepCount <= 12) {
-          activeAnimationsRef.current[p.id] = true;
-          setMovingPlayerIds((prev) => new Set(prev).add(p.id));
-
-          const path: number[] = [];
+          const path: number[] = [start];
           for (let i = 1; i <= stepCount; i++) {
             path.push((start + i) % 32);
           }
-
-          let stepIndex = 0;
-          const interval = setInterval(() => {
-            if (stepIndex < path.length) {
-              const nextTile = path[stepIndex];
-              setDisplayPositions((prev) => ({ ...prev, [p.id]: nextTile }));
-              stepIndex++;
-            } else {
-              clearInterval(interval);
-              activeAnimationsRef.current[p.id] = false;
-              setMovingPlayerIds((prev) => {
-                const next = new Set(prev);
-                next.delete(p.id);
-                return next;
-              });
-            }
-          }, 220); // 220ms mỗi bước: tạo nhịp bước đi chân thực
+          setAnimStates((prev) => ({
+            ...prev,
+            [p.id]: {
+              currentTile: target,
+              keyframes: path,
+              isMoving: true,
+            },
+          }));
         } else {
-          // Trường hợp dịch chuyển tức thời (vào Hold / phá sản)
-          setDisplayPositions((prev) => ({ ...prev, [p.id]: p.position }));
+          // Trường hợp dịch chuyển tức thời (vào Hold, dịch chuyển đặc biệt)
+          setAnimStates((prev) => ({
+            ...prev,
+            [p.id]: {
+              currentTile: target,
+              keyframes: null,
+              isMoving: false,
+            },
+          }));
         }
       }
     });
   }, [gameState.players]);
-
-  // Group players by current position on the board (sử dụng displayPositions động)
-  const getPlayersOnTile = (tileId: number): Player[] => {
-    return gameState.players.filter((p) => {
-      const pos = displayPositions[p.id] !== undefined ? displayPositions[p.id] : p.position;
-      return pos === tileId && !p.isBankrupt;
-    });
-  };
 
   // Helper to determine orientation cho bàn cờ 32 ô (9 ô mỗi cạnh)
   const getTileOrientation = (
@@ -194,10 +229,8 @@ export const Board: React.FC<Props> = ({
                     property={prop}
                     owner={owner}
                     currentRent={currentRent}
-                    playersOnTile={getPlayersOnTile(tile.id)}
                     orientation={getTileOrientation(tile.id)}
                     is3D={is3D}
-                    movingPlayerIds={movingPlayerIds}
                     myPlayerId={myPlayerId}
                     onClick={() => setSelectedTileId(tile.id)}
                   />
@@ -230,6 +263,73 @@ export const Board: React.FC<Props> = ({
                 <DiceView dice={gameState.dice} isRolling={isRolling} hasRolled={gameState.hasRolled} />
               </div>
             </div>
+          </div>
+
+          {/* Lớp hiển thị nhân vật 3D toàn cục (Persistent Pawn Overlay Layer: lướt liên tục không chớp tắt, đè lẫn nhau khi chung ô) */}
+          <div
+            className="absolute inset-2 pointer-events-none z-30"
+            style={{ transformStyle: is3D ? 'preserve-3d' : undefined }}
+          >
+            {gameState.players
+              .filter((p) => !p.isBankrupt)
+              .map((p, pIdx) => {
+                const anim = animStates[p.id];
+                const tile = anim ? anim.currentTile : p.position;
+                const isMoving = anim?.isMoving ?? false;
+                const keyframes = anim?.keyframes;
+                const isMultiPoint = !!(keyframes && keyframes.length > 1);
+
+                const currentCoord = TILE_CENTER_PERCENT[tile] || TILE_CENTER_PERCENT[0];
+                const animateCoords = isMultiPoint
+                  ? {
+                      left: keyframes.map((k) => `${TILE_CENTER_PERCENT[k].x}%`),
+                      top: keyframes.map((k) => `${TILE_CENTER_PERCENT[k].y}%`),
+                    }
+                  : {
+                      left: `${currentCoord.x}%`,
+                      top: `${currentCoord.y}%`,
+                    };
+
+                const isCurrentTurn = p.id === gameState.players[gameState.activePlayerIndex]?.id;
+
+                return (
+                  <motion.div
+                    key={p.id}
+                    className="absolute pointer-events-auto"
+                    style={{
+                      transform: 'translate(-50%, -50%)',
+                      transformStyle: is3D ? 'preserve-3d' : undefined,
+                      zIndex: isCurrentTurn ? 45 : 20 + pIdx,
+                    }}
+                    initial={false}
+                    animate={animateCoords}
+                    transition={{
+                      duration: isMultiPoint ? (keyframes.length - 1) * 0.18 : 0.15,
+                      ease: 'linear',
+                    }}
+                    onAnimationComplete={() => {
+                      if (isMultiPoint) {
+                        setAnimStates((prev) => ({
+                          ...prev,
+                          [p.id]: {
+                            ...prev[p.id],
+                            keyframes: null,
+                            isMoving: false,
+                          },
+                        }));
+                      }
+                    }}
+                  >
+                    <Pawn3D
+                      player={p}
+                      isMoving={isMoving}
+                      is3D={is3D}
+                      isMe={p.id === myPlayerId}
+                      stackIndex={pIdx}
+                    />
+                  </motion.div>
+                );
+              })}
           </div>
         </div>
       </div>
