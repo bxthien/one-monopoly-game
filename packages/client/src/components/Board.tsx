@@ -162,7 +162,7 @@ export const Board: React.FC<Props> = ({
               <div
                 className="w-full h-full flex items-center justify-center select-none z-10"
                 style={{
-                  transform: is3D ? 'rotateZ(45deg) rotateX(-46deg) translateZ(30px)' : undefined,
+                  transform: is3D ? 'rotateZ(45deg) rotateX(-46deg) translateZ(38px)' : undefined,
                   transformStyle: is3D ? 'preserve-3d' : undefined,
                   transformOrigin: 'center center',
                 }}
