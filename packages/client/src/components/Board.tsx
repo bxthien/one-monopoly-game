@@ -2,10 +2,8 @@ import React, { useState } from 'react';
 import { BOARD_TILES, GameAction, GameCard, GameState, OneMonopolyEngine, Player } from '@one-monopoly/shared';
 import { TileView } from './TileView.js';
 import { DiceView } from './DiceView.js';
-import { ActionControls } from './ActionControls.js';
 import { PropertyModal } from './PropertyModal.js';
 import { CardModal } from './CardModal.js';
-import { Eye } from 'lucide-react';
 
 interface Props {
   gameState: GameState;
@@ -14,6 +12,7 @@ interface Props {
   isRolling: boolean;
   activeCard: GameCard | null;
   onCloseCard: () => void;
+  is3D?: boolean;
 }
 
 export const Board: React.FC<Props> = ({
@@ -23,9 +22,9 @@ export const Board: React.FC<Props> = ({
   isRolling,
   activeCard,
   onCloseCard,
+  is3D = true,
 }) => {
   const [selectedTileId, setSelectedTileId] = useState<number | null>(null);
-  const [is3D, setIs3D] = useState(true);
 
   // Group players by current position on the board
   const getPlayersOnTile = (tileId: number): Player[] => {
@@ -83,61 +82,28 @@ export const Board: React.FC<Props> = ({
   };
 
   return (
-    <div className="flex flex-col items-center w-full max-w-[860px]">
-      {/* Top View Mode Switcher */}
-      <div className="flex items-center justify-between w-full mb-2 px-2 z-30">
-        <div className="flex items-center gap-1.5 bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-2xl shadow-sm border border-gray-200">
-          <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1">
-            <Eye className="w-3.5 h-3.5" /> Góc Nhìn:
-          </span>
-          <button
-            onClick={() => setIs3D(true)}
-            className={`px-3 py-1 rounded-xl text-xs font-black transition flex items-center gap-1.5 cursor-pointer ${
-              is3D
-                ? 'bg-[#E1007A] text-white shadow-sm'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-            }`}
-          >
-            <span>🎲 3D Isometric (Nâng cao)</span>
-          </button>
-          <button
-            onClick={() => setIs3D(false)}
-            className={`px-3 py-1 rounded-xl text-xs font-black transition flex items-center gap-1.5 cursor-pointer ${
-              !is3D
-                ? 'bg-gray-900 text-white shadow-sm'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-            }`}
-          >
-            <span>📐 2D Phẳng</span>
-          </button>
-        </div>
-
-        <div className="text-xs font-bold text-gray-500 bg-white/90 px-3 py-1.5 rounded-xl border border-gray-200">
-          VÒNG {gameState.turnCount} • PHÒNG {gameState.roomId}
-        </div>
-      </div>
-
+    <div className="relative flex items-center justify-center">
       {/* 3D Perspective Scene Container */}
       <div
-        className={`w-full flex items-center justify-center overflow-visible transition-all duration-700 ${
-          is3D ? 'pt-0 pb-1 min-h-[460px]' : 'p-2'
-        }`}
+        className="w-full flex items-center justify-center overflow-visible transition-all duration-700"
         style={{
           perspective: is3D ? '1400px' : undefined,
           transformStyle: is3D ? 'preserve-3d' : undefined,
         }}
       >
-        {/* Main Board Slab - Góc nghiêng 3D isometric chuẩn Business Tour */}
+        {/* Main Board Slab - Góc nghiêng 3D isometric chuẩn Business Tour, zoom to rõ nét */}
         <div
-          className={`relative w-full max-w-[680px] aspect-square bg-[#FDFDFE] rounded-3xl border-4 border-gray-200 p-2 select-none transition-all duration-700 ease-out ${
-            is3D ? 'origin-center' : 'shadow-xl'
+          className={`relative ${
+            is3D ? 'w-[min(720px,82vh)]' : 'w-[min(600px,74vh)]'
+          } aspect-square bg-[#FDFDFE] rounded-3xl border-4 border-gray-200 p-2 select-none transition-all duration-700 ease-out ${
+            is3D ? 'origin-center' : 'shadow-2xl'
           }`}
           style={{
             transform: is3D
-              ? 'rotateX(46deg) rotateZ(-45deg) scale(0.74) translateY(-20px)'
+              ? 'rotateX(46deg) rotateZ(-45deg) scale(0.90) translateY(-26px)'
               : 'none',
             boxShadow: is3D
-              ? '0 30px 55px -10px rgba(0, 0, 0, 0.42), 0 10px 0 #CBD5E1, 0 18px 0 #94A3B8, 0 24px 30px rgba(0,0,0,0.28)'
+              ? '0 32px 60px -10px rgba(0, 0, 0, 0.42), 0 10px 0 #CBD5E1, 0 18px 0 #94A3B8, 0 26px 32px rgba(0,0,0,0.28)'
               : undefined,
             transformStyle: is3D ? 'preserve-3d' : undefined,
           }}
@@ -205,18 +171,6 @@ export const Board: React.FC<Props> = ({
               </div>
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* DOCKED HUD CONTROLS: Đặt tách biệt ở tầng 2D phía dưới để không bao giờ đè lấn lên các ô cờ */}
-      <div className="w-full max-w-lg mt-1 px-2 z-30">
-        <div className="bg-white/95 backdrop-blur-md p-4 rounded-3xl shadow-xl border-2 border-pink-100">
-          <ActionControls
-            gameState={gameState}
-            myPlayerId={myPlayerId}
-            onAction={onAction}
-            isRolling={isRolling}
-          />
         </div>
       </div>
 
