@@ -4,13 +4,13 @@
   border-radius: 12px;
   background: #dddbbd;
   box-shadow: inset 0 0 0 2px #fff9dd, 0 2px 0 #78948c, 0 4px 0 #234d50,
-    0 16px 28px -15px #123c4359;
+    var(--slab-cast);
 }
 
 .chart-slab.board-tilted {
   box-shadow: inset 0 0 0 2px #fff8db, 0 2px 0 #aeccbc, 0 5px 0 #225a5d,
     0 7px 0 #e1c98d, 0 13px 0 #153c43, 0 17px 0 #0d3138,
-    0 29px 28px -5px #183a4559;
+    var(--slab-cast);
 }
 
 .chart-water {
@@ -91,7 +91,7 @@
   }
   .chart-slab.board-tilted {
     box-shadow: inset 0 0 0 1px #fff8db, 0 3px 0 #225a5d, 0 4px 0 #e1c98d,
-      0 7px 0 #153c43, 0 13px 14px -6px #183a4559;
+      0 7px 0 #153c43, var(--slab-cast);
   }
 }
 
@@ -165,7 +165,6 @@
   border-radius: 50%;
   border: 1px solid #fffae8;
   background: var(--vessel-color);
-  box-shadow: 0 1px 2px #163e42a3;
 }
 
 .chart-die {
@@ -203,7 +202,7 @@
   inset: -1px;
   pointer-events: none;
   transition: transform 180ms ease-in-out;
-  filter: drop-shadow(0 1px 1px #102f38);
+  filter: drop-shadow(0 0 1px #102f38);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -243,3 +242,41 @@
   text-align: center;
 }
 .chart-double-result > span { font-size: .64rem; font-weight: 500; }
+
+/* Idle motion belongs to the artwork. The counter, direction pointer and ground ring stay fixed. */
+@media (prefers-reduced-motion: no-preference) {
+  [data-idle-motion='hull'] { --pawn-idle: chart-hull-idle 3.8s ease-in-out infinite; }
+  [data-idle-motion='engine'] { --pawn-idle: chart-engine-idle 2.6s ease-in-out infinite; }
+  [data-idle-motion='hoist'] { --pawn-idle: chart-hoist-idle 4s ease-in-out infinite; }
+
+  .chart-counter:is([data-idle-motion='hull'], [data-idle-motion='engine']) > svg,
+  .chart-counter[data-idle-motion='hoist'] .chart-gantry-load,
+  .chart-model-pawn[data-idle-motion] .token-model:not([data-ready]) > img {
+    animation: var(--pawn-idle);
+    transform-origin: 50% 80%;
+  }
+
+  .chart-counter[data-idle-motion='hoist'] .chart-gantry-load {
+    --hoist-swing: 9deg;
+    transform-box: fill-box;
+    transform-origin: 50% 0;
+  }
+}
+
+@keyframes chart-hull-idle {
+  0%, 100% { translate: 0 0; rotate: 0deg; }
+  27% { translate: 0 -3%; rotate: -2deg; }
+  73% { translate: 0 2%; rotate: 1.6deg; }
+}
+
+@keyframes chart-engine-idle {
+  0%, 38%, 85%, 100% { translate: 0 0; }
+  50% { translate: 0 2.5%; }
+  65% { translate: 0 -1.5%; }
+}
+
+@keyframes chart-hoist-idle {
+  0%, 100% { rotate: 0deg; }
+  27% { rotate: var(--hoist-swing, 1.1deg); }
+  73% { rotate: calc(0deg - var(--hoist-swing, 1.1deg)); }
+}

@@ -1,19 +1,22 @@
-"""Rebuild shipped GLBs and transparent picker posters using Blender 4.3+.
+"""Rebuild shipped GLBs and transparent picker posters using Blender 4.3.2.
 
 From the repository root run:
     blender -b -t 4 -P scripts/token-models/build.py
 Append -- one-apus pilot-boat to regenerate just those pieces.
+Append -- --glb-only to rebuild all animated models without rerendering the posters.
 """
 
+from collections import defaultdict
 from pathlib import Path
 import sys
 
 import bpy
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
 SOURCE = Path(__file__).resolve().parent
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(SOURCE))
+from idle import apply_idle
 from vessels import build_apus, build_magenta, build_pilot, build_barge
 from vehicles import build_crane, build_truck, build_train, build_reefer
 
@@ -35,7 +38,7 @@ def add_light(name, offset, target, power, size, tint):
     light.rotation_euler = (target - light.location).to_track_quat('-Z', 'Y').to_euler()
 
 
-def poster(model, path):
+def poster(parts, path):
     scene = bpy.context.scene
     scene.render.engine = 'CYCLES'
     scene.cycles.samples = 32
@@ -50,7 +53,7 @@ def poster(model, path):
     scene.world.node_tree.nodes["Background"].inputs[0].default_value = (.75, .85, 1, 1)
     scene.world.node_tree.nodes["Background"].inputs[1].default_value = .42
 
-    points = [model.matrix_world @ v.co for v in model.data.vertices]
+    points = [obj.matrix_world @ v.co for obj in parts for v in obj.data.vertices]
     center = Vector([(min(p[i] for p in points) + max(p[i] for p in points)) / 2
                      for i in range(3)])
     view = Vector((4, -7, 4.8)).normalized()
@@ -79,25 +82,59 @@ def poster(model, path):
     bpy.ops.render.render(write_still=True)
 
 
-def build(name):
+def join_parts(name):
+    """Keep just one mesh per pivot and express child coordinates in its parent's space."""
+    groups = defaultdict(list)
+    for obj in bpy.context.scene.objects:
+        groups[obj.get('idle_part', 'base')].append(obj)
+
+    parts, pivots, parents = {}, {}, {}
+    for label, objects in groups.items():
+        pivot = Vector(objects[0].get('idle_pivot', (0, 0, 0)))
+        pivots[label] = pivot
+        parents[label] = objects[0].get('idle_parent')
+        bpy.ops.object.select_all(action='DESELECT')
+        for obj in objects:
+            obj.select_set(True)
+        bpy.context.view_layer.objects.active = objects[0]
+        bpy.ops.object.convert(target='MESH')
+        if len(objects) > 1:
+            bpy.ops.object.join()
+        joined = bpy.context.object
+        bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+        joined.data.transform(Matrix.Translation(-pivot))
+        joined.name = name if label == 'base' else label
+        parts[label] = joined
+
+    for label, part in parts.items():
+        parent = parents[label]
+        part.location = pivots[label]
+        if parent is not None:
+            part.parent = parts[parent]
+            part.location -= pivots[parent]
+    return parts
+
+
+def build(name, render_poster):
     bpy.ops.wm.read_factory_settings(use_empty=True)
     MODELS[name]()
+    parts = join_parts(name)
+    apply_idle(name, parts)
     bpy.ops.object.select_all(action='SELECT')
-    bpy.context.view_layer.objects.active = bpy.context.selected_objects[0]
-    bpy.ops.object.convert(target='MESH')
-    bpy.ops.object.join()
-    model = bpy.context.object
-    model.name = name
-    bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
     bpy.ops.export_scene.gltf(filepath=str(DEST / (name + ".glb")),
                               export_format='GLB', use_selection=True,
-                              export_texcoords=False, export_animations=False,
+                              export_texcoords=False, export_animations=True,
+                              export_animation_mode='ACTIVE_ACTIONS',
+                              export_nla_strips_merged_animation_name='Idle',
+                              export_force_sampling=False,
                               export_cameras=False, export_lights=False)
-    poster(model, DEST / (name + ".webp"))
+    if render_poster:
+        poster(parts.values(), DEST / (name + ".webp"))
 
 
 if __name__ == "__main__":
     DEST.mkdir(parents=True, exist_ok=True)
-    names = sys.argv[sys.argv.index("--")+1:] if "--" in sys.argv else MODELS
+    args = sys.argv[sys.argv.index("--")+1:] if "--" in sys.argv else []
+    names = [name for name in args if name != '--glb-only'] or MODELS
     for name in names:
-        build(name)
+        build(name, render_poster='--glb-only' not in args)

@@ -107,6 +107,24 @@
 }
 .chart-button-wide { width: 100%; min-height: 46px; letter-spacing: .035em; }
 
+.chart-storm-decision { border-top-color: #9f3862; }
+.chart-storm-decision .chart-action-title { font-size: 16px; }
+.chart-storm-choice {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) 14px;
+  gap: 9px;
+  align-items: center;
+  min-height: 54px;
+  text-align: left;
+  background: #f4f1e3;
+}
+.chart-storm-choice > svg:first-child { color: #28646c; }
+.chart-storm-choice > svg:last-child { width: 14px; color: #49626a; }
+.chart-storm-choice strong, .chart-storm-choice small { display: block; }
+.chart-storm-choice strong { font-size: 14px; }
+.chart-storm-choice small { margin-top: 2px; color: #415d63; font-size: 12px; font-weight: 500; line-height: 1.4; }
+.chart-storm-choice:disabled :is(svg, small) { color: #617273; }
+
 .chart-dialog {
   position: fixed;
   inset: 0;

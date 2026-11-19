@@ -29,6 +29,8 @@ import {
   SECRET_MISSIONS,
   SERVICE_LINES,
   STARTING_BALANCE,
+  STORM_DRIFT_STEPS,
+  STORM_TUG_FEE,
 } from './boardData.js';
 
 function shuffle<T>(array: T[]): T[] {
@@ -94,6 +96,7 @@ export class OneMonopolyEngine {
       hasRolled: false,
       marketDeck: marketCardIds,
       opsDeck: opsCardIds,
+      stormActive: false,
       pendingDebt: null,
       pendingSlotCharter: null,
       winnerId: null,
@@ -103,8 +106,8 @@ export class OneMonopolyEngine {
   }
 
   public static dispatch(state: GameState, action: GameAction): EngineResult {
-    // If game has ended, reject further actions
-    if (state.winnerId !== null) {
+    if (!action || state.winnerId !== null ||
+        (state.phase === 'AWAITING_STORM_DECISION' && action.type !== 'RESOLVE_STORM')) {
       return { state, events: [] };
     }
 
@@ -113,6 +116,29 @@ export class OneMonopolyEngine {
     const activePlayer = nextState.players[nextState.activePlayerIndex];
 
     switch (action.type) {
+      case 'RESOLVE_STORM': {
+        const { choice } = action;
+        if (state.phase !== 'AWAITING_STORM_DECISION' || (choice !== 'TUG' && choice !== 'DRIFT') ||
+            (choice === 'TUG' && activePlayer.balance < STORM_TUG_FEE)) {
+          return { state, events: [] };
+        }
+        events.push({ type: 'STORM_RESOLVED', playerId: activePlayer.id, choice });
+        if (choice === 'TUG') {
+          activePlayer.balance -= STORM_TUG_FEE;
+          events.push({
+            type: 'BALANCE_CHANGED',
+            playerId: activePlayer.id,
+            delta: -STORM_TUG_FEE,
+            newBalance: activePlayer.balance,
+            reason: 'Thuê tàu kéo trong bão',
+          });
+          OneMonopolyEngine.finishStepPhase(nextState);
+        } else {
+          OneMonopolyEngine.movePlayerSteps(nextState, events, activePlayer, STORM_DRIFT_STEPS);
+        }
+        break;
+      }
+
       case 'ROLL_DICE':
         OneMonopolyEngine.handleRollDice(nextState, events, activePlayer, action.forcedDice);
         break;
@@ -602,6 +628,11 @@ export class OneMonopolyEngine {
     effect: CardEffect
   ): void {
     switch (effect.type) {
+      case 'STORM_CHOICE':
+        state.stormActive = true;
+        state.phase = 'AWAITING_STORM_DECISION';
+        break;
+
       case 'CASH': {
         const amount = effect.amount || 0;
         if (amount >= 0) {
@@ -1350,6 +1381,7 @@ export class OneMonopolyEngine {
     // Check game over
     const activeSurvivors = state.players.filter((p) => !p.isBankrupt);
     if (activeSurvivors.length === 1) {
+      state.stormActive = false;
       state.winnerId = activeSurvivors[0].id;
       events.push({
         type: 'GAME_OVER',
@@ -1381,6 +1413,7 @@ export class OneMonopolyEngine {
     }
 
     state.activePlayerIndex = nextIndex;
+    state.stormActive = false;
     state.hasRolled = false;
     state.consecutiveDoubles = 0;
     state.phase = 'WAIT_FOR_ROLL';

@@ -1,10 +1,24 @@
 """Low-poly mesh and enamel material tools. Coordinates are X forward, Z up."""
 
+from contextlib import contextmanager
 import math
 
 import bmesh
 import bpy
 from mathutils import Vector
+
+
+@contextmanager
+def moving_part(name, pivot, parent="base"):
+    """Group the meshes made inside this block around one mechanical joint."""
+    before = set(bpy.data.objects)
+    yield
+    for obj in set(bpy.data.objects) - before:
+        # An inner block has already tagged any articulated child parts.
+        if "idle_part" not in obj:
+            obj["idle_part"] = name
+            obj["idle_pivot"] = pivot
+            obj["idle_parent"] = parent
 
 
 def paint(hex_color):

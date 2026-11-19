@@ -87,6 +87,7 @@ export type CardType = 'MARKET' | 'OPS';
 export type CardEffectType =
   | 'CASH'
   | 'MOVE_TO'
+  | 'STORM_CHOICE'
   | 'MOVE_STEPS'
   | 'GO_TO_HOLD'
   | 'GET_PASS'
@@ -114,6 +115,7 @@ export interface GameCard {
 export type TurnPhase =
   | 'WAIT_FOR_ROLL'
   | 'AWAITING_BUY_DECISION'
+  | 'AWAITING_STORM_DECISION'
   | 'AWAITING_SLOT_CHARTER_RESPONSE'
   | 'AWAITING_DEBT_RESOLUTION'
   | 'END_OF_TURN';
@@ -149,6 +151,7 @@ export interface GameState {
   hasRolled: boolean;
   marketDeck: string[]; // Card IDs
   opsDeck: string[]; // Card IDs
+  stormActive?: boolean; // OPS-02 visual for the current turn. Absent in older snapshots.
   pendingDebt: DebtInfo | null;
   pendingSlotCharter: PendingSlotCharter | null;
   winnerId: string | null;
@@ -156,7 +159,10 @@ export interface GameState {
   gameStarted: boolean;
 }
 
+export type StormChoice = 'TUG' | 'DRIFT';
+
 export type GameAction =
+  | { type: 'RESOLVE_STORM'; choice: StormChoice }
   | { type: 'ROLL_DICE'; forcedDice?: [number, number] }
   | { type: 'BUY_PROPERTY' }
   | { type: 'SKIP_BUY' }
@@ -175,6 +181,7 @@ export type GameAction =
   | { type: 'END_TURN' };
 
 export type GameEvent =
+  | { type: 'STORM_RESOLVED'; playerId: string; choice: StormChoice }
   | { type: 'DICE_ROLLED'; playerId: string; dice: [number, number]; isDouble: boolean }
   | { type: 'SHIP_STEPPED'; playerId: string; from: number; to: number }
   | { type: 'PASSED_GO'; playerId: string; reward: number }

@@ -100,6 +100,8 @@ export class RoomManager {
     if (sessionToken) {
       const existingPlayer = room.players.find((p) => p.sessionToken === sessionToken);
       if (existingPlayer) {
+        const previousSocket = room.playerToSocket.get(existingPlayer.id);
+        if (previousSocket) room.socketToPlayer.delete(previousSocket);
         existingPlayer.isOnline = true;
         room.socketToPlayer.set(socketId, existingPlayer.id);
         room.playerToSocket.set(existingPlayer.id, socketId);
@@ -242,6 +244,18 @@ export class RoomManager {
     room.timer.start();
   }
 
+  public dispatchSocketAction(
+    socketId: string,
+    data: { roomId: string; playerId: string; action: GameAction }
+  ) {
+    const room = typeof data?.roomId === 'string' ? this.getRoom(data.roomId) : undefined;
+    const actorId = room?.socketToPlayer.get(socketId);
+    if (!actorId || actorId !== data.playerId) {
+      return { success: false, error: 'Kết nối này không đại diện cho người chơi trong phòng.' };
+    }
+    return this.dispatchAction(data.roomId, actorId, data.action);
+  }
+
   public dispatchAction(
     roomId: string,
     playerId: string,
@@ -249,6 +263,7 @@ export class RoomManager {
   ): { success: boolean; error?: string; state?: GameState; events?: GameEvent[] } {
     const room = this.getRoom(roomId);
     if (!room || !room.gameState) return { success: false, error: 'Phòng hoặc ván chơi không tồn tại' };
+    if (!action || typeof action.type !== 'string') return { success: false, error: 'Hành động không hợp lệ.' };
 
     const activePlayer = room.gameState.players[room.gameState.activePlayerIndex];
 
@@ -264,6 +279,7 @@ export class RoomManager {
       action.type === 'SKIP_BUY' ||
       action.type === 'PAY_HOLD_FINE' ||
       action.type === 'USE_CLEARANCE_PASS' ||
+      action.type === 'RESOLVE_STORM' ||
       action.type === 'PROPOSE_SLOT_CHARTER' ||
       action.type === 'END_TURN'
     ) {
@@ -283,6 +299,10 @@ export class RoomManager {
     const prevActiveIndex = room.gameState.activePlayerIndex;
 
     const { state: nextState, events } = OneMonopolyEngine.dispatch(room.gameState, action);
+    if ((prevPhase === 'AWAITING_STORM_DECISION' || action.type === 'RESOLVE_STORM') &&
+        !events.some((event) => event.type === 'STORM_RESOLVED')) {
+      return { success: false, error: 'Không thể thực hiện lựa chọn ứng phó bão này.' };
+    }
     room.gameState = nextState;
 
     // Reset turn timer when turn changes or phase changes
@@ -320,6 +340,9 @@ export class RoomManager {
       case 'AWAITING_BUY_DECISION':
         this.dispatchAction(roomId, activePlayer.id, { type: 'SKIP_BUY' });
         break;
+      case 'AWAITING_STORM_DECISION':
+        this.dispatchAction(roomId, activePlayer.id, { type: 'RESOLVE_STORM', choice: 'DRIFT' });
+        break;
       case 'AWAITING_SLOT_CHARTER_RESPONSE': {
         const charter = room.gameState.pendingSlotCharter;
         if (charter) {
@@ -341,6 +364,7 @@ export class RoomManager {
       const playerId = room.socketToPlayer.get(socketId);
       if (playerId) {
         room.socketToPlayer.delete(socketId);
+        room.playerToSocket.delete(playerId);
         const player = room.players.find((p) => p.id === playerId);
         if (player) {
           player.isOnline = false;

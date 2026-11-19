@@ -112,6 +112,8 @@
   letter-spacing: .085em;
 }
 .chart-sheet-heading span { color: var(--chart-muted); border-left: 1px solid var(--chart-rule); padding-left: 14px; }
+.chart-voyage-meta { display: flex; align-items: center; gap: 12px; }
+.chart-voyage-meta .chart-weather-readout { color: var(--chart-ink); }
 .chart-view-picker { border: 1px solid #77918b; border-radius: 4px; overflow: hidden; }
 .chart-view-picker button { gap: 5px; min-height: 36px; padding: 0 11px; background: #faf8ee; font: 600 12px var(--chart-mono); }
 .chart-view-picker button[aria-pressed="true"] { color: #fff8e9; background: var(--chart-ink); }
@@ -229,6 +231,9 @@
   .chart-sheet-header { padding: 5px 9px; }
   .chart-view-picker button { min-height: 30px; padding: 0 8px; }
   .chart-sheet-heading h1 { font-size: 23px; }
+  .chart-sheet-heading { gap: 9px; }
+  .chart-voyage-meta { display: grid; gap: 1px; }
+  .chart-voyage-meta span { padding-left: 8px; font-size: 9px; }
   .chart-turn-line { font-size: 9px; }
 }
 @media (max-height: 540px) and (orientation: landscape) {

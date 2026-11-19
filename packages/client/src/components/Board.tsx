@@ -5,13 +5,17 @@ import { DiceView } from './DiceView.js';
 import { PropertyModal } from './PropertyModal.js';
 import { CardModal } from './CardModal.js';
 import { Pawn3D } from './Pawn3D.js';
+import { BoardSky } from './BoardSky.js';
+import type { BoardLighting } from './boardLighting.js';
 import { forwardHeading, type TravelFrame } from './boardTravel.js';
 import { useBoardPlayback } from './useBoardPlayback.js';
+import { useIdleMotion } from '../hooks/useIdleMotion.js';
 import type { SubscribeBoard } from '../hooks/useSocket.js';
 import './chart-board.css';
 
 interface Props {
   gameState: GameState;
+  sky: BoardLighting;
   subscribeBoard: SubscribeBoard;
   myPlayerId: string | null;
   onAction: (action: GameAction) => void;
@@ -122,6 +126,8 @@ const PacificChart = React.memo(function PacificChart() {
 interface MovingPawnProps {
   player: Player;
   frame?: TravelFrame;
+  allowIdle: boolean;
+  exposure: number;
   tile: number;
   heading: number;
   is3D: boolean;
@@ -131,7 +137,7 @@ interface MovingPawnProps {
   advance: (id: string, frame: TravelFrame) => void;
 }
 
-function MovingPawn({ player, frame, tile, heading, is3D, zIndex, stackIndex, stackSize, advance }: MovingPawnProps) {
+function MovingPawn({ player, frame, allowIdle, exposure, tile, heading, is3D, zIndex, stackIndex, stackSize, advance }: MovingPawnProps) {
   useLayoutEffect(() => {
     if (!frame) return;
     if (frame.duration === 0) {
@@ -152,13 +158,14 @@ function MovingPawn({ player, frame, tile, heading, is3D, zIndex, stackIndex, st
       transformStyle: is3D ? 'preserve-3d' : undefined,
       zIndex,
     }}>
-      <Pawn3D player={player} is3D={is3D} heading={heading} stackIndex={stackIndex} stackSize={stackSize} />
+      <Pawn3D player={player} idle={allowIdle && !frame} exposure={exposure} is3D={is3D} heading={heading} stackIndex={stackIndex} stackSize={stackSize} />
     </div>
   );
 }
 
 export const Board: React.FC<Props> = ({
   gameState,
+  sky,
   subscribeBoard,
   myPlayerId,
   onAction,
@@ -170,6 +177,8 @@ export const Board: React.FC<Props> = ({
 }) => {
   const [selectedTileId, setSelectedTileId] = useState<number | null>(null);
 
+  const idleMotion = useIdleMotion();
+  const allowIdle = idleMotion && selectedTileId === null && !activeCard && !gameState.winnerId;
   const { tracks, claims, advance } = useBoardPlayback(gameState, subscribeBoard);
   const moving = gameState.players.some((player) => !player.isBankrupt && tracks[player.id]?.frames.length);
   useLayoutEffect(() => { onPawnMovingChange?.(moving); }, [moving, onPawnMovingChange]);
@@ -241,12 +250,20 @@ export const Board: React.FC<Props> = ({
           className={`chart-slab relative ${
             is3D ? 'board-tilted' : 'board-flat'
           } aspect-square origin-center border-4 p-2 select-none transition-all duration-700 ease-out`}
+          data-sky-phase={sky.phase}
+          data-light={sky.body}
+          data-weather={sky.weather}
           style={{
+            '--cast-x': `${sky.shadowX.toFixed(2)}px`,
+            '--cast-y': `${sky.shadowY.toFixed(2)}px`,
+            '--cast-blur': `${sky.shadowBlur}px`,
+            '--cast-opacity': sky.shadowOpacity,
+            '--model-exposure': sky.exposure,
             transform: is3D
               ? 'rotateX(var(--board-tilt)) rotateZ(var(--board-yaw)) scale(var(--board-scale))'
               : 'none',
             transformStyle: is3D ? 'preserve-3d' : undefined,
-          }}
+          } as React.CSSProperties}
         >
           {/* Lưới 9x9: 4 ô góc hình vuông (1.35fr x 1.35fr), các ô cạnh hình chữ nhật (1fr x 1.35fr) */}
           <div
@@ -296,6 +313,7 @@ export const Board: React.FC<Props> = ({
               className="chart-water pointer-events-none relative flex items-center justify-center p-3"
             >
               <PacificChart />
+              <BoardSky sky={sky} />
 
               {/* Khối xúc xắc 3D khối hộp Magenta & Navy - Billboard counter-rotate để không bị cấn móp, giống y chang 2D */}
               <div
@@ -331,6 +349,8 @@ export const Board: React.FC<Props> = ({
                   key={player.id}
                   player={player}
                   frame={frame}
+                  allowIdle={allowIdle}
+                  exposure={sky.exposure}
                   tile={tile}
                   heading={pose?.heading ?? forwardHeading(tile)}
                   is3D={is3D}

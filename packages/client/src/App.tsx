@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { BOARD_TILES, GameCard } from '@one-monopoly/shared';
+import { BOARD_TILES, GameCard, STORM_DRIFT_STEPS, STORM_TUG_FEE } from '@one-monopoly/shared';
 import { useSocket } from './hooks/useSocket.js';
 import { Lobby } from './components/Lobby.js';
 import { Board } from './components/Board.js';
+import { getBoardLighting } from './components/boardLighting.js';
 import { PlayerSidebar } from './components/PlayerSidebar.js';
 import { ActionControls } from './components/ActionControls.js';
 import { ReactionFloatingBar } from './components/ReactionFloatingBar.js';
@@ -55,14 +56,23 @@ export const App: React.FC = () => {
 
     for (const evt of latestEvents) {
       if (evt.type === 'CARD_DRAWN') {
-        // Lưu vào hàng đợi, chờ xúc xắc xong và nhân vật cập bến mới mở thẻ
-        pendingCardRef.current = evt.card;
+        if (evt.card.effect.type === 'STORM_CHOICE') {
+          // The action panel is the storm card. Keep its two routes directly accessible.
+          pendingCardRef.current = null;
+          setActiveCard(null);
+        } else {
+          pendingCardRef.current = evt.card;
+        }
       }
 
       // Add to event logs
       let logMsg = '';
       if (evt.type === 'DICE_ROLLED') {
         logMsg = `🎲 Đổ được ${evt.dice[0]} + ${evt.dice[1]} = ${evt.dice[0] + evt.dice[1]}`;
+      } else if (evt.type === 'STORM_RESOLVED') {
+        logMsg = evt.choice === 'TUG'
+          ? `⚓ Thuê tàu kéo giữ vị trí với phí $${STORM_TUG_FEE}M`
+          : `🌊 Tàu trôi lùi ${Math.abs(STORM_DRIFT_STEPS)} ô trong bão`;
       } else if (evt.type === 'PASSED_GO') {
         logMsg = `🏁 Đi qua Singapore Hub nhận $${evt.reward}M`;
       } else if (evt.type === 'TILE_PURCHASED') {
@@ -98,6 +108,12 @@ export const App: React.FC = () => {
   }, [latestEvents]);
 
   const activePlayer = gameState?.players[gameState.activePlayerIndex];
+  const sky = gameState && getBoardLighting({
+    turnCount: gameState.turnCount,
+    activePlayerIndex: gameState.activePlayerIndex,
+    playerCount: gameState.players.length,
+    stormActive: gameState.stormActive,
+  });
 
   return (
     <div className="chart-app">
@@ -135,7 +151,7 @@ export const App: React.FC = () => {
         </div>
       )}
 
-      {!room || !gameState || !activePlayer ? (
+      {!room || !gameState || !activePlayer || !sky ? (
         <main className="chart-lobby-main">
           <Lobby
             room={room}
@@ -153,7 +169,10 @@ export const App: React.FC = () => {
             <header className="chart-sheet-header">
               <div className="chart-sheet-heading">
                 <h1>Hải đồ</h1>
-                <span>Vòng {gameState.turnCount}</span>
+                <div className="chart-voyage-meta">
+                  <span>Vòng {gameState.turnCount}</span>
+                  <span className="chart-weather-readout" role="status">{sky.label}{sky.weather === 'storm' && ' · Bão'}</span>
+                </div>
               </div>
               <div className="chart-view-picker" role="group" aria-label="Góc nhìn bàn cờ">
                 <button type="button" aria-pressed={!is3D} onClick={() => setIs3D(false)}><Map size={15} />2D</button>
@@ -163,6 +182,7 @@ export const App: React.FC = () => {
             <div className="board-viewport">
               <Board
                 gameState={gameState}
+                sky={sky}
                 subscribeBoard={subscribeBoard}
                 myPlayerId={myPlayerId}
                 onAction={sendAction}

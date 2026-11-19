@@ -1,4 +1,4 @@
-import { BOARD_TILES, HOLD_TILE_INDEX } from '@one-monopoly/shared';
+import { BOARD_TILES, HOLD_TILE_INDEX, STORM_DRIFT_STEPS } from '@one-monopoly/shared';
 import type { GameEvent } from '@one-monopoly/shared';
 
 export const DICE_ROLL_MS = 950;
@@ -43,6 +43,9 @@ export function buildTravelFrames(start: Pose, playerId: string, events: GameEve
         break;
       case 'CARD_DRAWN':
         steps = event.card.effect.type === 'MOVE_STEPS' ? event.card.effect.steps : undefined;
+        break;
+      case 'STORM_RESOLVED':
+        steps = event.choice === 'DRIFT' ? STORM_DRIFT_STEPS : undefined;
         break;
       case 'SENT_TO_HOLD':
         add({ ...restingPose(HOLD_TILE_INDEX), duration: 0 });

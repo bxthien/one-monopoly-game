@@ -4,6 +4,8 @@ export const STARTING_BALANCE = 1500;
 export const GO_REWARD = 200;
 export const HOLD_TILE_INDEX = 8;
 export const GO_TO_HOLD_TILE_INDEX = 24;
+export const STORM_TUG_FEE = 25;
+export const STORM_DRIFT_STEPS = -3;
 export const HOLD_FINE_AMOUNT = 50;
 export const MAX_HOLD_TURNS = 3;
 export const GREEN_FLEET_COST = 150;
@@ -455,8 +457,8 @@ export const GAME_CARDS: GameCard[] = [
     id: 'OPS-02',
     type: 'OPS',
     title: 'Bão Biển Bất Ngờ Ngoài Khơi',
-    description: 'Sóng lớn buộc tàu phải giảm tốc và lùi lại 3 hải lý. Lùi lại 3 ô.',
-    effect: { type: 'MOVE_STEPS', steps: -3 },
+    description: `Thuê tàu kéo với giá $${STORM_TUG_FEE}M để giữ nguyên vị trí, hoặc để tàu trôi lùi ${Math.abs(STORM_DRIFT_STEPS)} ô và xử lý ô cập bến.`,
+    effect: { type: 'STORM_CHOICE' },
   },
   {
     id: 'OPS-03',

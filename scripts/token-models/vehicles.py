@@ -1,6 +1,8 @@
 """Land pieces share an X-forward orientation and stand on the z=0 plane."""
 
-from studio import beam, box, cylinder, mesh
+from math import cos, sin, tau
+
+from studio import beam, box, cylinder, mesh, moving_part
 
 TIRE = "#272e36"
 UNDERFRAME = "#33404a"
@@ -19,6 +21,22 @@ def _extrude_cab(name, profile, width, color, bevel=0.025):
         j = (i + 1) % count
         faces.append([i, count + i, count + j, j])
     mesh(name, verts, faces, color, bevel=bevel)
+
+
+def _impeller(name, center, radius, axis):
+    """Four swept blades behind the fixed intake guard, on a single rotor."""
+    cx, cy, cz = center
+    vertices, faces = [], []
+    for i in range(4):
+        phi = tau * i / 4
+        start = len(vertices)
+        for r, angle in ((.12, -.65), (.90, -.40), (1, .30), (.50, .13), (.12, .40)):
+            u, v = radius * r * cos(phi + angle), radius * r * sin(phi + angle)
+            vertices.append((cx, cy + u, cz + v) if axis == 'X' else (cx + u, cy + v, cz))
+        faces.append(list(range(start, start + 5)))
+    mesh(name, vertices, faces, '#bbccd0', bevel=0)
+    cylinder(name + ' hub', center, radius * .17, .012, '#719399',
+             axis=axis, vertices=10, bevel=0)
 
 
 def _wheels(name, axles, track, radius, tire_width):
@@ -111,11 +129,12 @@ def build_crane():
     box('Hoist trolley', (1.05, 0, 1.57), (0.48, 1.06, 0.12), UNDERFRAME)
     box('Operator cab', (0.80, -0.42, 1.41), (0.30, 0.28, 0.25), gold)
     box('Cab glass', (0.81, -0.564, 1.44), (0.23, 0.018, 0.12), GLASS, bevel=0.01)
-    for dx in (-0.16, 0.16):
-        for dy in (-0.22, 0.22):
-            beam('Hoist rope', (1.15 + dx, dy, 1.53), (1.15 + dx, dy, 0.94), 0.020, UNDERFRAME)
-    box('Spreader', (1.15, 0, 0.91), (0.81, 0.56, 0.09), gold)
-    _freight_box('Suspended container', 1.15, 0.63, 0.90, 0.57, 0.47, '#b92d67', '#ef5b91', 6)
+    with moving_part('sling', (1.15, 0, 1.53)):
+        for dx in (-0.16, 0.16):
+            for dy in (-0.22, 0.22):
+                beam('Hoist rope', (1.15 + dx, dy, 1.53), (1.15 + dx, dy, 0.94), 0.020, UNDERFRAME)
+        box('Spreader', (1.15, 0, 0.91), (0.81, 0.56, 0.09), gold)
+        _freight_box('Suspended container', 1.15, 0.63, 0.90, 0.57, 0.47, '#b92d67', '#ef5b91', 6)
 
 
 def build_truck():
@@ -132,34 +151,38 @@ def build_truck():
         cylinder('Diesel tank', (0.54, side * 0.35, 0.35), 0.14, 0.38,
                  STEEL, axis='X', vertices=12)
     _freight_box('Intermodal container', -0.65, 1.12, 2.04, 1.14, 0.84, '#1d6390', '#3886ae', 11)
-    _road_cab('Sleeper tractor', 0.67, 1.65, 1.20, '#e99e46')
-    _extrude_cab('Roof fairing', [(0.67, 1.17), (1.53, 1.17), (1.18, 1.39), (0.67, 1.46)],
-                 0.93, '#f4b768')
+    with moving_part('cab', (1.2, 0, 0.43)):
+        _road_cab('Sleeper tractor', 0.67, 1.65, 1.20, '#e99e46')
+        _extrude_cab('Roof fairing', [(0.67, 1.17), (1.53, 1.17), (1.18, 1.39), (0.67, 1.46)],
+                     0.93, '#f4b768')
 
 
 def build_reefer():
     """Rigid insulated truck with a high-mounted twin-fan refrigeration pack."""
     box('Rigid chassis', (-0.06, 0, 0.31), (3.20, 0.58, 0.16), UNDERFRAME)
     _wheels('Reefer', [-1.18, 1.27], 0.91, 0.255, 0.20)
-    box('Insulated cargo body', (-0.56, 0, 1.07), (2.22, 1.15, 1.03), '#f3f4e8', bevel=0.047)
-    box('Cold store underframe', (-0.56, 0, 0.555), (2.26, 1.19, 0.105), '#7f9aab')
-    for side in (-1, 1):
-        y = side * 0.577
-        box('Insulated body belt', (-0.56, y, 0.76), (2.18, 0.022, 0.078), '#409bac', bevel=0.008)
-        for x in (-1.61, -0.90, -0.19, 0.50):
-            box('Panel seam', (x, y, 1.17), (0.026, 0.015, 0.72), '#c8d7d8', bevel=0.005)
-        box('Side underrun guard', (-0.12, side * 0.48, 0.36),
-            (1.10, 0.075, 0.085), STEEL)
-    _road_cab('Rigid truck cab', 0.75, 1.65, 1.11, '#39899a')
-    box('Refrigeration pack', (0.62, 0, 1.39), (0.27, 0.98, 0.38),
-        '#dce8e7', bevel=0.055)
-    for side in (-1, 1):
-        y = side * 0.238
-        cylinder('Condenser grille', (0.764, y, 1.40), 0.151, 0.021,
-                 UNDERFRAME, axis='X', vertices=16, bevel=0.005)
-        for dz in (-0.067, 0, 0.067):
-            box('Condenser louver', (0.780, y, 1.40 + dz), (0.027, 0.23, 0.023),
-                STEEL, bevel=0.005)
+    with moving_part('cooler', (0, 0, 0.5)):
+        box('Insulated cargo body', (-0.56, 0, 1.07), (2.22, 1.15, 1.03), '#f3f4e8', bevel=0.047)
+        box('Cold store underframe', (-0.56, 0, 0.555), (2.26, 1.19, 0.105), '#7f9aab')
+        for side in (-1, 1):
+            y = side * 0.577
+            box('Insulated body belt', (-0.56, y, 0.76), (2.18, 0.022, 0.078), '#409bac', bevel=0.008)
+            for x in (-1.61, -0.90, -0.19, 0.50):
+                box('Panel seam', (x, y, 1.17), (0.026, 0.015, 0.72), '#c8d7d8', bevel=0.005)
+            box('Side underrun guard', (-0.12, side * 0.48, 0.36),
+                (1.10, 0.075, 0.085), STEEL)
+        _road_cab('Rigid truck cab', 0.75, 1.65, 1.11, '#39899a')
+        box('Refrigeration pack', (0.62, 0, 1.39), (0.27, 0.98, 0.38),
+            '#dce8e7', bevel=0.055)
+        for side in (-1, 1):
+            y = side * 0.238
+            cylinder('Condenser grille', (0.764, y, 1.40), 0.151, 0.021,
+                     UNDERFRAME, axis='X', vertices=16, bevel=0.005)
+            with moving_part('fan-left' if side < 0 else 'fan-right', (0.778, y, 1.40), 'cooler'):
+                _impeller('Condenser rotor', (0.778, y, 1.40), .14, 'X')
+            for dz in (-0.067, 0, 0.067):
+                box('Condenser louver', (0.792, y, 1.40 + dz), (0.027, 0.23, 0.023),
+                    STEEL, bevel=0.005)
 
 
 def build_train():
@@ -170,36 +193,39 @@ def build_train():
         for side in (-1, 1):
             box('Bogie side frame', (center, side * 0.485, 0.265),
                 (0.79, 0.07, 0.14), '#536267')
-    box('Locomotive deck', (0, 0, 0.445), (3.36, 1.23, 0.17), UNDERFRAME)
-    box('Running board edge', (0, 0, 0.525), (3.33, 1.23, 0.055), stripe)
-    box('Fuel reservoir', (-0.02, 0, 0.285), (0.72, 0.81, 0.24), '#657276', bevel=0.06)
-    box('Long engine hood', (-0.49, 0, 0.90), (1.96, 0.82, 0.73), green, bevel=0.07)
-    for y in (-0.415, 0.415):
-        box('Livery stripe', (-0.49, y, 0.77), (1.87, 0.02, 0.105), stripe, bevel=0.008)
-        for x in (-1.17, -0.91, -0.64, -0.37):
-            box('Engine air intake', (x, y, 1.035), (0.145, 0.027, 0.19),
-                '#254842', bevel=0.01)
-    for x in (-1.04, -0.52):
-        cylinder('Roof fan housing', (x, 0, 1.264), 0.206, 0.043, UNDERFRAME, vertices=16)
-        for dy in (-0.075, 0, 0.075):
-            box('Fan grille', (x, dy, 1.289), (0.30, 0.025, 0.022), STEEL, bevel=0.004)
-    cylinder('Exhaust', (0.06, 0, 1.31), 0.081, 0.135, UNDERFRAME, vertices=12)
-    box('Cab base', (0.69, 0, 0.94), (0.73, 1.04, 0.81), green)
-    box('Cab glazing', (0.69, 0, 1.24), (0.74, 1.045, 0.275), GLASS)
-    for x in (0.35, 0.72, 1.03):
+    with moving_part('engine', (0, 0, 0.45)):
+        box('Locomotive deck', (0, 0, 0.445), (3.36, 1.23, 0.17), UNDERFRAME)
+        box('Running board edge', (0, 0, 0.525), (3.33, 1.23, 0.055), stripe)
+        box('Fuel reservoir', (-0.02, 0, 0.285), (0.72, 0.81, 0.24), '#657276', bevel=0.06)
+        box('Long engine hood', (-0.49, 0, 0.90), (1.96, 0.82, 0.73), green, bevel=0.07)
+        for y in (-0.415, 0.415):
+            box('Livery stripe', (-0.49, y, 0.77), (1.87, 0.02, 0.105), stripe, bevel=0.008)
+            for x in (-1.17, -0.91, -0.64, -0.37):
+                box('Engine air intake', (x, y, 1.035), (0.145, 0.027, 0.19),
+                    '#254842', bevel=0.01)
+        for x in (-1.04, -0.52):
+            cylinder('Roof fan housing', (x, 0, 1.264), 0.206, 0.043, UNDERFRAME, vertices=16)
+            with moving_part('fan-aft' if x < -.8 else 'fan-forward', (x, 0, 1.289), 'engine'):
+                _impeller('Radiator rotor', (x, 0, 1.289), .19, 'Z')
+            for dy in (-0.075, 0, 0.075):
+                box('Fan grille', (x, dy, 1.304), (0.30, 0.025, 0.022), STEEL, bevel=0.004)
+        cylinder('Exhaust', (0.06, 0, 1.31), 0.081, 0.135, UNDERFRAME, vertices=12)
+        box('Cab base', (0.69, 0, 0.94), (0.73, 1.04, 0.81), green)
+        box('Cab glazing', (0.69, 0, 1.24), (0.74, 1.045, 0.275), GLASS)
+        for x in (0.35, 0.72, 1.03):
+            for side in (-1, 1):
+                box('Cab pillar', (x, side * 0.522, 1.24), (0.055, 0.032, 0.275), '#d4decc', bevel=0.008)
+        box('Windscreen divider', (1.065, 0, 1.25), (0.04, 0.047, 0.26), '#d4decc', bevel=0.008)
+        box('Cab roof', (0.69, 0, 1.414), (0.86, 1.16, 0.10), '#d4decc', bevel=0.036)
+        _extrude_cab('Short hood', [(0.96, 0.545), (1.54, 0.545), (1.54, 0.93),
+                                    (1.39, 1.04), (0.96, 1.04)], 0.72, green)
+        for y in (-0.19, 0.19):
+            cylinder('Headlight', (1.55, y, 0.865), 0.068, 0.04, LAMP,
+                     axis='X', vertices=12, bevel=0.009)
         for side in (-1, 1):
-            box('Cab pillar', (x, side * 0.522, 1.24), (0.055, 0.032, 0.275), '#d4decc', bevel=0.008)
-    box('Windscreen divider', (1.065, 0, 1.25), (0.04, 0.047, 0.26), '#d4decc', bevel=0.008)
-    box('Cab roof', (0.69, 0, 1.414), (0.86, 1.16, 0.10), '#d4decc', bevel=0.036)
-    _extrude_cab('Short hood', [(0.96, 0.545), (1.54, 0.545), (1.54, 0.93),
-                                (1.39, 1.04), (0.96, 1.04)], 0.72, green)
-    for y in (-0.19, 0.19):
-        cylinder('Headlight', (1.55, y, 0.865), 0.068, 0.04, LAMP,
-                 axis='X', vertices=12, bevel=0.009)
-    for side in (-1, 1):
-        y = side * 0.565
-        for x in (-1.54, -0.87, -0.13):
-            beam('Handrail stanchion', (x, y, 0.54), (x, y, 0.89), 0.033, stripe)
-        beam('Walkway handrail', (-1.54, y, 0.89), (-0.13, y, 0.89), 0.033, stripe)
-    _extrude_cab('Pilot plow', [(1.40, 0.16), (1.72, 0.16), (1.59, 0.41), (1.46, 0.41)],
-                 1.11, '#485760')
+            y = side * 0.565
+            for x in (-1.54, -0.87, -0.13):
+                beam('Handrail stanchion', (x, y, 0.54), (x, y, 0.89), 0.033, stripe)
+            beam('Walkway handrail', (-1.54, y, 0.89), (-0.13, y, 0.89), 0.033, stripe)
+        _extrude_cab('Pilot plow', [(1.40, 0.16), (1.72, 0.16), (1.59, 0.41), (1.46, 0.41)],
+                     1.11, '#485760')
