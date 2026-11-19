@@ -81,7 +81,7 @@ export const App: React.FC = () => {
       } else if (evt.type === 'SLOT_CHARTER_ACCEPTED') {
         logMsg = `🤝 Liên minh "As ONE, We Can": Chia sẻ chỗ thành công (giảm 50% cước)`;
       } else if (evt.type === 'SLOT_CHARTER_RENT_SPLIT') {
-        logMsg = `⚓ Chia đôi 50/50 doanh thu cước cảng cho 2 bên liên minh`;
+        logMsg = `⚓ Chủ cảng nhận $${evt.ownerAmount ?? evt.splitAmount}M, đối tác nhận $${evt.splitAmount}M`;
       } else if (evt.type === 'MISSION_COMPLETED') {
         logMsg = `🎯 Hoàn thành ${evt.mission.title} (+${evt.reward}M)!`;
       } else if (evt.type === 'CARBON_TAX_EXEMPTED') {

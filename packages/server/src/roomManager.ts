@@ -327,6 +327,13 @@ export class RoomManager {
       case 'AWAITING_BUY_DECISION':
         this.dispatchAction(roomId, activePlayer.id, { type: 'SKIP_BUY' });
         break;
+      case 'AWAITING_SLOT_CHARTER_RESPONSE': {
+        const charter = room.gameState.pendingSlotCharter;
+        if (charter) {
+          this.dispatchAction(roomId, charter.ownerId, { type: 'RESPOND_SLOT_CHARTER', accept: false });
+        }
+        break;
+      }
       case 'AWAITING_DEBT_RESOLUTION':
         this.dispatchAction(roomId, activePlayer.id, { type: 'DECLARE_BANKRUPTCY' });
         break;

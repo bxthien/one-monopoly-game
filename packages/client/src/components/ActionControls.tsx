@@ -60,9 +60,9 @@ export const ActionControls: React.FC<Props> = ({
           <p className="text-xs text-blue-800 leading-relaxed font-medium">
             <span className="font-bold text-gray-900">{requester?.name}</span> sở hữu Tuyến Dịch Vụ và đề nghị kích hoạt Slot Chartering tại <span className="font-bold">{tile.name}</span>:
             <br />
-            • Bạn nhận ngay <strong className="text-emerald-700">${charter.discountedRent}M</strong> (50% cước).
+            • Cước sau khi giảm còn <strong className="text-emerald-700">${charter.discountedRent}M</strong> (50% cước).
             <br />
-            • Lượt khách tiếp theo dừng tại cảng này sẽ được <strong>chia đôi 50/50 doanh thu</strong> cho bạn và {requester?.name}!
+            • Khi một người chơi khác ngoài hai bên ghé cảng lần tới, bạn và {requester?.name} sẽ chia đôi tiền cước.
           </p>
           <div className="flex items-center gap-3 mt-1">
             <button
@@ -90,7 +90,7 @@ export const ActionControls: React.FC<Props> = ({
             <span>ĐÃ GỬI ĐỀ NGHỊ "AS ONE, WE CAN"</span>
           </div>
           <p className="text-xs text-gray-600">
-            Đang chờ chủ cảng <span className="font-bold text-gray-900">{owner?.name}</span> phản hồi đề nghị chia sẻ chỗ (giảm 50% cước)...
+            Đang chờ chủ cảng <span className="font-bold text-gray-900">{owner?.name}</span> phản hồi đề nghị chia sẻ chỗ. Nếu hết giờ, bạn trả đủ ${charter.originalRent}M.
           </p>
         </div>
       );

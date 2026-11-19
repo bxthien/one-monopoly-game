@@ -1,6 +1,7 @@
 import {
   BoardTile,
   CardEffect,
+  CharterRent,
   EngineResult,
   GameAction,
   GameCard,
@@ -404,146 +405,121 @@ export class OneMonopolyEngine {
           } else {
             OneMonopolyEngine.finishStepPhase(state);
           }
-        } else if (prop.ownerId === player.id) {
-          // Already owned by this player
+          return;
+        }
+
+        const owner = state.players.find((p) => p.id === prop.ownerId);
+        if (prop.isMortgaged || !owner || owner.isBankrupt || owner.id === player.id) {
           OneMonopolyEngine.finishStepPhase(state);
-        } else {
-          // Owned by another player: calculate rent/demurrage
-          if (prop.isMortgaged) {
-            // Mortgaged: 0 rent
-            OneMonopolyEngine.finishStepPhase(state);
-          } else {
-            const owner = state.players.find((p) => p.id === prop.ownerId);
-            if (!owner || owner.isBankrupt) {
-              OneMonopolyEngine.finishStepPhase(state);
-              return;
-            }
+          return;
+        }
 
-            const rent = OneMonopolyEngine.calculateRent(state, tileId, state.dice);
-
-            // Check if player can propose Slot Chartering ("As ONE, We Can")
-            const playerOwnsServiceLine = SERVICE_LINES.some(
-              (lineId) => state.properties[lineId]?.ownerId === player.id
-            );
-            if (tile.type === 'PORT' && prop.containerLevel >= 1 && playerOwnsServiceLine) {
-              // Pause and offer Slot Chartering proposal
-              state.pendingSlotCharter = {
-                requesterId: player.id,
-                ownerId: owner.id,
-                tileId,
-                originalRent: rent,
-                discountedRent: Math.floor(rent * 0.5),
-              };
-              // Note: Phase stays in AWAITING_BUY_DECISION or special charter state
-              // We transition to AWAITING_SLOT_CHARTER_RESPONSE so player can choose to propose or pay regular
-              state.phase = 'AWAITING_SLOT_CHARTER_RESPONSE';
-              return;
-            }
-
-            // Check if there is an active Slot Charter agreement on this tile (split rent with partner)
-            if (prop.slotCharter && prop.slotCharter.active) {
-              const partnerId = prop.slotCharter.partnerId;
-              const partner = state.players.find((p) => p.id === partnerId);
-
-              if (partner && !partner.isBankrupt && partner.id !== player.id) {
-                // Third party visitor! Split 50/50 between owner and partner
-                const halfRent = Math.floor(rent * 0.5);
-                if (player.balance >= rent) {
-                  player.balance -= rent;
-                  owner.balance += halfRent;
-                  partner.balance += halfRent;
-
-                  events.push({
-                    type: 'SLOT_CHARTER_RENT_SPLIT',
-                    visitorId: player.id,
-                    ownerId: owner.id,
-                    partnerId: partner.id,
-                    tileId,
-                    splitAmount: halfRent,
-                  });
-                  events.push({
-                    type: 'BALANCE_CHANGED',
-                    playerId: player.id,
-                    newBalance: player.balance,
-                    delta: -rent,
-                    reason: `Cước cảng liên minh tại ${tile.name}`,
-                  });
-                  events.push({
-                    type: 'BALANCE_CHANGED',
-                    playerId: owner.id,
-                    newBalance: owner.balance,
-                    delta: halfRent,
-                    reason: `Nhận 50% cước liên minh từ ${player.name}`,
-                  });
-                  events.push({
-                    type: 'BALANCE_CHANGED',
-                    playerId: partner.id,
-                    newBalance: partner.balance,
-                    delta: halfRent,
-                    reason: `Nhận 50% cước chia sẻ chỗ (Slot Charter) từ ${player.name}`,
-                  });
-
-                  // Deactivate charter agreement
-                  prop.slotCharter.active = false;
-                  OneMonopolyEngine.finishStepPhase(state);
-                  return;
-                } else {
-                  OneMonopolyEngine.createDebt(
-                    state,
-                    events,
-                    player.id,
-                    owner.id,
-                    rent,
-                    `Tiền lưu bãi tại ${tile.name}`,
-                    tileId
-                  );
-                  return;
-                }
-              }
-            }
-
-            // Normal Demurrage Payment
-            if (player.balance >= rent) {
-              player.balance -= rent;
-              owner.balance += rent;
-              events.push({
-                type: 'DEMURRAGE_PAID',
-                debtorId: player.id,
-                creditorId: owner.id,
-                tileId,
-                amount: rent,
-              });
-              events.push({
-                type: 'BALANCE_CHANGED',
-                playerId: player.id,
-                newBalance: player.balance,
-                delta: -rent,
-                reason: `Tiền lưu bãi tại ${tile.name}`,
-              });
-              events.push({
-                type: 'BALANCE_CHANGED',
-                playerId: owner.id,
-                newBalance: owner.balance,
-                delta: rent,
-                reason: `Thu tiền lưu bãi từ ${player.name}`,
-              });
-              OneMonopolyEngine.finishStepPhase(state);
-            } else {
-              OneMonopolyEngine.createDebt(
-                state,
-                events,
-                player.id,
-                owner.id,
-                rent,
-                `Tiền lưu bãi tại ${tile.name}`,
-                tileId
-              );
-            }
+        const rent = OneMonopolyEngine.calculateRent(state, tileId, state.dice);
+        const agreement = prop.slotCharter;
+        if (agreement?.active && agreement.partnerId !== player.id) {
+          const partner = state.players.find((p) => p.id === agreement.partnerId && !p.isBankrupt);
+          // The next third-party visit uses this agreement, even if payment goes to debt.
+          agreement.active = false;
+          if (partner) {
+            OneMonopolyEngine.collectRent(state, events, player, owner, tileId, rent, {
+              type: 'SPLIT',
+              partnerId: partner.id,
+            });
+            return;
           }
         }
+
+        if (
+          tile.type === 'PORT' &&
+          prop.containerLevel >= 1 &&
+          SERVICE_LINES.some((id) => state.properties[id]?.ownerId === player.id)
+        ) {
+          state.pendingSlotCharter = {
+            requesterId: player.id,
+            ownerId: owner.id,
+            tileId,
+            originalRent: rent,
+            discountedRent: Math.floor(rent / 2),
+          };
+          state.phase = 'AWAITING_SLOT_CHARTER_RESPONSE';
+          return;
+        }
+
+        OneMonopolyEngine.collectRent(state, events, player, owner, tileId, rent);
         break;
       }
     }
+  }
+
+  private static collectRent(
+    state: GameState,
+    events: GameEvent[],
+    visitor: Player,
+    owner: Player,
+    tileId: number,
+    amount: number,
+    charterRent?: CharterRent
+  ): void {
+    const reason = `Tiền lưu bãi tại ${BOARD_TILES[tileId].name}`;
+    if (visitor.balance < amount) {
+      OneMonopolyEngine.createDebt(state, events, visitor.id, owner.id, amount, reason, tileId, charterRent);
+      return;
+    }
+
+    const partner = charterRent?.type === 'SPLIT'
+      ? state.players.find((p) => p.id === charterRent.partnerId && !p.isBankrupt)
+      : undefined;
+    const partnerAmount = partner ? Math.floor(amount / 2) : 0;
+    const ownerAmount = amount - partnerAmount;
+
+    if (partner) {
+      events.push({
+        type: 'SLOT_CHARTER_RENT_SPLIT',
+        visitorId: visitor.id,
+        ownerId: owner.id,
+        partnerId: partner.id,
+        tileId,
+        splitAmount: partnerAmount,
+        ownerAmount,
+      });
+    } else {
+      if (charterRent?.type === 'DISCOUNT') {
+        state.properties[tileId].slotCharter = { partnerId: visitor.id, active: true };
+        events.push({
+          type: 'SLOT_CHARTER_ACCEPTED',
+          requesterId: visitor.id,
+          ownerId: owner.id,
+          tileId,
+          rentPaid: amount,
+        });
+      }
+      events.push({
+        type: 'DEMURRAGE_PAID',
+        debtorId: visitor.id,
+        creditorId: owner.id,
+        tileId,
+        amount,
+      });
+    }
+
+    OneMonopolyEngine.applyRentBalance(visitor, -amount, reason, events);
+    const receipt = `Thu tiền lưu bãi từ ${visitor.name}`;
+    OneMonopolyEngine.applyRentBalance(owner, ownerAmount, receipt, events);
+    if (partner) {
+      OneMonopolyEngine.applyRentBalance(partner, partnerAmount, receipt, events);
+    }
+    OneMonopolyEngine.finishStepPhase(state);
+  }
+
+  private static applyRentBalance(player: Player, delta: number, reason: string, events: GameEvent[]): void {
+    player.balance += delta;
+    events.push({
+      type: 'BALANCE_CHANGED',
+      playerId: player.id,
+      newBalance: player.balance,
+      delta,
+      reason,
+    });
   }
 
   public static calculateRent(state: GameState, tileId: number, dice: [number, number]): number {
@@ -853,13 +829,15 @@ export class OneMonopolyEngine {
     creditorId: string | 'BANK',
     amount: number,
     reason: string,
-    tileId?: number
+    tileId?: number,
+    charterRent?: CharterRent
   ): void {
     state.pendingDebt = {
       creditorId,
       amount,
       reason,
       tileId,
+      charterRent,
     };
     state.phase = 'AWAITING_DEBT_RESOLUTION';
     events.push({
@@ -1077,98 +1055,20 @@ export class OneMonopolyEngine {
 
     if (!requester || !owner || !prop || !tile) return;
 
-    if (accept) {
-      // 50% discount accepted!
-      const rent = charter.discountedRent;
-      requester.balance -= rent;
-      owner.balance += rent;
-
-      // Set slot charter agreement for future 3rd party split
-      prop.slotCharter = {
-        partnerId: requester.id,
-        active: true,
-      };
-
-      events.push({
-        type: 'SLOT_CHARTER_ACCEPTED',
-        requesterId: requester.id,
-        ownerId: owner.id,
-        tileId: charter.tileId,
-        rentPaid: rent,
-      });
-      events.push({
-        type: 'DEMURRAGE_PAID',
-        debtorId: requester.id,
-        creditorId: owner.id,
-        tileId: charter.tileId,
-        amount: rent,
-      });
-      events.push({
-        type: 'BALANCE_CHANGED',
-        playerId: requester.id,
-        newBalance: requester.balance,
-        delta: -rent,
-        reason: `Trả 50% cước chia sẻ chỗ tại ${tile.name}`,
-      });
-      events.push({
-        type: 'BALANCE_CHANGED',
-        playerId: owner.id,
-        newBalance: owner.balance,
-        delta: rent,
-        reason: `Thu 50% cước chia sẻ chỗ từ ${requester.name}`,
-      });
-
-      state.pendingSlotCharter = null;
-      OneMonopolyEngine.finishStepPhase(state);
-    } else {
-      // Rejected: Requester must pay full 100% rent
-      const rent = charter.originalRent;
+    state.pendingSlotCharter = null;
+    if (!accept) {
       events.push({
         type: 'SLOT_CHARTER_REJECTED',
         requesterId: requester.id,
         ownerId: owner.id,
         tileId: charter.tileId,
       });
-
-      state.pendingSlotCharter = null;
-
-      if (requester.balance >= rent) {
-        requester.balance -= rent;
-        owner.balance += rent;
-        events.push({
-          type: 'DEMURRAGE_PAID',
-          debtorId: requester.id,
-          creditorId: owner.id,
-          tileId: charter.tileId,
-          amount: rent,
-        });
-        events.push({
-          type: 'BALANCE_CHANGED',
-          playerId: requester.id,
-          newBalance: requester.balance,
-          delta: -rent,
-          reason: `Tiền lưu bãi tại ${tile.name}`,
-        });
-        events.push({
-          type: 'BALANCE_CHANGED',
-          playerId: owner.id,
-          newBalance: owner.balance,
-          delta: rent,
-          reason: `Thu tiền lưu bãi từ ${requester.name}`,
-        });
-        OneMonopolyEngine.finishStepPhase(state);
-      } else {
-        OneMonopolyEngine.createDebt(
-          state,
-          events,
-          requester.id,
-          owner.id,
-          rent,
-          `Tiền lưu bãi tại ${tile.name}`,
-          charter.tileId
-        );
-      }
     }
+    OneMonopolyEngine.collectRent(
+      state, events, requester, owner, charter.tileId,
+      accept ? charter.discountedRent : charter.originalRent,
+      accept ? { type: 'DISCOUNT' } : undefined
+    );
   }
 
   // ==================== TÍNH NĂNG MỚI: KIỂM TRA THẺ NHIỆM VỤ BÍ MẬT ==================== //
@@ -1377,12 +1277,16 @@ export class OneMonopolyEngine {
 
     if (player.balance < debt.amount) return;
 
-    player.balance -= debt.amount;
-    if (debt.creditorId !== 'BANK') {
-      const creditor = state.players.find((p) => p.id === debt.creditorId);
-      if (creditor) {
-        creditor.balance += debt.amount;
-      }
+    const creditor = debt.creditorId === 'BANK'
+      ? undefined
+      : state.players.find((p) => p.id === debt.creditorId);
+    state.pendingDebt = null;
+    if (creditor && debt.tileId !== undefined) {
+      OneMonopolyEngine.collectRent(state, events, player, creditor, debt.tileId, debt.amount, debt.charterRent);
+    } else {
+      player.balance -= debt.amount;
+      if (creditor) creditor.balance += debt.amount;
+      OneMonopolyEngine.finishStepPhase(state);
     }
 
     events.push({
@@ -1391,9 +1295,6 @@ export class OneMonopolyEngine {
       creditorId: debt.creditorId,
       amount: debt.amount,
     });
-
-    state.pendingDebt = null;
-    OneMonopolyEngine.finishStepPhase(state);
   }
 
   private static handleDeclareBankruptcy(

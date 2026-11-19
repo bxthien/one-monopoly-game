@@ -6,6 +6,7 @@
   "main": "./dist/server.js",
   "scripts": {
     "build": "tsc --build --force",
+    "test": "npm run build && node --test tests/*.test.mjs",
     "dev": "tsx watch src/server.ts",
     "start": "node dist/server.js"
   },
