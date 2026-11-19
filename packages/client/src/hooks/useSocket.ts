@@ -37,7 +37,8 @@ export function useSocket() {
 
   // Initialize socket
   useEffect(() => {
-    const socket = io({
+    const serverUrl = (import.meta as any).env?.VITE_SERVER_URL || undefined;
+    const socket = io(serverUrl, {
       transports: ['websocket', 'polling'],
       autoConnect: true,
     });

@@ -33,7 +33,8 @@ export const Lobby: React.FC<Props> = ({
 
   // Lấy thông tin IP mạng nội bộ (LAN / Wi-Fi) từ máy chủ
   useEffect(() => {
-    fetch('/api/network-info')
+    const serverUrl = (import.meta as any).env?.VITE_SERVER_URL || '';
+    fetch(`${serverUrl}/api/network-info`)
       .then((res) => res.json())
       .then((data) => {
         if (data?.lanUrl) setLanUrl(data.lanUrl);
