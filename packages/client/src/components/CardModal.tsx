@@ -1,6 +1,6 @@
 import React, { useId } from 'react';
 import { GameCard } from '@one-monopoly/shared';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { TrendingUp, Wrench, X } from 'lucide-react';
 import { BoardDialog } from './BoardDialog.js';
 
@@ -11,52 +11,32 @@ interface Props {
 
 export const CardModal: React.FC<Props> = ({ card, onClose }) => {
   const titleId = useId();
-
+  const reduceMotion = useReducedMotion();
   if (!card) return null;
 
   const isMarket = card.type === 'MARKET';
+  const Icon = isMarket ? TrendingUp : Wrench;
 
   return (
     <BoardDialog key={card.id} labelledBy={titleId} onClose={onClose}>
       <motion.div
-        initial={{ scale: 0.8, opacity: 0, rotateY: 90 }}
-        animate={{ scale: 1, opacity: 1, rotateY: 0 }}
-        transition={{ duration: 0.4 }}
-        className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-gray-100 relative text-center"
+        initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.2 }}
+        className="chart-dialog-sheet chart-event-sheet"
       >
-        <button
-          type="button"
-          aria-label="Đóng thẻ"
-          onClick={onClose}
-          className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-gray-100 text-gray-400 transition"
-        >
-          <X className="w-5 h-5" />
+        <button type="button" aria-label="Đóng thẻ" className="chart-dialog-close" onClick={onClose}>
+          <X size={18} aria-hidden="true" />
         </button>
 
-        <div
-          className={`w-14 h-14 rounded-2xl mx-auto flex items-center justify-center text-white mb-4 shadow-lg ${
-            isMarket
-              ? 'bg-gradient-to-tr from-[#E1007A] to-pink-400 shadow-pink-200'
-              : 'bg-gradient-to-tr from-amber-500 to-orange-400 shadow-amber-200'
-          }`}
-        >
-          {isMarket ? <TrendingUp className="w-8 h-8" /> : <Wrench className="w-8 h-8" />}
-        </div>
-
-        <div className="text-xs font-black uppercase tracking-wider text-gray-400 mb-1">
+        <span className="chart-event-icon" aria-hidden="true"><Icon size={26} /></span>
+        <p className="chart-dialog-kicker">
           {isMarket ? 'THẺ BIẾN ĐỘNG THỊ TRƯỜNG' : 'THẺ SỰ CỐ & VẬN HÀNH'}
-        </div>
-
-        <h3 id={titleId} className="text-lg font-black text-gray-900 mb-3">{card.title}</h3>
-
-        <p className="text-sm text-gray-600 bg-gray-50 p-4 rounded-2xl border border-gray-100 leading-relaxed font-medium mb-6">
-          {card.description}
         </p>
+        <h3 className="chart-dialog-title" id={titleId}>{card.title}</h3>
+        <p className="chart-dialog-copy">{card.description}</p>
 
-        <button
-          onClick={onClose}
-          className="w-full py-3.5 rounded-2xl bg-gray-900 hover:bg-black text-white font-black text-sm transition shadow-md"
-        >
+        <button type="button" onClick={onClose} className="chart-button chart-button-primary chart-button-wide">
           ĐÃ HIỂU
         </button>
       </motion.div>

@@ -1,8 +1,19 @@
 import React from 'react';
 import { BoardTile, LOOP_GROUPS_CONFIG, Player, PropertyState } from '@one-monopoly/shared';
-import { motion } from 'framer-motion';
 import { TOKEN_CONFIG } from './TokenBadge.js';
-import { Leaf, Handshake } from 'lucide-react';
+import { Anchor, ArrowUpRight, Boxes, Coins, FileText, Handshake, Leaf, RadioTower, Ship, Siren, Stamp, Waves } from 'lucide-react';
+
+const tileSymbols: Partial<Record<BoardTile['type'], typeof Anchor>> = {
+  GO: ArrowUpRight,
+  CUSTOMS_HOLD: Stamp,
+  FREE_ANCHOR: Anchor,
+  GO_TO_HOLD: Siren,
+  MARKET_CARD: FileText,
+  OPS_CARD: Boxes,
+  SERVICE_LINE: Ship,
+  INFRA: RadioTower,
+  TAX: Coins,
+};
 
 interface Props {
   tile: BoardTile;
@@ -31,27 +42,7 @@ export const TileView: React.FC<Props> = ({
 }) => {
   const groupConfig = tile.group ? LOOP_GROUPS_CONFIG[tile.group] : null;
   const isCorner = orientation === 'corner';
-
-  // Hướng chữ tối ưu cho bàn cờ kim cương 3D:
-  // - Top (hàng có cảng ESVLC: GRPIR..NLRTM): '' (quay ngược lại để chữ đọc xuôi không bị lộn ngược)
-  // - Bottom (hàng có cảng HKHKG): ''
-  // - Left (cạnh dưới-trái): rotate-90
-  // - Right (cạnh trên-phải: KRPUS..USLAX): rotate-90
-  const getContentRotationClass = () => {
-    if (isCorner) return '';
-    switch (orientation) {
-      case 'top':
-        return '';
-      case 'bottom':
-        return '';
-      case 'left':
-        return 'rotate-90';
-      case 'right':
-        return 'rotate-90';
-      default:
-        return '';
-    }
-  };
+  const TileSymbol = tileSymbols[tile.type] ?? Waves;
 
   // Format Container & ONE Innovation badge
   const renderContainers = () => {
@@ -141,9 +132,9 @@ export const TileView: React.FC<Props> = ({
       aria-haspopup="dialog"
       data-tile-type={tile.type}
       onClick={onClick}
-      className={`board-tile relative w-full h-full flex flex-col justify-between border-2 border-gray-200 bg-white hover:bg-pink-50/40 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-700 transition cursor-pointer select-none overflow-hidden ${
+      className={`board-tile relative w-full h-full flex flex-col justify-between border focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-700 transition cursor-pointer select-none overflow-hidden ${
         isCorner ? 'p-1.5' : 'p-0.5'
-      } ${property?.isMortgaged ? 'opacity-65 bg-gray-50' : ''}`}
+      } ${isCorner ? 'chart-corner' : ''} ${property?.isMortgaged ? 'chart-mortgaged' : ''}`}
       style={{
         boxShadow: owner
           ? `inset 0 0 0 var(--tile-owner-ring, 3px) ${TOKEN_CONFIG[owner.token].color}`
@@ -154,21 +145,21 @@ export const TileView: React.FC<Props> = ({
       <span className="sr-only">Xem chi tiết ô {tile.name}. </span>
       {/* KHUNG NỘI DUNG XOAY ĐỒNG BỘ: Vạch màu nằm INSIDE để luôn ở phía trên của mã cảng và song song với chữ */}
       <span
-        className={`tile-content flex-1 flex flex-col items-center justify-between p-0.5 w-full h-full text-center ${getContentRotationClass()}`}
+        className={`tile-content flex-1 flex flex-col items-center justify-between p-0.5 w-full h-full text-center ${is3D && (orientation === 'left' || orientation === 'right') ? 'rotate-90' : ''}`}
       >
         {/* VẠCH MÀU PHÂN BIỆT NHÓM TUYẾN - LUÔN Ở PHÍA TRÊN CỦA MÃ CẢNG */}
         {groupConfig ? (
           <span
-            className="tile-group-color w-full h-2.5 rounded-t-xs font-black text-white text-[7px] text-center tracking-tight truncate shrink-0 mb-0.5"
+            className="tile-group-color w-full h-2 shrink-0 mb-0.5"
             style={{ backgroundColor: groupConfig.color }}
           />
         ) : (
-          <span className="tile-stripe-spacer h-1 shrink-0" />
+          <TileSymbol className="chart-tile-symbol" strokeWidth={1.75} aria-hidden="true" />
         )}
 
         {/* MÃ CẢNG - ĐẶT NGAY DƯỚI VẠCH MÀU, CHỮ TO RÕ NÉT */}
         <span className="tile-code-row flex items-center justify-center gap-0.5 w-full my-auto">
-          <span className="tile-code text-[10px] sm:text-[11px] font-black text-gray-950 tracking-tight leading-none whitespace-nowrap">
+          <span className="tile-code text-[10px] sm:text-[11px] font-bold leading-none whitespace-nowrap">
             {getDisplayCode()}
           </span>
           {property?.hasGreenFleet && (

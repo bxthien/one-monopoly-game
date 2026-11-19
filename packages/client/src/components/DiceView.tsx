@@ -5,6 +5,7 @@ interface Props {
   dice: [number, number];
   isRolling?: boolean;
   hasRolled?: boolean;
+  is3D?: boolean;
 }
 
 // Hàm render các chấm tròn (pips) của xúc xắc
@@ -30,11 +31,13 @@ const renderPips = (value: number, pipColor = '#FFFFFF') => {
 };
 
 // Component Viên Xúc Xắc 3D Khối Hộp (3D Cube Die)
-const Die3D: React.FC<{
+interface DieProps {
   value: number;
   isRolling: boolean;
   theme: 'magenta' | 'navy';
-}> = ({ value, isRolling, theme }) => {
+}
+
+const Die3D: React.FC<DieProps> = ({ value, isRolling, theme }) => {
   const isMagenta = theme === 'magenta';
   const topBg = isMagenta
     ? 'bg-gradient-to-br from-[#FF1A8C] via-[#E1007A] to-[#B80063]'
@@ -134,27 +137,30 @@ const Die3D: React.FC<{
   );
 };
 
-export const DiceView: React.FC<Props> = ({ dice, isRolling = false, hasRolled = false }) => {
+const Die2D: React.FC<DieProps> = ({ value, isRolling, theme }) => (
+  <span className={`chart-die chart-die-${theme}`} data-rolling={isRolling}>
+    {renderPips(value, 'currentColor')}
+  </span>
+);
+
+export const DiceView: React.FC<Props> = ({ dice, isRolling = false, hasRolled = false, is3D = true }) => {
   const [d1, d2] = dice;
   const isDouble = d1 === d2;
+  const Die = is3D ? Die3D : Die2D;
 
   return (
     <div
       className="flex flex-col items-center gap-3 select-none"
       style={{ transformStyle: 'preserve-3d' }}
     >
-      {/* 2 Viên Xúc Xắc 3D: Khối hộp Magenta & Navy nguyên bản, không có background trắng */}
       <div
-        className="flex items-center justify-center gap-6"
-        style={{
-          transformStyle: 'preserve-3d',
-        }}
+        className={`flex items-center justify-center ${is3D ? 'gap-6' : 'gap-2'}`}
+        style={{ transformStyle: is3D ? 'preserve-3d' : undefined }}
+        role="img"
+        aria-label={isRolling ? 'Đang gieo xúc xắc' : `Xúc xắc: ${d1} và ${d2}`}
       >
-        {/* Viên 1: ONE Magenta */}
-        <Die3D value={d1} isRolling={isRolling} theme="magenta" />
-
-        {/* Viên 2: ONE Global Navy */}
-        <Die3D value={d2} isRolling={isRolling} theme="navy" />
+        <Die value={d1} isRolling={isRolling} theme="magenta" />
+        <Die value={d2} isRolling={isRolling} theme="navy" />
       </div>
 
       {/* Thông báo đổ đôi */}
@@ -163,7 +169,7 @@ export const DiceView: React.FC<Props> = ({ dice, isRolling = false, hasRolled =
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           className="text-xs font-black tracking-wider text-emerald-700 bg-emerald-100/95 px-3 py-1 rounded-full border border-emerald-300 shadow-md animate-pulse whitespace-nowrap"
-          style={{ transform: 'translateZ(20px)' }}
+          style={{ transform: is3D ? 'translateZ(20px)' : undefined }}
         >
           🎲 LẮC ĐƯỢC ĐÔI ({d1} - {d2})! ĐI TIẾP LƯỢT NỮA
         </motion.span>
