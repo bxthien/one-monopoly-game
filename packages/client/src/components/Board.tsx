@@ -7,6 +7,7 @@ import { CardModal } from './CardModal.js';
 import { Pawn3D } from './Pawn3D.js';
 import { forwardHeading, type TravelFrame } from './boardTravel.js';
 import { useBoardPlayback } from './useBoardPlayback.js';
+import { useIdleMotion } from '../hooks/useIdleMotion.js';
 import type { SubscribeBoard } from '../hooks/useSocket.js';
 import './chart-board.css';
 
@@ -122,6 +123,7 @@ const PacificChart = React.memo(function PacificChart() {
 interface MovingPawnProps {
   player: Player;
   frame?: TravelFrame;
+  allowIdle: boolean;
   tile: number;
   heading: number;
   is3D: boolean;
@@ -131,7 +133,7 @@ interface MovingPawnProps {
   advance: (id: string, frame: TravelFrame) => void;
 }
 
-function MovingPawn({ player, frame, tile, heading, is3D, zIndex, stackIndex, stackSize, advance }: MovingPawnProps) {
+function MovingPawn({ player, frame, allowIdle, tile, heading, is3D, zIndex, stackIndex, stackSize, advance }: MovingPawnProps) {
   useLayoutEffect(() => {
     if (!frame) return;
     if (frame.duration === 0) {
@@ -152,7 +154,7 @@ function MovingPawn({ player, frame, tile, heading, is3D, zIndex, stackIndex, st
       transformStyle: is3D ? 'preserve-3d' : undefined,
       zIndex,
     }}>
-      <Pawn3D player={player} is3D={is3D} heading={heading} stackIndex={stackIndex} stackSize={stackSize} />
+      <Pawn3D player={player} idle={allowIdle && !frame} is3D={is3D} heading={heading} stackIndex={stackIndex} stackSize={stackSize} />
     </div>
   );
 }
@@ -170,6 +172,8 @@ export const Board: React.FC<Props> = ({
 }) => {
   const [selectedTileId, setSelectedTileId] = useState<number | null>(null);
 
+  const idleMotion = useIdleMotion();
+  const allowIdle = idleMotion && selectedTileId === null && !activeCard && !gameState.winnerId;
   const { tracks, claims, advance } = useBoardPlayback(gameState, subscribeBoard);
   const moving = gameState.players.some((player) => !player.isBankrupt && tracks[player.id]?.frames.length);
   useLayoutEffect(() => { onPawnMovingChange?.(moving); }, [moving, onPawnMovingChange]);
@@ -331,6 +335,7 @@ export const Board: React.FC<Props> = ({
                   key={player.id}
                   player={player}
                   frame={frame}
+                  allowIdle={allowIdle}
                   tile={tile}
                   heading={pose?.heading ?? forwardHeading(tile)}
                   is3D={is3D}

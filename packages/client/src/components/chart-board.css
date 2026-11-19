@@ -243,3 +243,41 @@
   text-align: center;
 }
 .chart-double-result > span { font-size: .64rem; font-weight: 500; }
+
+/* Idle motion belongs to the artwork. The counter, direction pointer and ground ring stay fixed. */
+@media (prefers-reduced-motion: no-preference) {
+  [data-idle-motion='hull'] { --pawn-idle: chart-hull-idle 3.8s ease-in-out infinite; }
+  [data-idle-motion='engine'] { --pawn-idle: chart-engine-idle 2.6s ease-in-out infinite; }
+  [data-idle-motion='hoist'] { --pawn-idle: chart-hoist-idle 4s ease-in-out infinite; }
+
+  .chart-counter:is([data-idle-motion='hull'], [data-idle-motion='engine']) > svg,
+  .chart-counter[data-idle-motion='hoist'] .chart-gantry-load,
+  .chart-model-pawn[data-idle-motion] .token-model:not([data-ready]) > img {
+    animation: var(--pawn-idle);
+    transform-origin: 50% 80%;
+  }
+
+  .chart-counter[data-idle-motion='hoist'] .chart-gantry-load {
+    --hoist-swing: 9deg;
+    transform-box: fill-box;
+    transform-origin: 50% 0;
+  }
+}
+
+@keyframes chart-hull-idle {
+  0%, 100% { translate: 0 0; rotate: 0deg; }
+  27% { translate: 0 -3%; rotate: -2deg; }
+  73% { translate: 0 2%; rotate: 1.6deg; }
+}
+
+@keyframes chart-engine-idle {
+  0%, 38%, 85%, 100% { translate: 0 0; }
+  50% { translate: 0 2.5%; }
+  65% { translate: 0 -1.5%; }
+}
+
+@keyframes chart-hoist-idle {
+  0%, 100% { rotate: 0deg; }
+  27% { rotate: var(--hoist-swing, 1.1deg); }
+  73% { rotate: calc(0deg - var(--hoist-swing, 1.1deg)); }
+}

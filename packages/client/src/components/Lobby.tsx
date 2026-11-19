@@ -3,6 +3,7 @@ import { VESSEL_TOKENS, type VesselToken } from '@one-monopoly/shared';
 import { ArrowRight, Check, Compass, Copy, KeyRound, Plus, Users, Wifi } from 'lucide-react';
 import { RoomState } from '../hooks/useSocket.js';
 import { TOKEN_CONFIG } from './TokenBadge.js';
+import { useIdleMotion } from '../hooks/useIdleMotion.js';
 import { TokenModel, tokenPosterUrl } from './TokenModel.js';
 import './chart-lobby.css';
 
@@ -19,6 +20,7 @@ interface Props {
 export const Lobby: React.FC<Props> = ({
   room, myPlayerId, onCreateRoom, onJoinRoom, onToggleReady, onStartGame, onLeaveRoom,
 }) => {
+  const idleMotion = useIdleMotion();
   const [tab, setTab] = useState<'create' | 'join'>('create');
   const [playerName, setPlayerName] = useState('Thuyền Trưởng ONE');
   const [roomCode, setRoomCode] = useState('');
@@ -142,7 +144,7 @@ export const Lobby: React.FC<Props> = ({
                   <legend>Chọn quân cờ vận tải</legend>
                   <figure className="chart-token-preview">
                     <div className="chart-token-stage">
-                      <TokenModel token={selectedToken} interactive />
+                      <TokenModel token={selectedToken} interactive idle={idleMotion} />
                     </div>
                     <figcaption>
                       <strong>{selectedConfig.label}</strong>
