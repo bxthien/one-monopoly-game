@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { VesselToken } from '@one-monopoly/shared';
+import { VESSEL_TOKENS, type VesselToken } from '@one-monopoly/shared';
 import { ArrowRight, Check, Compass, Copy, KeyRound, Plus, Users, Wifi } from 'lucide-react';
 import { RoomState } from '../hooks/useSocket.js';
 import { TOKEN_CONFIG } from './TokenBadge.js';
+import { TokenModel, tokenPosterUrl } from './TokenModel.js';
 import './chart-lobby.css';
 
 interface Props {
@@ -14,10 +15,6 @@ interface Props {
   onStartGame: () => void;
   onLeaveRoom: () => void;
 }
-
-const availableTokens: VesselToken[] = [
-  'ONE_APUS', 'ONE_MAGENTA', 'GANTRY_CRANE', 'CONTAINER_TRUCK', 'FREIGHT_TRAIN', 'REEFER_TRUCK',
-];
 
 export const Lobby: React.FC<Props> = ({
   room, myPlayerId, onCreateRoom, onJoinRoom, onToggleReady, onStartGame, onLeaveRoom,
@@ -56,6 +53,7 @@ export const Lobby: React.FC<Props> = ({
   const isHost = room?.hostId === myPlayerId;
   const myPlayer = room?.players.find((player) => player.id === myPlayerId);
   const creating = tab === 'create';
+  const selectedConfig = TOKEN_CONFIG[selectedToken];
 
   async function copyLink(kind: 'invite' | 'lan') {
     const link = kind === 'invite' && room
@@ -98,7 +96,7 @@ export const Lobby: React.FC<Props> = ({
               <ul className="chart-crew">
                 {room.players.map((player) => (
                   <li key={player.id}>
-                    <span className="chart-crew-token" aria-hidden="true">{TOKEN_CONFIG[player.token].emoji}</span>
+                    <img className="chart-crew-token" src={tokenPosterUrl(player.token)} alt="" />
                     <div className="chart-crew-name"><strong>{player.name}{player.id === myPlayerId && ' (bạn)'}</strong><small>{TOKEN_CONFIG[player.token].label}</small></div>
                     <span className="chart-crew-status">{player.id === room.hostId ? 'Chủ phòng' : player.isReady ? 'Sẵn sàng' : 'Chưa sẵn sàng'}</span>
                   </li>
@@ -142,16 +140,26 @@ export const Lobby: React.FC<Props> = ({
                 )}
                 <fieldset className="chart-token-field">
                   <legend>Chọn quân cờ vận tải</legend>
+                  <figure className="chart-token-preview">
+                    <div className="chart-token-stage">
+                      <TokenModel token={selectedToken} interactive />
+                    </div>
+                    <figcaption>
+                      <strong>{selectedConfig.label}</strong>
+                      <span>{selectedConfig.desc}</span>
+                      <small className="chart-token-rotate-hint" aria-hidden="true">Kéo hoặc dùng phím mũi tên để xoay.</small>
+                    </figcaption>
+                  </figure>
                   <div className="chart-token-grid">
-                    {availableTokens.map((token) => {
+                    {VESSEL_TOKENS.map((token) => {
                       const cfg = TOKEN_CONFIG[token];
                       return (
                         <label key={token} className="chart-token-option">
                           <input type="radio" name="vessel" aria-label={cfg.label} value={token} checked={selectedToken === token}
                             onChange={() => setSelectedToken(token)} />
                           <span className="chart-token-card">
-                            <span className="chart-token-icon" aria-hidden="true">{cfg.emoji}</span>
-                            <span>{cfg.label}</span>
+                            <img className="chart-token-thumbnail" src={tokenPosterUrl(token)} alt="" draggable={false} />
+                            <span>{cfg.shortName}</span>
                             {selectedToken === token && <Check className="chart-token-check" aria-hidden="true" />}
                           </span>
                         </label>

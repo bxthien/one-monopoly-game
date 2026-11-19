@@ -354,7 +354,7 @@ export const Board: React.FC<Props> = ({
             </div>
           </div>
 
-          {/* Lớp hiển thị nhân vật 3D toàn cục (Persistent Pawn Overlay Layer: lướt liên tục không chớp tắt, đè lẫn nhau khi chung ô) */}
+          {/* Keep each player's pawn mounted as it travels between tiles. */}
           <div
             className="absolute inset-2 pointer-events-none z-30"
             style={{ transformStyle: is3D ? 'preserve-3d' : undefined }}
@@ -363,7 +363,7 @@ export const Board: React.FC<Props> = ({
                 const anim = animStates[p.id];
                 const tile = anim ? anim.currentTile : p.position;
                 const isMoving = anim?.isMoving ?? false;
-                const flatStack = !is3D && !isMoving ? livePlayers.filter((other) => {
+                const occupants = !isMoving ? livePlayers.filter((other) => {
                   const otherAnim = animStates[other.id];
                   return !otherAnim?.isMoving && (otherAnim?.currentTile ?? other.position) === tile;
                 }) : [];
@@ -413,11 +413,9 @@ export const Board: React.FC<Props> = ({
                   >
                     <Pawn3D
                       player={p}
-                      isMoving={isMoving}
                       is3D={is3D}
-                      isMe={p.id === myPlayerId}
-                      stackIndex={is3D ? pIdx : Math.max(0, flatStack.indexOf(p))}
-                      stackSize={flatStack.length || 1}
+                      stackIndex={Math.max(0, occupants.indexOf(p))}
+                      stackSize={occupants.length || 1}
                     />
                   </motion.div>
                 );

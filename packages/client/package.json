@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@google/model-viewer": "^4.4.0",
     "@one-monopoly/shared": "*",
     "canvas-confetti": "^1.9.3",
     "clsx": "^2.1.1",
