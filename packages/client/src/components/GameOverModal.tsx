@@ -1,8 +1,9 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useId, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import { GameState } from '@one-monopoly/shared';
-import { TOKEN_CONFIG, TokenBadge } from './TokenBadge.js';
 import { Trophy, RotateCcw } from 'lucide-react';
+import { BoardDialog } from './BoardDialog.js';
+import { TokenBadge } from './TokenBadge.js';
 
 interface Props {
   gameState: GameState;
@@ -10,52 +11,46 @@ interface Props {
 }
 
 export const GameOverModal: React.FC<Props> = ({ gameState, onRestart }) => {
-  if (!gameState.winnerId) return null;
-
-  const winner = gameState.players.find((p) => p.id === gameState.winnerId);
-  if (!winner) return null;
-
-  const cfg = TOKEN_CONFIG[winner.token];
+  const titleId = useId();
+  const confettiRef = useRef<HTMLCanvasElement>(null);
+  const winner = gameState.players.find((player) => player.id === gameState.winnerId);
+  const winnerId = winner?.id;
 
   useEffect(() => {
-    confetti({
-      particleCount: 120,
+    if (!winnerId || !confettiRef.current) return;
+    const celebrate = confetti.create(confettiRef.current, { resize: true, disableForReducedMotion: true });
+    celebrate({
+      particleCount: 100,
       spread: 80,
-      origin: { y: 0.6 },
+      origin: { y: 0.65 },
+      colors: ['#c4006a', '#183950', '#cca167', '#66a9ac'],
     });
-  }, []);
+    return () => celebrate.reset();
+  }, [winnerId]);
+
+  if (!winner) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn">
-      <div className="bg-white rounded-3xl max-w-md w-full p-8 shadow-2xl border border-gray-100 text-center relative">
-        <div className="w-20 h-20 rounded-3xl bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-4 shadow-inner">
-          <Trophy className="w-10 h-10" />
-        </div>
-
-        <span className="text-xs font-black uppercase tracking-widest text-[#E1007A] bg-pink-50 px-3 py-1 rounded-full border border-pink-200">
-          VÔ ĐỊCH HẢI TRÌNH ONE
-        </span>
-
-        <h2 className="text-3xl font-black text-gray-900 mt-3 mb-2">{winner.name}</h2>
-        <p className="text-sm text-gray-500 mb-6">
+    <BoardDialog labelledBy={`${titleId}-result ${titleId}`}>
+      <div className="chart-dialog-sheet chart-winner-sheet">
+        <canvas ref={confettiRef} aria-hidden="true" className="pointer-events-none absolute inset-0 z-10 h-full w-full" />
+        <span className="chart-event-icon" aria-hidden="true"><Trophy size={28} /></span>
+        <p id={`${titleId}-result`} className="chart-dialog-kicker">VÔ ĐỊCH HẢI TRÌNH ONE</p>
+        <h2 id={titleId} className="chart-dialog-title">{winner.name}</h2>
+        <p className="chart-dialog-copy">
           Đã thống trị toàn bộ mạng lưới cảng biển và đánh bại mọi đối thủ trên đại dương!
         </p>
-
-        <div className="flex items-center justify-center gap-3 p-4 bg-gray-50 rounded-2xl border border-gray-100 mb-6">
+        <div className="chart-winner-balance">
           <TokenBadge token={winner.token} size="md" />
-          <div className="text-left">
-            <span className="text-xs text-gray-400 font-bold block">TÀI SẢN KẾT THÚC</span>
-            <span className="text-lg font-black text-emerald-600">${winner.balance}M</span>
+          <div>
+            <span className="chart-dialog-kicker">TÀI SẢN KẾT THÚC</span>
+            <strong className="block">${winner.balance}M</strong>
           </div>
         </div>
-
-        <button
-          onClick={onRestart}
-          className="w-full py-4 rounded-2xl bg-[#E1007A] hover:bg-[#B80063] text-white font-black text-base flex items-center justify-center gap-2 shadow-xl shadow-pink-200 transition"
-        >
-          <RotateCcw className="w-5 h-5" /> CHƠI LẠI VÁN MỚI
+        <button type="button" onClick={onRestart} className="chart-button chart-button-primary chart-button-wide">
+          <RotateCcw size={18} aria-hidden="true" /> CHƠI LẠI VÁN MỚI
         </button>
       </div>
-    </div>
+    </BoardDialog>
   );
 };

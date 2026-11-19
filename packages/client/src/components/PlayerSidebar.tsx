@@ -1,86 +1,43 @@
 import React from 'react';
-import { GameAction, GameState } from '@one-monopoly/shared';
+import { GameState } from '@one-monopoly/shared';
+import { Anchor, Timer } from 'lucide-react';
 import { TOKEN_CONFIG } from './TokenBadge.js';
 
 interface Props {
   gameState: GameState;
   myPlayerId: string | null;
   turnTimer: { seconds: number; playerId: string } | null;
-  onAction?: (action: GameAction) => void;
 }
 
-export const PlayerSidebar: React.FC<Props> = ({
-  gameState,
-  myPlayerId,
-  turnTimer,
-}) => {
-  const activePlayer = gameState.players[gameState.activePlayerIndex];
-
+export const PlayerSidebar: React.FC<Props> = ({ gameState, myPlayerId, turnTimer }) => {
+  const active = gameState.players[gameState.activePlayerIndex];
+  const isMyTurn = myPlayerId === active.id;
   return (
-    <div className="flex flex-col gap-1.5 select-none pointer-events-auto">
-      {/* Danh Sách Người Chơi Tinh Gọn: Góc Trên Bên Trái, Mỗi User 1 Hàng */}
-      <div className="bg-white/95 backdrop-blur-md p-2 rounded-2xl shadow-lg border border-gray-200/90 flex flex-col gap-1 min-w-[210px] sm:min-w-[230px]">
-        {gameState.players.map((p) => {
-          const isActive = p.id === activePlayer.id;
-          const isMe = p.id === myPlayerId;
-          const cfg = TOKEN_CONFIG[p.token];
-
-          return (
-            <div
-              key={p.id}
-              className={`flex items-center justify-between px-2.5 py-1.5 rounded-xl transition ${
-                isActive
-                  ? 'bg-pink-50/90 border-2 border-[#E1007A] shadow-xs'
-                  : 'bg-gray-50/80 border border-transparent'
-              } ${p.isBankrupt ? 'opacity-40 grayscale' : ''}`}
-            >
-              {/* Icon + Tên */}
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="text-base shrink-0 leading-none" title={cfg.label}>
-                  {cfg.emoji}
-                </span>
-                <div className="flex items-center gap-1 min-w-0">
-                  <span
-                    className={`text-xs truncate max-w-[100px] sm:max-w-[120px] ${
-                      isActive ? 'font-black text-gray-950' : 'font-bold text-gray-700'
-                    }`}
-                  >
-                    {p.name}
-                  </span>
-                  {isMe && (
-                    <span className="text-[8px] bg-[#E1007A] text-white px-1 py-0.2 rounded font-black shrink-0">
-                      BẠN
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Số tiền mặt */}
-              <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                {p.isBankrupt ? (
-                  <span className="text-[10px] font-black text-red-600 bg-red-50 px-1.5 py-0.2 rounded">
-                    Phá sản
-                  </span>
-                ) : (
-                  <span
-                    className={`text-xs font-black tracking-tight ${
-                      isActive ? 'text-[#E1007A]' : 'text-emerald-700'
-                    }`}
-                  >
-                    ${p.balance.toLocaleString('en-US')}M
-                  </span>
-                )}
-                {isActive && turnTimer && (
-                  <span className="text-[10px] font-black text-[#E1007A] bg-pink-100 px-1 py-0.2 rounded-md animate-pulse">
-                    {turnTimer.seconds}s
-                  </span>
-                )}
-              </div>
-            </div>
-          );
-        })}
+    <section className="table-scoreboard" aria-label="Đội tàu">
+      <div className="chart-turn">
+        <div className="chart-turn-line">
+          <span><Anchor size={14} /> Đang đến lượt</span>
+          {turnTimer?.playerId === active.id && (
+            <time aria-label={`Còn ${turnTimer.seconds} giây`}><Timer size={14} />{turnTimer.seconds}s</time>
+          )}
+        </div>
+        <h2>{isMyTurn ? 'Lượt của bạn' : active.name}</h2>
       </div>
-    </div>
+      <div className="chart-fleet">
+        <div className="chart-fleet-title"><h2>Đội tàu</h2><span>Số dư</span></div>
+        <ul className="table-players">
+          {gameState.players.map(player => {
+            const token = TOKEN_CONFIG[player.token];
+            return (
+              <li key={player.id} className="table-player" aria-current={player.id === active.id ? 'step' : undefined}>
+                <span className="chart-token" style={{ borderColor: token.color }} title={token.label}>{token.emoji}</span>
+                <span className="chart-player-name">{player.name}{player.id === myPlayerId && <small>Bạn</small>}</span>
+                <strong className="chart-balance">{player.isBankrupt ? 'Phá sản' : `$${player.balance.toLocaleString('en-US')}M`}</strong>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </section>
   );
 };
-

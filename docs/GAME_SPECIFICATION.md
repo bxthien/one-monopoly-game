@@ -128,7 +128,10 @@ Khi đang ở `CUSTOMS_HOLD`, người chơi có 3 cách để thoát:
   - Nếu B đồng ý:
     - A được **giảm 50% cước phí** cho lượt này.
     - Cảng đó được kích hoạt Thỏa thuận Liên minh: Ở lượt kế tiếp khi có **bất kỳ người chơi thứ ba nào** đi vào cảng, A và B sẽ **chia đôi 50/50 doanh thu** cước thu được!
-  - Nếu B từ chối: A phải nộp đủ 100% cước phí bình thường.
+  - Nếu B từ chối hoặc hết thời gian phản hồi, A phải nộp đủ 100% cước phí bình thường.
+  - Nếu A thiếu tiền, số cước sau quyết định của B trở thành khoản nợ theo mục 6. Thỏa thuận mới có hiệu lực khi A thanh toán đủ cước đã giảm.
+  - Thỏa thuận đang có được ưu tiên ở lần ghé cảng của người chơi thứ ba tiếp theo, kể cả khi người đó sở hữu Tuyến Dịch Vụ. Nếu khách thiếu tiền, khoản nợ ghi nhận phần của cả hai bên và được chia khi khách thanh toán. Khi chia số tiền lẻ theo đơn vị triệu USD, chủ cảng nhận phần dư (ví dụ $625M được chia thành $313M cho chủ cảng và $312M cho đối tác).
+  - Nếu khách phá sản trước khi thanh toán, lần chia cước đó kết thúc. Chủ cảng nhận tiền mặt còn lại và tài sản của khách theo quy tắc phá sản ở mục 6.
 
 ### 7.2. Nâng Cấp "Tàu Nhiên Liệu Xanh" (Green Fleet Upgrade – Methanol / Ammonia)
 - Tại bất kỳ cảng nào đã nâng cấp tối đa lên **Siêu tàu ONE Innovation (24.000 TEU)**, chủ sở hữu có thể trả thêm **$150M** để gắn **Huy Hiệu Xanh (Green Fuel Ready)**.

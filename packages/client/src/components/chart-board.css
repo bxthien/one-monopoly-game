@@ -1,0 +1,137 @@
+/* Ink, warm stock and a laminated edge around the printed Pacific chart. */
+.chart-slab {
+  border-color: #153e43;
+  border-radius: 12px;
+  background: #dddbbd;
+  box-shadow: inset 0 0 0 2px #fff9dd, 0 2px 0 #78948c, 0 4px 0 #234d50,
+    0 16px 28px -15px #123c4359;
+}
+
+.chart-slab.board-tilted {
+  box-shadow: inset 0 0 0 2px #fff8db, 0 2px 0 #aeccbc, 0 5px 0 #225a5d,
+    0 7px 0 #e1c98d, 0 13px 0 #153c43, 0 17px 0 #0d3138,
+    0 29px 28px -5px #183a4559;
+}
+
+.chart-water {
+  border: 1px solid #527c75;
+  border-radius: 3px;
+  background: radial-gradient(ellipse at 48% 48%, #e5f1de 0%, #c5e1d8 48%, #95c9c0 100%);
+}
+
+.pacific-chart {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  overflow: hidden;
+}
+
+.chart-slab .board-tile {
+  border-color: #859b8d;
+  border-radius: 3px;
+  color: #143f43;
+  background: linear-gradient(155deg, #fffdf0 35%, #f1ecd7);
+  box-shadow: inset 0 0 0 1px #fffae9;
+}
+
+.chart-slab .board-tile:hover {
+  background: #fff0df;
+  border-color: #af3765;
+}
+
+.chart-slab .tile-code,
+.chart-slab .tile-amount {
+  font-family: var(--chart-mono, 'IBM Plex Mono', ui-monospace, monospace);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.045em;
+}
+
+.tile-group-color {
+  border-bottom: 1px solid #203d3c38;
+  border-radius: 1px;
+  background-image: linear-gradient(90deg, transparent 72%, #fffaee6b 72% 75%, transparent 75% 80%, #fffaee6b 80% 83%, transparent 83%);
+}
+
+.chart-tile-symbol {
+  flex-shrink: 0;
+  width: 17px;
+  height: 17px;
+  color: #327675;
+}
+
+.board-tile[data-tile-type='MARKET_CARD'] .chart-tile-symbol,
+.board-tile[data-tile-type='TAX'] .chart-tile-symbol {
+  color: #a72e5f;
+}
+
+.chart-slab .board-tile.chart-corner {
+  border-color: #325f5e;
+  background: #18494b;
+  color: #fff7da;
+  box-shadow: inset 0 0 0 2px #285856, inset 0 0 0 3px #96b6a3;
+}
+
+.chart-slab .board-tile.chart-corner:hover { background: #296364; }
+.chart-slab .chart-corner:focus-visible { outline-color: #fff4b0; }
+.chart-corner .chart-tile-symbol { color: #e9c982; }
+.chart-corner .tile-amount > span { color: #f3e3b0; }
+.chart-slab .chart-mortgaged { background: #e1e1d6; color: #67736b; }
+
+@container (max-width: 780px) or (max-height: 520px) {
+  .chart-tile-symbol { display: none; }
+  .board-tile:is([data-tile-type='MARKET_CARD'], [data-tile-type='OPS_CARD']) .chart-tile-symbol {
+    display: block;
+    width: min(12px, 28cqw);
+    height: min(12px, 28cqh);
+  }
+  .chart-slab .board-tile.chart-corner {
+    box-shadow: inset 0 0 0 1px #9dbda5;
+  }
+  .chart-slab.board-tilted {
+    box-shadow: inset 0 0 0 1px #fff8db, 0 3px 0 #225a5d, 0 4px 0 #e1c98d,
+      0 7px 0 #153c43, 0 13px 14px -6px #183a4559;
+  }
+}
+
+.chart-counter {
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  width: clamp(18px, 4.5cqw, 30px);
+  aspect-ratio: 1;
+  border: 2px solid #fff9dd;
+  outline: 1px solid #24484b;
+  border-radius: 50%;
+  background: var(--vessel-color);
+  background: color-mix(in srgb, var(--vessel-color) 70%, #183542);
+  color: #fffbea;
+}
+
+.chart-counter svg { width: 75%; height: 75%; }
+.chart-counter[data-grouped='true'] { width: clamp(12px, 3.2cqw, 21px); border-width: 1px; }
+
+.chart-die {
+  display: block;
+  width: clamp(29px, 7cqw, 50px);
+  aspect-ratio: 1;
+  border: 2px solid currentColor;
+  border-radius: 18%;
+  background: #fffcef;
+}
+
+.chart-die svg { padding: 9%; filter: none; }
+.chart-die-magenta { color: #ac275d; rotate: -8deg; }
+.chart-die-navy { color: #234f54; rotate: 7deg; }
+.chart-die[data-rolling='true'] { animation: chart-die-roll .62s ease-in-out infinite; }
+.chart-die-navy[data-rolling='true'] { animation-direction: reverse; }
+
+@keyframes chart-die-roll {
+  from { transform: rotate(0); }
+  to { transform: rotate(180deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chart-die[data-rolling='true'] { animation: none; }
+}

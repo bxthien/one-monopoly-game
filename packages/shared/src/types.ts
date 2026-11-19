@@ -115,11 +115,16 @@ export type TurnPhase =
   | 'AWAITING_DEBT_RESOLUTION'
   | 'END_OF_TURN';
 
+export type CharterRent =
+  | { type: 'DISCOUNT' }
+  | { type: 'SPLIT'; partnerId: string };
+
 export interface DebtInfo {
   creditorId: string | 'BANK';
   amount: number;
   reason: string;
   tileId?: number;
+  charterRent?: CharterRent;
 }
 
 export interface PendingSlotCharter {
@@ -179,7 +184,7 @@ export type GameEvent =
   | { type: 'SLOT_CHARTER_PROPOSED'; requesterId: string; ownerId: string; tileId: number }
   | { type: 'SLOT_CHARTER_ACCEPTED'; requesterId: string; ownerId: string; tileId: number; rentPaid: number }
   | { type: 'SLOT_CHARTER_REJECTED'; requesterId: string; ownerId: string; tileId: number }
-  | { type: 'SLOT_CHARTER_RENT_SPLIT'; visitorId: string; ownerId: string; partnerId: string; tileId: number; splitAmount: number }
+  | { type: 'SLOT_CHARTER_RENT_SPLIT'; visitorId: string; ownerId: string; partnerId: string; tileId: number; splitAmount: number; ownerAmount: number }
   | { type: 'MISSION_COMPLETED'; playerId: string; mission: SecretMissionCard; reward: number }
   | { type: 'TILE_MORTGAGED'; playerId: string; tileId: number; amount: number }
   | { type: 'TILE_UNMORTGAGED'; playerId: string; tileId: number; cost: number }

@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { BOARD_TILES, GameAction, GameCard, GameState, OneMonopolyEngine, Player } from '@one-monopoly/shared';
+import { BOARD_TILES, GameAction, GameCard, GameState, OneMonopolyEngine } from '@one-monopoly/shared';
 import { TileView } from './TileView.js';
 import { DiceView } from './DiceView.js';
 import { PropertyModal } from './PropertyModal.js';
 import { CardModal } from './CardModal.js';
 import { Pawn3D } from './Pawn3D.js';
+import './chart-board.css';
 
 interface Props {
   gameState: GameState;
@@ -53,6 +54,67 @@ const TILE_CENTER_PERCENT: Record<number, { x: number; y: number }> = {
   30: { x: 29.38, y: 93.04 },
   31: { x: 19.07, y: 93.04 },
 };
+
+// Original schematic of the Pacific basin. The open ocean is the dice landing area.
+const PacificChart = React.memo(function PacificChart() {
+  return (
+    <svg className="pacific-chart" viewBox="0 0 480 480" aria-hidden="true" focusable="false">
+      <defs>
+        <pattern id="chart-graticule" width="40" height="40" patternUnits="userSpaceOnUse">
+          <path d="M40 0H0V40" fill="none" stroke="#75a7a0" strokeWidth="1" />
+          <path d="M18 20h4m-2-2v4" fill="none" stroke="#8eb3a8" strokeWidth=".8" />
+        </pattern>
+        <pattern id="chart-land" width="6" height="6" patternUnits="userSpaceOnUse">
+          <rect width="6" height="6" fill="#ece7ca" />
+          <path d="m-1 1 2-2m-1 7 6-6m-1 7 2-2" stroke="#d4d2b6" strokeWidth=".9" />
+        </pattern>
+        <g id="chart-coasts" strokeLinejoin="round">
+          {/* East Asia and its offshore islands */}
+          <path d="M-5-5h207l-12 12-13 2-8 10-12 4-2 12-9 7-6 13 4 10-6 12-5-6 1-18-9 4-10 14-4 14 5 5-8 7-3 14-7 7-4-3 1-10-8 1-5 12 6 8-3 7-11 2-6 11-11 4 3 12-9 12-10 5-3 10-15 8-7 11 6 11-2 15-8 9-7-2 1-8-8-13-4-1-1 28 6 11-1 7-9-13-5-20-9-8-9-1z" />
+          <path d="m103 133 7-7 5-9 7-3-4 11-9 9-7 2z M111 112l3-7 7-4 1 6-6 5z M73 166l4-10 4-1-1 8-5 6z M69 193l5-6 5 8-2 10-5-4z M78 211l4-6 3 5-2 6z M73 220l5-5 8 5-6 4z" />
+          {/* Indonesia, Australia and New Zealand */}
+          <path d="m20 250 10 4 7 11 15 9-4 3-17-11z M51 277l22 4 9 3-1 3-24-4z M53 242l8-9 8 2 6-6 1 13-10 12-10-3z M98 258l13-2 8 4 14 2 6 8-14-3-12 1z" />
+          <path d="m65 323 9-10 11-1 2-8 9-3 5 4 6-9 10-2 5 6 8 4 4-18 5 4 4 17 12 14 6 20-3 18-7 10-5 2-4-7-10 3-11-11-9-2-17 5-16-1-8-6-8 1-1-18z M140 377l8 1-4 9-5-3z M181 364l5 7-3 9-5 4-2-3 5-9z M177 385l-8 11-10 7-3-4 10-9z" />
+          {/* Alaska, the west coast of the Americas and the Andean coast */}
+          <path d="M485-5H308l-6 8-12 2-1 5 10 1-3 8 7 5-3 8-16 8-16 13 11-4 14-7 13-3 13-10 7 1 7 10 15 2 9 7 13 4 8 10 2 7 12 3 2 9 7 13-1 11 8 11 1 13 8 11 5 14 9 9 3 13 5 8 2-4-3-12-7-15 4 1 6 14 9 10 3 9 10 6 5 8 9 2 5 7 8 2 9 6z" />
+          <path d="m407 139 4 9 4 4-1 3-5-6z M369 63l10 5 4 8-6-3-6-6z M352 52l9 3 3 6-5-2z M263 54l-8 3-5 1 7-4z" />
+          <path d="m485 229-11-4-9-8-13 1-7 10-6 3-4 17-6 5 2 13-4 13 5 15 8 9 8 16 5 5 5 16 6 8 3 16-5 18 3 13-5 19 5 13 5 12 7 7 9 2z" />
+        </g>
+      </defs>
+      <rect width="480" height="480" fill="url(#chart-graticule)" opacity=".64" />
+      {[19, 11, 5].map((width) => (
+        <use key={width} href="#chart-coasts" fill="none" stroke="#80b3a9" strokeOpacity=".22" strokeWidth={width} />
+      ))}
+      <use href="#chart-coasts" fill="url(#chart-land)" stroke="#7f9d88" strokeWidth="1.3" />
+      <g fill="none" strokeLinecap="round" strokeDasharray="5 4">
+        <path d="M43 174Q188 12 404 107" stroke="#b92d67" strokeWidth="1.9" />
+        <path d="M112 127Q286 37 422 150Q452 202 431 274" stroke="#417e80" strokeWidth="1.6" />
+        <path d="M43 174Q39 279 151 330Q193 363 201 394" stroke="#417e80" strokeWidth="1.5" />
+      </g>
+      <g fill="#fff8dd" stroke="#9f305d" strokeWidth="2">
+        {[[43, 174], [112, 127], [404, 107], [422, 150], [431, 274], [151, 330]].map(([x, y]) => (
+          <circle key={x} cx={x} cy={y} r="3.6" />
+        ))}
+      </g>
+      <g transform="translate(356 369)" fill="none" stroke="#487f79">
+        <circle r="28" opacity=".5" />
+        <circle r="32" strokeDasharray="1 5.28" />
+        <path d="M-38 0h76M0-38v76" strokeWidth=".8" />
+        {[0, 90, 180, 270].map((angle) => (
+          <g key={angle} transform={`rotate(${angle})`}>
+            <path d="m0-30 5 25-5 5z" fill="#2d6765" />
+            <path d="m0-30-5 25 5 5z" fill="#f2e9cb" />
+          </g>
+        ))}
+        <circle r="3.5" fill="#b82a63" stroke="#f3e8c9" />
+      </g>
+      <g fill="none" stroke="#4b827b" strokeWidth="1.2">
+        <rect x="7" y="7" width="466" height="466" opacity=".5" />
+        <path d="M12 30V12h18m420 0h18v18m0 420v18h-18m-420 0H12v-18" />
+      </g>
+    </svg>
+  );
+});
 
 interface PawnAnimState {
   currentTile: number;
@@ -206,6 +268,8 @@ export const Board: React.FC<Props> = ({
     };
   };
 
+  const livePlayers = gameState.players.filter((player) => !player.isBankrupt);
+
   return (
     <div className="relative flex items-center justify-center">
       {/* 3D Perspective Scene Container */}
@@ -216,29 +280,24 @@ export const Board: React.FC<Props> = ({
           transformStyle: is3D ? 'preserve-3d' : undefined,
         }}
       >
-        {/* Main Board Slab - Góc nghiêng 3D isometric chuẩn Business Tour, zoom to rõ nét */}
+        {/* Printed board and layered edge */}
         <div
-          className={`relative ${
-            is3D ? 'w-[min(720px,82vh)]' : 'w-[min(600px,74vh)]'
-          } aspect-square bg-[#FDFDFE] rounded-3xl border-4 border-gray-200 p-2 select-none transition-all duration-700 ease-out ${
-            is3D ? 'origin-center' : 'shadow-2xl'
-          }`}
+          className={`chart-slab relative ${
+            is3D ? 'board-tilted' : 'board-flat'
+          } aspect-square origin-center border-4 p-2 select-none transition-all duration-700 ease-out`}
           style={{
             transform: is3D
-              ? 'rotateX(46deg) rotateZ(-45deg) scale(0.90) translateY(-26px)'
+              ? 'rotateX(var(--board-tilt)) rotateZ(var(--board-yaw)) scale(var(--board-scale))'
               : 'none',
-            boxShadow: is3D
-              ? '0 32px 60px -10px rgba(0, 0, 0, 0.42), 0 10px 0 #CBD5E1, 0 18px 0 #94A3B8, 0 26px 32px rgba(0,0,0,0.28)'
-              : undefined,
             transformStyle: is3D ? 'preserve-3d' : undefined,
           }}
         >
           {/* Lưới 9x9: 4 ô góc hình vuông (1.35fr x 1.35fr), các ô cạnh hình chữ nhật (1fr x 1.35fr) */}
           <div
-            className="w-full h-full gap-1 grid"
+            className="board-grid w-full h-full gap-1 grid"
             style={{
-              gridTemplateColumns: '1.35fr repeat(7, 1fr) 1.35fr',
-              gridTemplateRows: '1.35fr repeat(7, 1fr) 1.35fr',
+              gridTemplateColumns: 'minmax(0, 1.35fr) repeat(7, minmax(0, 1fr)) minmax(0, 1.35fr)',
+              gridTemplateRows: 'minmax(0, 1.35fr) repeat(7, minmax(0, 1fr)) minmax(0, 1.35fr)',
               transformStyle: is3D ? 'preserve-3d' : undefined,
             }}
           >
@@ -270,29 +329,27 @@ export const Board: React.FC<Props> = ({
               );
             })}
 
-            {/* Sân Bến Cảng Trung Tâm (7x7) - Chỉ hiển thị xúc xắc, không còn text che khuất */}
+            {/* Hải đồ Thái Bình Dương và khu vực gieo xúc xắc */}
             <div
               style={{
                 gridRow: '2 / 9',
                 gridColumn: '2 / 9',
                 transformStyle: is3D ? 'preserve-3d' : undefined,
               }}
-              className="bg-radial from-pink-50/70 via-white to-gray-50 rounded-2xl border-2 border-gray-200/90 shadow-inner relative flex items-center justify-center p-3"
+              className="chart-water pointer-events-none relative flex items-center justify-center p-3"
             >
-              {/* Vòng tròn sân đỗ hải trình trang trí nhẹ (Maritime Dock Rings) */}
-              <div className="absolute inset-6 rounded-full border border-pink-100/80 pointer-events-none" />
-              <div className="absolute inset-14 rounded-full border border-dashed border-gray-200/60 pointer-events-none" />
+              <PacificChart />
 
               {/* Khối xúc xắc 3D khối hộp Magenta & Navy - Billboard counter-rotate để không bị cấn móp, giống y chang 2D */}
               <div
                 className="w-full h-full flex items-center justify-center select-none z-10"
                 style={{
-                  transform: is3D ? 'rotateZ(45deg) rotateX(-46deg) translateZ(38px)' : undefined,
+                  transform: is3D ? 'var(--board-billboard) translateZ(38px) scale(var(--model-scale))' : undefined,
                   transformStyle: is3D ? 'preserve-3d' : undefined,
                   transformOrigin: 'center center',
                 }}
               >
-                <DiceView dice={gameState.dice} isRolling={isRolling} hasRolled={gameState.hasRolled} />
+                <DiceView is3D={is3D} dice={gameState.dice} isRolling={isRolling} hasRolled={gameState.hasRolled} />
               </div>
             </div>
           </div>
@@ -302,12 +359,14 @@ export const Board: React.FC<Props> = ({
             className="absolute inset-2 pointer-events-none z-30"
             style={{ transformStyle: is3D ? 'preserve-3d' : undefined }}
           >
-            {gameState.players
-              .filter((p) => !p.isBankrupt)
-              .map((p, pIdx) => {
+            {livePlayers.map((p, pIdx) => {
                 const anim = animStates[p.id];
                 const tile = anim ? anim.currentTile : p.position;
                 const isMoving = anim?.isMoving ?? false;
+                const flatStack = !is3D && !isMoving ? livePlayers.filter((other) => {
+                  const otherAnim = animStates[other.id];
+                  return !otherAnim?.isMoving && (otherAnim?.currentTile ?? other.position) === tile;
+                }) : [];
                 const keyframes = anim?.keyframes;
                 const isMultiPoint = !!(keyframes && keyframes.length > 1);
 
@@ -327,7 +386,7 @@ export const Board: React.FC<Props> = ({
                 return (
                   <motion.div
                     key={p.id}
-                    className="absolute pointer-events-auto"
+                    className="absolute pointer-events-none"
                     style={{
                       transform: 'translate(-50%, -50%)',
                       transformStyle: is3D ? 'preserve-3d' : undefined,
@@ -357,7 +416,8 @@ export const Board: React.FC<Props> = ({
                       isMoving={isMoving}
                       is3D={is3D}
                       isMe={p.id === myPlayerId}
-                      stackIndex={pIdx}
+                      stackIndex={is3D ? pIdx : Math.max(0, flatStack.indexOf(p))}
+                      stackSize={flatStack.length || 1}
                     />
                   </motion.div>
                 );

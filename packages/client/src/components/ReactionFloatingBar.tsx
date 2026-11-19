@@ -31,12 +31,13 @@ export const ReactionFloatingBar: React.FC<Props> = ({ reactions, onSendReaction
       </div>
 
       {/* Floating Action Trigger Bar */}
-      <div className="fixed bottom-6 right-6 bg-white/90 backdrop-blur-md px-3 py-2 rounded-2xl shadow-xl border border-gray-100 flex items-center gap-1.5 z-30">
+      <div className="table-reactions" role="group" aria-label="Biểu cảm">
+        <span className="chart-reaction-label">Biểu cảm</span>
         {emojis.map((emoji) => (
           <button
             key={emoji}
             onClick={() => onSendReaction(emoji)}
-            className="w-10 h-10 rounded-xl hover:bg-pink-50 hover:scale-115 active:scale-90 transition flex items-center justify-center text-xl cursor-pointer"
+            className="chart-reaction"
             title={`Thả biểu cảm ${emoji}`}
           >
             {emoji}
