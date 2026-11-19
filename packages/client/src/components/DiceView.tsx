@@ -22,7 +22,7 @@ const renderPips = (value: number, pipColor = '#FFFFFF') => {
   const pips = pipMap[value] || pipMap[1];
 
   return (
-    <svg viewBox="0 0 100 100" className="w-full h-full p-1.5 drop-shadow-xs">
+    <svg viewBox="0 0 100 100" className="w-full h-full p-1.5">
       {pips.map(([cx, cy], i) => (
         <circle key={i} cx={cx} cy={cy} r="11" fill={pipColor} />
       ))}
@@ -51,10 +51,7 @@ const Die3D: React.FC<DieProps> = ({ value, isRolling, theme }) => {
   const rightValue = value === 1 ? 4 : (value + 2) % 6 || 6;
 
   return (
-    <div className="relative w-14 h-14 flex items-center justify-center">
-      {/* Bóng đổ 3D tiếp đất */}
-      <div className="absolute -bottom-2 w-12 h-6 bg-black/40 rounded-full filter blur-[4px] transform scale-y-50" />
-
+    <div className="chart-die-3d relative w-14 h-14 flex items-center justify-center">
       {/* Khối Lập Phương 3D (Cube) */}
       <motion.div
         className="w-12 h-12 relative cursor-pointer"
@@ -138,8 +135,10 @@ const Die3D: React.FC<DieProps> = ({ value, isRolling, theme }) => {
 };
 
 const Die2D: React.FC<DieProps> = ({ value, isRolling, theme }) => (
-  <span className={`chart-die chart-die-${theme}`} data-rolling={isRolling}>
-    {renderPips(value, 'currentColor')}
+  <span className="chart-die-2d relative block">
+    <span className={`chart-die chart-die-${theme}`} data-rolling={isRolling}>
+      {renderPips(value, 'currentColor')}
+    </span>
   </span>
 );
 

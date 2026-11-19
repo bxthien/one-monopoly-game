@@ -3,6 +3,7 @@ import { BOARD_TILES, GameCard } from '@one-monopoly/shared';
 import { useSocket } from './hooks/useSocket.js';
 import { Lobby } from './components/Lobby.js';
 import { Board } from './components/Board.js';
+import { getBoardLighting } from './components/boardLighting.js';
 import { PlayerSidebar } from './components/PlayerSidebar.js';
 import { ActionControls } from './components/ActionControls.js';
 import { ReactionFloatingBar } from './components/ReactionFloatingBar.js';
@@ -98,6 +99,12 @@ export const App: React.FC = () => {
   }, [latestEvents]);
 
   const activePlayer = gameState?.players[gameState.activePlayerIndex];
+  const sky = gameState && getBoardLighting({
+    turnCount: gameState.turnCount,
+    activePlayerIndex: gameState.activePlayerIndex,
+    playerCount: gameState.players.length,
+    stormActive: gameState.stormActive,
+  });
 
   return (
     <div className="chart-app">
@@ -135,7 +142,7 @@ export const App: React.FC = () => {
         </div>
       )}
 
-      {!room || !gameState || !activePlayer ? (
+      {!room || !gameState || !activePlayer || !sky ? (
         <main className="chart-lobby-main">
           <Lobby
             room={room}
@@ -153,7 +160,10 @@ export const App: React.FC = () => {
             <header className="chart-sheet-header">
               <div className="chart-sheet-heading">
                 <h1>Hải đồ</h1>
-                <span>Vòng {gameState.turnCount}</span>
+                <div className="chart-voyage-meta">
+                  <span>Vòng {gameState.turnCount}</span>
+                  <span className="chart-weather-readout" role="status">{sky.label}{sky.weather === 'storm' && ' · Bão'}</span>
+                </div>
               </div>
               <div className="chart-view-picker" role="group" aria-label="Góc nhìn bàn cờ">
                 <button type="button" aria-pressed={!is3D} onClick={() => setIs3D(false)}><Map size={15} />2D</button>
@@ -163,6 +173,7 @@ export const App: React.FC = () => {
             <div className="board-viewport">
               <Board
                 gameState={gameState}
+                sky={sky}
                 subscribeBoard={subscribeBoard}
                 myPlayerId={myPlayerId}
                 onAction={sendAction}

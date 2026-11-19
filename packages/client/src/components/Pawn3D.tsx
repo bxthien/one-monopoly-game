@@ -3,6 +3,7 @@ import { Player } from '@one-monopoly/shared';
 import { Container, Fuel, Sailboat, Ship, Snowflake, TrainFront, Truck } from 'lucide-react';
 import { TOKEN_CONFIG } from './TokenBadge.js';
 import { TokenModel } from './TokenModel.js';
+import './board-shadows.css';
 
 interface Props {
   player: Player;
@@ -11,6 +12,7 @@ interface Props {
   stackSize: number;
   heading: number;
   idle: boolean;
+  exposure: number;
 }
 
 function GantryIcon(props: React.SVGProps<SVGSVGElement>) {
@@ -38,7 +40,7 @@ const counterArt = {
 
 const compassPoints: Record<number, string> = { 0: 'đông', 90: 'nam', 180: 'tây', 270: 'bắc' };
 
-export const Pawn3D: React.FC<Props> = ({ player, is3D, stackIndex, stackSize, heading, idle }) => {
+export const Pawn3D: React.FC<Props> = ({ player, is3D, stackIndex, stackSize, heading, idle, exposure }) => {
   const pawnRef = useRef<HTMLSpanElement>(null);
   const [camera, setCamera] = useState({ yaw: 0, tilt: 0 });
 
@@ -82,6 +84,7 @@ export const Pawn3D: React.FC<Props> = ({ player, is3D, stackIndex, stackSize, h
       ref={pawnRef}
       className={is3D ? 'chart-model-pawn' : 'chart-counter'}
       data-grouped={stackSize > 1}
+      data-tall={player.token === 'GANTRY_CRANE' ? '' : undefined}
       data-heading={heading}
       data-idle-motion={idle ? idleMotion : undefined}
       data-face-left={Math.cos(azimuth * radians) < -0.01 ? '' : undefined}
@@ -95,7 +98,7 @@ export const Pawn3D: React.FC<Props> = ({ player, is3D, stackIndex, stackSize, h
       } as React.CSSProperties}
     >
       {is3D
-        ? <TokenModel token={player.token} cameraOrbit={`${azimuth}deg ${camera.tilt}deg auto`} idle={idle} />
+        ? <TokenModel token={player.token} cameraOrbit={`${azimuth}deg ${camera.tilt}deg auto`} idle={idle} exposure={exposure} />
         : <Icon strokeWidth={2.2} aria-hidden="true" />}
       <span className="chart-pawn-heading" aria-hidden="true"
         style={{ transform: `matrix(${cos}, ${sin}, ${-sin}, ${cos}, 0, 0)` }} />

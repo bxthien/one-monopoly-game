@@ -24,9 +24,10 @@ interface Props {
   interactive?: boolean;
   idle: boolean;
   cameraOrbit?: string;
+  exposure?: number;
 }
 
-export const TokenModel: React.FC<Props> = ({ token, interactive = false, cameraOrbit, idle }) => {
+export const TokenModel: React.FC<Props> = ({ token, interactive = false, cameraOrbit, exposure, idle }) => {
   const slot = useRef<HTMLSpanElement>(null);
   const [ready, setReady] = useState(false);
   const { label, desc } = TOKEN_CONFIG[token];
@@ -47,7 +48,9 @@ export const TokenModel: React.FC<Props> = ({ token, interactive = false, camera
       viewer.setAttribute('camera-orbit', mount.dataset.orbit ?? '30deg 62deg auto');
       if (mount.dataset.orbit) viewer.setAttribute('interpolation-decay', '30');
       viewer.setAttribute('environment-image', 'neutral');
-      viewer.setAttribute('shadow-intensity', '0.6');
+      // Board models cast onto their tile; the lobby preview retains its studio shadow.
+      viewer.setAttribute('shadow-intensity', mount.dataset.orbit ? '0' : '0.6');
+      if (mount.dataset.exposure !== undefined) viewer.setAttribute('exposure', mount.dataset.exposure);
       viewer.setAttribute('interaction-prompt', 'none');
       if (interactive) {
         viewer.setAttribute('camera-controls', '');
@@ -96,11 +99,15 @@ export const TokenModel: React.FC<Props> = ({ token, interactive = false, camera
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) viewer.jumpCameraToGoal();
   }, [cameraOrbit]);
 
+  useLayoutEffect(() => {
+    if (exposure !== undefined) slot.current?.querySelector('model-viewer')?.setAttribute('exposure', String(exposure));
+  }, [exposure]);
+
   return (
     <span className={interactive ? 'token-model token-model-interactive' : 'token-model'}
       data-ready={ready ? '' : undefined} aria-hidden={interactive ? undefined : true}>
       <img src={tokenPosterUrl(token)} alt={interactive ? `${label}. ${desc}.` : ''} draggable={false} />
-      <span ref={slot} data-orbit={cameraOrbit} />
+      <span ref={slot} data-orbit={cameraOrbit} data-exposure={exposure} />
     </span>
   );
 };

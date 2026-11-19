@@ -94,6 +94,7 @@ export class OneMonopolyEngine {
       hasRolled: false,
       marketDeck: marketCardIds,
       opsDeck: opsCardIds,
+      stormActive: false,
       pendingDebt: null,
       pendingSlotCharter: null,
       winnerId: null,
@@ -592,6 +593,7 @@ export class OneMonopolyEngine {
       card,
     });
 
+    if (card.id === 'OPS-02') state.stormActive = true;
     OneMonopolyEngine.applyCardEffect(state, events, player, card.effect);
   }
 
@@ -1350,6 +1352,7 @@ export class OneMonopolyEngine {
     // Check game over
     const activeSurvivors = state.players.filter((p) => !p.isBankrupt);
     if (activeSurvivors.length === 1) {
+      state.stormActive = false;
       state.winnerId = activeSurvivors[0].id;
       events.push({
         type: 'GAME_OVER',
@@ -1381,6 +1384,7 @@ export class OneMonopolyEngine {
     }
 
     state.activePlayerIndex = nextIndex;
+    state.stormActive = false;
     state.hasRolled = false;
     state.consecutiveDoubles = 0;
     state.phase = 'WAIT_FOR_ROLL';

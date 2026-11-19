@@ -149,6 +149,7 @@ export interface GameState {
   hasRolled: boolean;
   marketDeck: string[]; // Card IDs
   opsDeck: string[]; // Card IDs
+  stormActive?: boolean; // OPS-02 visual for the current turn. Absent in older snapshots.
   pendingDebt: DebtInfo | null;
   pendingSlotCharter: PendingSlotCharter | null;
   winnerId: string | null;
