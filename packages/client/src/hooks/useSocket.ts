@@ -2,6 +2,12 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { GameAction, GameEvent, GameState, VesselToken } from '@one-monopoly/shared';
 
+import { DICE_ROLL_MS } from '../components/boardTravel.js';
+
+// A null event list is an authoritative snapshot, including after a reconnect.
+export type BoardUpdateListener = (state: GameState, events: GameEvent[] | null) => void;
+export type SubscribeBoard = (listener: BoardUpdateListener) => () => void;
+
 export interface RoomState {
   id: string;
   hostId: string;
@@ -33,7 +39,12 @@ export function useSocket() {
   const [reactions, setReactions] = useState<ReactionEvent[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isRolling, setIsRolling] = useState(false);
-  const rollTimerRef = useRef<any>(null);
+  const rollTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const boardListeners = useRef(new Set<BoardUpdateListener>());
+  const subscribeBoard: SubscribeBoard = useCallback((listener: BoardUpdateListener) => {
+    boardListeners.current.add(listener);
+    return () => { boardListeners.current.delete(listener); };
+  }, []);
 
   // Initialize socket
   useEffect(() => {
@@ -83,7 +94,12 @@ export function useSocket() {
     });
 
     socket.on('game:init', (data: { state: GameState }) => {
+      clearTimeout(rollTimerRef.current);
+      rollTimerRef.current = undefined;
+      setIsRolling(false);
+      setLatestEvents([]);
       setGameState(data.state);
+      boardListeners.current.forEach((listener) => listener(data.state, null));
     });
 
     socket.on('game:update', (data: { state: GameState; events: GameEvent[] }) => {
@@ -92,10 +108,12 @@ export function useSocket() {
         setIsRolling(true);
         if (rollTimerRef.current) clearTimeout(rollTimerRef.current);
         rollTimerRef.current = setTimeout(() => {
+          rollTimerRef.current = undefined;
           setIsRolling(false);
-        }, 950);
+        }, DICE_ROLL_MS);
       }
       setGameState(data.state);
+      boardListeners.current.forEach((listener) => listener(data.state, data.events ?? []));
       if (data.events && data.events.length > 0) {
         setLatestEvents(data.events);
       }
@@ -115,6 +133,7 @@ export function useSocket() {
     });
 
     return () => {
+      clearTimeout(rollTimerRef.current);
       socket.disconnect();
     };
   }, []);
@@ -188,14 +207,13 @@ export function useSocket() {
   const sendAction = useCallback(
     (action: GameAction) => {
       if (!socketRef.current || !room || !myPlayerId) return;
-      if (action.type === 'ROLL_DICE') {
-        setIsRolling(true);
-      }
+      if (action.type === 'ROLL_DICE') setIsRolling(true);
       socketRef.current.emit(
         'game:action',
         { roomId: room.id, playerId: myPlayerId, action },
         (res: any) => {
           if (!res?.success) {
+            if (action.type === 'ROLL_DICE' && !rollTimerRef.current) setIsRolling(false);
             setErrorMsg(res?.error || 'Thao tác không thành công');
           }
         }
@@ -227,6 +245,7 @@ export function useSocket() {
 
   return {
     isConnected,
+    subscribeBoard,
     room,
     gameState,
     myPlayerId,

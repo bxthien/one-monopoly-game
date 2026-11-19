@@ -191,3 +191,55 @@
 @media (prefers-reduced-motion: reduce) {
   .chart-die[data-rolling='true'] { animation: none; }
 }
+
+/* Flat counters and static posters carry a compass pointer; their artwork stays upright. */
+.chart-counter { position: relative; }
+
+.chart-counter[data-face-left] > svg,
+.chart-model-pawn[data-face-left] .token-model > img { transform: scaleX(-1); }
+
+.chart-pawn-heading {
+  position: absolute;
+  inset: -1px;
+  pointer-events: none;
+  transition: transform 180ms ease-in-out;
+  filter: drop-shadow(0 1px 1px #102f38);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chart-pawn-heading { transition: none; }
+}
+
+.chart-pawn-heading::before, .chart-pawn-heading::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: -22%;
+  width: clamp(7px, 48%, 15px);
+  aspect-ratio: 1.12;
+  transform: translateY(-50%);
+  clip-path: polygon(0 0, 100% 50%, 0 100%, 23% 50%);
+  background: #163e42;
+}
+
+.chart-pawn-heading::after {
+  margin-right: 2px;
+  width: clamp(4px, 31%, 10px);
+  background: #fff3aa;
+}
+
+.chart-model-pawn .chart-pawn-heading { inset: 12% 10% 4%; }
+.chart-model-pawn:has(.token-model[data-ready]) .chart-pawn-heading { display: none; }
+
+/* Keep the doubles result over the dice, clear of the properties around the chart. */
+.chart-double-result {
+  display: grid;
+  padding: 3px 9px;
+  border: 1px solid #9bb7a7;
+  border-radius: 4px;
+  background: #f8faed;
+  color: #174b43;
+  font: 700 .73rem/1.15 var(--chart-sans);
+  text-align: center;
+}
+.chart-double-result > span { font-size: .64rem; font-weight: 500; }

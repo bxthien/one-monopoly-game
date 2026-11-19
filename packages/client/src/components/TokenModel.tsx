@@ -22,9 +22,10 @@ async function loadRenderer() {
 interface Props {
   token: VesselToken;
   interactive?: boolean;
+  cameraOrbit?: string;
 }
 
-export const TokenModel: React.FC<Props> = ({ token, interactive = false }) => {
+export const TokenModel: React.FC<Props> = ({ token, interactive = false, cameraOrbit }) => {
   const slot = useRef<HTMLSpanElement>(null);
   const [ready, setReady] = useState(false);
   const { label, desc } = TOKEN_CONFIG[token];
@@ -41,7 +42,8 @@ export const TokenModel: React.FC<Props> = ({ token, interactive = false }) => {
       viewer.setAttribute('src', tokenAsset(token, 'glb'));
       viewer.setAttribute('alt', interactive ? `${label}. ${desc}. Kéo hoặc dùng phím mũi tên để xoay.` : label);
       viewer.setAttribute('loading', 'eager');
-      viewer.setAttribute('camera-orbit', '30deg 62deg auto');
+      viewer.setAttribute('camera-orbit', mount.dataset.orbit ?? '30deg 62deg auto');
+      if (mount.dataset.orbit) viewer.setAttribute('interpolation-decay', '30');
       viewer.setAttribute('environment-image', 'neutral');
       viewer.setAttribute('shadow-intensity', '0.6');
       viewer.setAttribute('interaction-prompt', 'none');
@@ -73,11 +75,19 @@ export const TokenModel: React.FC<Props> = ({ token, interactive = false }) => {
     };
   }, [token, interactive, label, desc]);
 
+  useLayoutEffect(() => {
+    if (!cameraOrbit) return;
+    const viewer = slot.current?.querySelector('model-viewer');
+    if (!viewer) return;
+    viewer.setAttribute('camera-orbit', cameraOrbit);
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) viewer.jumpCameraToGoal();
+  }, [cameraOrbit]);
+
   return (
     <span className={interactive ? 'token-model token-model-interactive' : 'token-model'}
       data-ready={ready ? '' : undefined} aria-hidden={interactive ? undefined : true}>
       <img src={tokenPosterUrl(token)} alt={interactive ? `${label}. ${desc}.` : ''} draggable={false} />
-      <span ref={slot} />
+      <span ref={slot} data-orbit={cameraOrbit} />
     </span>
   );
 };

@@ -1,7 +1,8 @@
 import React from 'react';
 import { BoardTile, LOOP_GROUPS_CONFIG, Player, PropertyState } from '@one-monopoly/shared';
 import { TOKEN_CONFIG } from './TokenBadge.js';
-import { Anchor, ArrowUpRight, Boxes, Coins, FileText, Handshake, Leaf, RadioTower, Ship, Siren, Stamp, Waves } from 'lucide-react';
+import { Anchor, ArrowUpRight, Boxes, Coins, FileText, Flag, Handshake, Leaf, RadioTower, Ship, Siren, Stamp, Waves } from 'lucide-react';
+import './tile-claim.css';
 
 const tileSymbols: Partial<Record<BoardTile['type'], typeof Anchor>> = {
   GO: ArrowUpRight,
@@ -19,6 +20,7 @@ interface Props {
   tile: BoardTile;
   property?: PropertyState;
   owner?: Player;
+  claim?: { playerId: string; tileId: number; price: number };
   playersOnTile?: Player[];
   currentRent?: number;
   onClick?: () => void;
@@ -32,6 +34,7 @@ export const TileView: React.FC<Props> = ({
   tile,
   property,
   owner,
+  claim,
   playersOnTile,
   currentRent,
   onClick,
@@ -42,6 +45,7 @@ export const TileView: React.FC<Props> = ({
 }) => {
   const groupConfig = tile.group ? LOOP_GROUPS_CONFIG[tile.group] : null;
   const isCorner = orientation === 'corner';
+  const isFreshClaim = owner && claim?.tileId === tile.id && claim.playerId === owner.id;
   const TileSymbol = tileSymbols[tile.type] ?? Waves;
 
   // Format Container & ONE Innovation badge
@@ -131,18 +135,18 @@ export const TileView: React.FC<Props> = ({
       type="button"
       aria-haspopup="dialog"
       data-tile-type={tile.type}
+      data-claim-edge={isFreshClaim ? orientation : undefined}
       onClick={onClick}
       className={`board-tile relative w-full h-full flex flex-col justify-between border focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-700 transition cursor-pointer select-none overflow-hidden ${
         isCorner ? 'p-1.5' : 'p-0.5'
       } ${isCorner ? 'chart-corner' : ''} ${property?.isMortgaged ? 'chart-mortgaged' : ''}`}
       style={{
-        boxShadow: owner
-          ? `inset 0 0 0 var(--tile-owner-ring, 3px) ${TOKEN_CONFIG[owner.token].color}`
-          : undefined,
+        '--tile-owner-color': owner && TOKEN_CONFIG[owner.token].color,
+        boxShadow: owner ? 'inset 0 0 0 var(--tile-owner-ring, 3px) var(--tile-owner-color)' : undefined,
         transformStyle: is3D ? 'preserve-3d' : undefined,
-      }}
+      } as React.CSSProperties}
     >
-      <span className="sr-only">Xem chi tiết ô {tile.name}. </span>
+      <span className="sr-only">Xem chi tiết ô {tile.name}. {owner && `Chủ sở hữu: ${owner.name}. `}</span>
       {/* KHUNG NỘI DUNG XOAY ĐỒNG BỘ: Vạch màu nằm INSIDE để luôn ở phía trên của mã cảng và song song với chữ */}
       <span
         className={`tile-content flex-1 flex flex-col items-center justify-between p-0.5 w-full h-full text-center ${is3D && (orientation === 'left' || orientation === 'right') ? 'rotate-90' : ''}`}
@@ -185,14 +189,15 @@ export const TileView: React.FC<Props> = ({
         </span>
       </span>
 
-      {/* Owner Badge */}
       {owner && (
-        <span
-          className="tile-owner-badge absolute top-0.5 right-0.5 w-3 h-3 rounded-full flex items-center justify-center text-[7px] text-white font-black shadow-xs z-10"
-          style={{ backgroundColor: TOKEN_CONFIG[owner.token].color }}
-          title={`Chủ sở hữu: ${owner.name}`}
-        >
-          ✓
+        <span className="tile-owner-pennant" title={`Chủ sở hữu: ${owner.name}`} aria-hidden="true">
+          <Flag />
+        </span>
+      )}
+      {isFreshClaim && (
+        <span className="tile-claim-effect" aria-hidden="true">
+          <span className="tile-claim-ripple" />
+          <span className="tile-claim-marker"><Flag className="tile-claim-flag" /></span>
         </span>
       )}
     </button>

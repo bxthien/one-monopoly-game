@@ -1,15 +1,18 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
-import { BOARD_TILES, GameAction, GameCard, GameState, OneMonopolyEngine } from '@one-monopoly/shared';
+import React, { useState, useLayoutEffect } from 'react';
+import { BOARD_TILES, GameAction, GameCard, GameState, OneMonopolyEngine, Player } from '@one-monopoly/shared';
 import { TileView } from './TileView.js';
 import { DiceView } from './DiceView.js';
 import { PropertyModal } from './PropertyModal.js';
 import { CardModal } from './CardModal.js';
 import { Pawn3D } from './Pawn3D.js';
+import { forwardHeading, type TravelFrame } from './boardTravel.js';
+import { useBoardPlayback } from './useBoardPlayback.js';
+import type { SubscribeBoard } from '../hooks/useSocket.js';
 import './chart-board.css';
 
 interface Props {
   gameState: GameState;
+  subscribeBoard: SubscribeBoard;
   myPlayerId: string | null;
   onAction: (action: GameAction) => void;
   isRolling: boolean;
@@ -116,14 +119,47 @@ const PacificChart = React.memo(function PacificChart() {
   );
 });
 
-interface PawnAnimState {
-  currentTile: number;
-  keyframes: number[] | null;
-  isMoving: boolean;
+interface MovingPawnProps {
+  player: Player;
+  frame?: TravelFrame;
+  tile: number;
+  heading: number;
+  is3D: boolean;
+  zIndex: number;
+  stackIndex: number;
+  stackSize: number;
+  advance: (id: string, frame: TravelFrame) => void;
+}
+
+function MovingPawn({ player, frame, tile, heading, is3D, zIndex, stackIndex, stackSize, advance }: MovingPawnProps) {
+  useLayoutEffect(() => {
+    if (!frame) return;
+    if (frame.duration === 0) {
+      advance(player.id, frame);
+      return;
+    }
+    const timer = setTimeout(() => advance(player.id, frame), frame.duration);
+    return () => clearTimeout(timer);
+  }, [player.id, frame, advance]);
+
+  const coord = TILE_CENTER_PERCENT[tile];
+  return (
+    <div className="absolute pointer-events-none" style={{
+      left: `${coord.x}%`,
+      top: `${coord.y}%`,
+      transition: frame?.gliding ? `left ${frame.duration}ms linear, top ${frame.duration}ms linear` : 'none',
+      transform: 'translate(-50%, -50%)',
+      transformStyle: is3D ? 'preserve-3d' : undefined,
+      zIndex,
+    }}>
+      <Pawn3D player={player} is3D={is3D} heading={heading} stackIndex={stackIndex} stackSize={stackSize} />
+    </div>
+  );
 }
 
 export const Board: React.FC<Props> = ({
   gameState,
+  subscribeBoard,
   myPlayerId,
   onAction,
   isRolling,
@@ -134,89 +170,9 @@ export const Board: React.FC<Props> = ({
 }) => {
   const [selectedTileId, setSelectedTileId] = useState<number | null>(null);
 
-  // Quản lý trạng thái lướt mượt mà của từng nhân vật qua các cảng (Continuous Gliding Traversal)
-  const [animStates, setAnimStates] = useState<Record<string, PawnAnimState>>({});
-  const settledPositionsRef = useRef<Record<string, number>>({});
-  // Hàng đợi lưu vị trí đích khi xúc xắc vẫn đang quay (Chờ xúc xắc quay xong mới cho tàu chạy)
-  const pendingTargetsRef = useRef<Record<string, { start: number; target: number }>>({});
-  const prevIsRollingRef = useRef(isRolling);
-
-  const triggerMove = (playerId: string, start: number, target: number) => {
-    settledPositionsRef.current[playerId] = target;
-    const stepCount = (target - start + 32) % 32;
-
-    // Nếu di chuyển bình thường theo xúc xắc (1-12 ô)
-    if (stepCount > 0 && stepCount <= 12) {
-      const path: number[] = [start];
-      for (let i = 1; i <= stepCount; i++) {
-        path.push((start + i) % 32);
-      }
-      setAnimStates((prev) => ({
-        ...prev,
-        [playerId]: {
-          currentTile: target,
-          keyframes: path,
-          isMoving: true,
-        },
-      }));
-    } else {
-      // Trường hợp dịch chuyển tức thời (vào Hold, dịch chuyển đặc biệt)
-      setAnimStates((prev) => ({
-        ...prev,
-        [playerId]: {
-          currentTile: target,
-          keyframes: null,
-          isMoving: false,
-        },
-      }));
-    }
-  };
-
-  useEffect(() => {
-    gameState.players.forEach((p) => {
-      const settled = settledPositionsRef.current[p.id];
-
-      // Khởi tạo vị trí ban đầu
-      if (settled === undefined) {
-        settledPositionsRef.current[p.id] = p.position;
-        setAnimStates((prev) => ({
-          ...prev,
-          [p.id]: { currentTile: p.position, keyframes: null, isMoving: false },
-        }));
-        return;
-      }
-
-      // Khi vị trí người chơi thay đổi trên server
-      if (settled !== p.position) {
-        if (isRolling) {
-          // XÚC XẮC ĐANG QUAY: LƯU LẠI VỊ TRÍ ĐÍCH, TUYỆT ĐỐI CHƯA CHO NHÂN VẬT CHẠY!
-          pendingTargetsRef.current[p.id] = { start: settled, target: p.position };
-        } else {
-          // Xúc xắc đã dừng: Kích hoạt di chuyển ngay
-          delete pendingTargetsRef.current[p.id];
-          triggerMove(p.id, settled, p.position);
-        }
-      }
-    });
-  }, [gameState.players, isRolling]);
-
-  // Khi xúc xắc hoàn tất việc quay (isRolling chuyển từ true -> false)
-  useEffect(() => {
-    if (prevIsRollingRef.current && !isRolling) {
-      const pending = { ...pendingTargetsRef.current };
-      pendingTargetsRef.current = {};
-      Object.entries(pending).forEach(([playerId, { start, target }]) => {
-        triggerMove(playerId, start, target);
-      });
-    }
-    prevIsRollingRef.current = isRolling;
-  }, [isRolling]);
-
-  // Thông báo trạng thái di chuyển của nhân vật cho App/ActionControls
-  useEffect(() => {
-    const isAnyMoving = Object.values(animStates).some((s) => s.isMoving);
-    onPawnMovingChange?.(isAnyMoving);
-  }, [animStates, onPawnMovingChange]);
+  const { tracks, claims, advance } = useBoardPlayback(gameState, subscribeBoard);
+  const moving = gameState.players.some((player) => !player.isBankrupt && tracks[player.id]?.frames.length);
+  useLayoutEffect(() => { onPawnMovingChange?.(moving); }, [moving, onPawnMovingChange]);
 
   // Helper to determine orientation cho bàn cờ 32 ô (9 ô mỗi cạnh)
   const getTileOrientation = (
@@ -318,6 +274,7 @@ export const Board: React.FC<Props> = ({
                   <TileView
                     tile={tile}
                     property={prop}
+                    claim={claims[tile.id]}
                     owner={owner}
                     currentRent={currentRent}
                     orientation={getTileOrientation(tile.id)}
@@ -359,70 +316,40 @@ export const Board: React.FC<Props> = ({
             className="absolute inset-2 pointer-events-none z-30"
             style={{ transformStyle: is3D ? 'preserve-3d' : undefined }}
           >
-            {livePlayers.map((p, pIdx) => {
-                const anim = animStates[p.id];
-                const tile = anim ? anim.currentTile : p.position;
-                const isMoving = anim?.isMoving ?? false;
-                const occupants = !isMoving ? livePlayers.filter((other) => {
-                  const otherAnim = animStates[other.id];
-                  return !otherAnim?.isMoving && (otherAnim?.currentTile ?? other.position) === tile;
-                }) : [];
-                const keyframes = anim?.keyframes;
-                const isMultiPoint = !!(keyframes && keyframes.length > 1);
-
-                const currentCoord = TILE_CENTER_PERCENT[tile] || TILE_CENTER_PERCENT[0];
-                const animateCoords = isMultiPoint
-                  ? {
-                      left: keyframes.map((k) => `${TILE_CENTER_PERCENT[k].x}%`),
-                      top: keyframes.map((k) => `${TILE_CENTER_PERCENT[k].y}%`),
-                    }
-                  : {
-                      left: `${currentCoord.x}%`,
-                      top: `${currentCoord.y}%`,
-                    };
-
-                const isCurrentTurn = p.id === gameState.players[gameState.activePlayerIndex]?.id;
-
-                return (
-                  <motion.div
-                    key={p.id}
-                    className="absolute pointer-events-none"
-                    style={{
-                      transform: 'translate(-50%, -50%)',
-                      transformStyle: is3D ? 'preserve-3d' : undefined,
-                      zIndex: isCurrentTurn ? 45 : 20 + pIdx,
-                    }}
-                    initial={false}
-                    animate={animateCoords}
-                    transition={{
-                      duration: isMultiPoint ? (keyframes.length - 1) * 0.18 : 0.15,
-                      ease: 'linear',
-                    }}
-                    onAnimationComplete={() => {
-                      if (isMultiPoint) {
-                        setAnimStates((prev) => ({
-                          ...prev,
-                          [p.id]: {
-                            ...prev[p.id],
-                            keyframes: null,
-                            isMoving: false,
-                          },
-                        }));
-                      }
-                    }}
-                  >
-                    <Pawn3D
-                      player={p}
-                      is3D={is3D}
-                      stackIndex={Math.max(0, occupants.indexOf(p))}
-                      stackSize={occupants.length || 1}
-                    />
-                  </motion.div>
-                );
-              })}
+            {livePlayers.map((player, index) => {
+              const track = tracks[player.id];
+              const frame = track?.frames[0];
+              const pose = frame ?? track?.settled;
+              const tile = pose?.tile ?? player.position;
+              const occupants = frame?.gliding ? [] : livePlayers.filter((other) => {
+                const otherTrack = tracks[other.id];
+                const next = otherTrack?.frames[0];
+                return !next?.gliding && (next?.tile ?? otherTrack?.settled.tile ?? other.position) === tile;
+              });
+              return (
+                <MovingPawn
+                  key={player.id}
+                  player={player}
+                  frame={frame}
+                  tile={tile}
+                  heading={pose?.heading ?? forwardHeading(tile)}
+                  is3D={is3D}
+                  zIndex={player.id === gameState.players[gameState.activePlayerIndex]?.id ? 45 : 20 + index}
+                  stackIndex={Math.max(0, occupants.indexOf(player))}
+                  stackSize={occupants.length || 1}
+                  advance={advance}
+                />
+              );
+            })}
           </div>
         </div>
       </div>
+
+      <span className="sr-only" role="status">
+        {Object.values(claims).map((claim) => (
+          <span key={claim.tileId}>{gameState.players.find((player) => player.id === claim.playerId)?.name} đã mua {BOARD_TILES[claim.tileId].name}. </span>
+        ))}
+      </span>
 
       {/* Property Details Modal */}
       <PropertyModal
