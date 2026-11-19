@@ -19,6 +19,7 @@ export const App: React.FC = () => {
     latestEvents,
     reactions,
     errorMsg,
+    isRolling,
     clearError,
     createRoom,
     joinRoom,
@@ -30,22 +31,31 @@ export const App: React.FC = () => {
   } = useSocket();
 
   const [activeCard, setActiveCard] = useState<GameCard | null>(null);
-  const [isRolling, setIsRolling] = useState(false);
+  const [isPawnMoving, setIsPawnMoving] = useState(false);
+  const pendingCardRef = React.useRef<GameCard | null>(null);
   const [eventLogs, setEventLogs] = useState<string[]>([]);
   const [is3D, setIs3D] = useState(true);
+
+  // Khi xúc xắc đã dừng và nhân vật đã lướt tới bến đích -> Mới hiển thị thẻ bài (Chance/Chest)
+  useEffect(() => {
+    if (!isRolling && !isPawnMoving && pendingCardRef.current) {
+      const card = pendingCardRef.current;
+      pendingCardRef.current = null;
+      const timer = setTimeout(() => {
+        setActiveCard(card);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isRolling, isPawnMoving]);
 
   // Listen to new events and process animation & log
   useEffect(() => {
     if (latestEvents.length === 0) return;
 
     for (const evt of latestEvents) {
-      if (evt.type === 'DICE_ROLLED') {
-        setIsRolling(true);
-        setTimeout(() => setIsRolling(false), 600);
-      }
-
       if (evt.type === 'CARD_DRAWN') {
-        setActiveCard(evt.card);
+        // Lưu vào hàng đợi, chờ xúc xắc xong và nhân vật cập bến mới mở thẻ
+        pendingCardRef.current = evt.card;
       }
 
       // Add to event logs
@@ -240,6 +250,7 @@ export const App: React.FC = () => {
                 activeCard={activeCard}
                 onCloseCard={() => setActiveCard(null)}
                 is3D={is3D}
+                onPawnMovingChange={setIsPawnMoving}
               />
             </div>
           </div>
@@ -262,6 +273,7 @@ export const App: React.FC = () => {
                 myPlayerId={myPlayerId}
                 onAction={sendAction}
                 isRolling={isRolling}
+                isPawnMoving={isPawnMoving}
               />
             </div>
           </div>

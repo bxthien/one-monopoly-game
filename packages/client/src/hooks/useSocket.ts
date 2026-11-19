@@ -32,6 +32,8 @@ export function useSocket() {
   const [latestEvents, setLatestEvents] = useState<GameEvent[]>([]);
   const [reactions, setReactions] = useState<ReactionEvent[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isRolling, setIsRolling] = useState(false);
+  const rollTimerRef = useRef<any>(null);
 
   // Initialize socket
   useEffect(() => {
@@ -84,6 +86,14 @@ export function useSocket() {
     });
 
     socket.on('game:update', (data: { state: GameState; events: GameEvent[] }) => {
+      const hasDiceRoll = data.events?.some((e) => e.type === 'DICE_ROLLED');
+      if (hasDiceRoll) {
+        setIsRolling(true);
+        if (rollTimerRef.current) clearTimeout(rollTimerRef.current);
+        rollTimerRef.current = setTimeout(() => {
+          setIsRolling(false);
+        }, 950);
+      }
       setGameState(data.state);
       if (data.events && data.events.length > 0) {
         setLatestEvents(data.events);
@@ -177,6 +187,9 @@ export function useSocket() {
   const sendAction = useCallback(
     (action: GameAction) => {
       if (!socketRef.current || !room || !myPlayerId) return;
+      if (action.type === 'ROLL_DICE') {
+        setIsRolling(true);
+      }
       socketRef.current.emit(
         'game:action',
         { roomId: room.id, playerId: myPlayerId, action },
@@ -220,6 +233,7 @@ export function useSocket() {
     latestEvents,
     reactions,
     errorMsg,
+    isRolling,
     clearError: () => setErrorMsg(null),
     createRoom,
     joinRoom,

@@ -7,6 +7,7 @@ interface Props {
   myPlayerId: string | null;
   onAction: (action: GameAction) => void;
   isRolling: boolean;
+  isPawnMoving?: boolean;
 }
 
 export const ActionControls: React.FC<Props> = ({
@@ -14,10 +15,31 @@ export const ActionControls: React.FC<Props> = ({
   myPlayerId,
   onAction,
   isRolling,
+  isPawnMoving = false,
 }) => {
   const activePlayer = gameState.players[gameState.activePlayerIndex];
   const isMyTurn = activePlayer.id === myPlayerId;
   const currentTile = BOARD_TILES[activePlayer.position];
+
+  // 1. Khi xúc xắc đang quay hoặc tàu đang lướt trên đường đi:
+  // CHƯA hiển thị nhiệm vụ/mua đất/thông báo cho tới khi tàu cập bến an toàn
+  if (isRolling) {
+    return (
+      <div className="flex items-center justify-center gap-2.5 py-4 px-4 bg-gray-50/90 rounded-2xl border border-gray-200 text-gray-700 font-bold text-sm select-none shadow-xs">
+        <Dices className="w-5 h-5 text-[#E1007A] animate-spin" />
+        <span>Đang lắc xúc xắc...</span>
+      </div>
+    );
+  }
+
+  if (isPawnMoving) {
+    return (
+      <div className="flex items-center justify-center gap-2.5 py-4 px-4 bg-pink-50/80 rounded-2xl border border-pink-200 text-[#E1007A] font-bold text-sm select-none shadow-xs">
+        <span className="w-2.5 h-2.5 rounded-full bg-[#E1007A] animate-ping" />
+        <span>Tàu đang di chuyển tới bến cảng...</span>
+      </div>
+    );
+  }
 
   // ==================== 1. Awaiting Slot Charter Response ==================== //
   if (gameState.phase === 'AWAITING_SLOT_CHARTER_RESPONSE' && gameState.pendingSlotCharter) {

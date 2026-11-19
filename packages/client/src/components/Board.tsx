@@ -15,6 +15,7 @@ interface Props {
   activeCard: GameCard | null;
   onCloseCard: () => void;
   is3D?: boolean;
+  onPawnMovingChange?: (isMoving: boolean) => void;
 }
 
 // Bảng toạ độ phần trăm chính xác theo tâm từng ô cờ (0..31) trên lưới 9x9 (1.35fr + 7*1fr + 1.35fr)
@@ -67,12 +68,47 @@ export const Board: React.FC<Props> = ({
   activeCard,
   onCloseCard,
   is3D = true,
+  onPawnMovingChange,
 }) => {
   const [selectedTileId, setSelectedTileId] = useState<number | null>(null);
 
   // Quản lý trạng thái lướt mượt mà của từng nhân vật qua các cảng (Continuous Gliding Traversal)
   const [animStates, setAnimStates] = useState<Record<string, PawnAnimState>>({});
   const settledPositionsRef = useRef<Record<string, number>>({});
+  // Hàng đợi lưu vị trí đích khi xúc xắc vẫn đang quay (Chờ xúc xắc quay xong mới cho tàu chạy)
+  const pendingTargetsRef = useRef<Record<string, { start: number; target: number }>>({});
+  const prevIsRollingRef = useRef(isRolling);
+
+  const triggerMove = (playerId: string, start: number, target: number) => {
+    settledPositionsRef.current[playerId] = target;
+    const stepCount = (target - start + 32) % 32;
+
+    // Nếu di chuyển bình thường theo xúc xắc (1-12 ô)
+    if (stepCount > 0 && stepCount <= 12) {
+      const path: number[] = [start];
+      for (let i = 1; i <= stepCount; i++) {
+        path.push((start + i) % 32);
+      }
+      setAnimStates((prev) => ({
+        ...prev,
+        [playerId]: {
+          currentTile: target,
+          keyframes: path,
+          isMoving: true,
+        },
+      }));
+    } else {
+      // Trường hợp dịch chuyển tức thời (vào Hold, dịch chuyển đặc biệt)
+      setAnimStates((prev) => ({
+        ...prev,
+        [playerId]: {
+          currentTile: target,
+          keyframes: null,
+          isMoving: false,
+        },
+      }));
+    }
+  };
 
   useEffect(() => {
     gameState.players.forEach((p) => {
@@ -88,41 +124,37 @@ export const Board: React.FC<Props> = ({
         return;
       }
 
-      // Khi người chơi di chuyển tới vị trí mới
+      // Khi vị trí người chơi thay đổi trên server
       if (settled !== p.position) {
-        const start = settled;
-        const target = p.position;
-        const stepCount = (target - start + 32) % 32;
-        settledPositionsRef.current[p.id] = target;
-
-        // Nếu di chuyển bình thường theo xúc xắc (1-12 ô)
-        if (stepCount > 0 && stepCount <= 12) {
-          const path: number[] = [start];
-          for (let i = 1; i <= stepCount; i++) {
-            path.push((start + i) % 32);
-          }
-          setAnimStates((prev) => ({
-            ...prev,
-            [p.id]: {
-              currentTile: target,
-              keyframes: path,
-              isMoving: true,
-            },
-          }));
+        if (isRolling) {
+          // XÚC XẮC ĐANG QUAY: LƯU LẠI VỊ TRÍ ĐÍCH, TUYỆT ĐỐI CHƯA CHO NHÂN VẬT CHẠY!
+          pendingTargetsRef.current[p.id] = { start: settled, target: p.position };
         } else {
-          // Trường hợp dịch chuyển tức thời (vào Hold, dịch chuyển đặc biệt)
-          setAnimStates((prev) => ({
-            ...prev,
-            [p.id]: {
-              currentTile: target,
-              keyframes: null,
-              isMoving: false,
-            },
-          }));
+          // Xúc xắc đã dừng: Kích hoạt di chuyển ngay
+          delete pendingTargetsRef.current[p.id];
+          triggerMove(p.id, settled, p.position);
         }
       }
     });
-  }, [gameState.players]);
+  }, [gameState.players, isRolling]);
+
+  // Khi xúc xắc hoàn tất việc quay (isRolling chuyển từ true -> false)
+  useEffect(() => {
+    if (prevIsRollingRef.current && !isRolling) {
+      const pending = { ...pendingTargetsRef.current };
+      pendingTargetsRef.current = {};
+      Object.entries(pending).forEach(([playerId, { start, target }]) => {
+        triggerMove(playerId, start, target);
+      });
+    }
+    prevIsRollingRef.current = isRolling;
+  }, [isRolling]);
+
+  // Thông báo trạng thái di chuyển của nhân vật cho App/ActionControls
+  useEffect(() => {
+    const isAnyMoving = Object.values(animStates).some((s) => s.isMoving);
+    onPawnMovingChange?.(isAnyMoving);
+  }, [animStates, onPawnMovingChange]);
 
   // Helper to determine orientation cho bàn cờ 32 ô (9 ô mỗi cạnh)
   const getTileOrientation = (
