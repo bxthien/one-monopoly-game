@@ -12,6 +12,7 @@ import { AlertCircle, BookOpen, Box, Compass, LogOut, Map, MapPin, Radio, X } fr
 export const App: React.FC = () => {
   const {
     isConnected,
+    subscribeBoard,
     room,
     gameState,
     myPlayerId,
@@ -40,8 +41,8 @@ export const App: React.FC = () => {
   useEffect(() => {
     if (!isRolling && !isPawnMoving && pendingCardRef.current) {
       const card = pendingCardRef.current;
-      pendingCardRef.current = null;
       const timer = setTimeout(() => {
+        pendingCardRef.current = null;
         setActiveCard(card);
       }, 300);
       return () => clearTimeout(timer);
@@ -162,6 +163,7 @@ export const App: React.FC = () => {
             <div className="board-viewport">
               <Board
                 gameState={gameState}
+                subscribeBoard={subscribeBoard}
                 myPlayerId={myPlayerId}
                 onAction={sendAction}
                 isRolling={isRolling}

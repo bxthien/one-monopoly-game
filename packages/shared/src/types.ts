@@ -1,12 +1,15 @@
-export type VesselToken =
-  | 'ONE_APUS'
-  | 'ONE_MAGENTA'
-  | 'GANTRY_CRANE'
-  | 'CONTAINER_TRUCK'
-  | 'FREIGHT_TRAIN'
-  | 'REEFER_TRUCK'
-  | 'PILOT_BOAT'
-  | 'BUNKER_BARGE';
+export const VESSEL_TOKENS = [
+  'ONE_APUS',
+  'ONE_MAGENTA',
+  'GANTRY_CRANE',
+  'CONTAINER_TRUCK',
+  'FREIGHT_TRAIN',
+  'REEFER_TRUCK',
+  'PILOT_BOAT',
+  'BUNKER_BARGE',
+] as const;
+
+export type VesselToken = (typeof VESSEL_TOKENS)[number];
 
 export type TileType =
   | 'GO'

@@ -168,10 +168,10 @@ export const DiceView: React.FC<Props> = ({ dice, isRolling = false, hasRolled =
         <motion.span
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className="text-xs font-black tracking-wider text-emerald-700 bg-emerald-100/95 px-3 py-1 rounded-full border border-emerald-300 shadow-md animate-pulse whitespace-nowrap"
+          className="chart-double-result"
           style={{ transform: is3D ? 'translateZ(20px)' : undefined }}
         >
-          🎲 LẮC ĐƯỢC ĐÔI ({d1} - {d2})! ĐI TIẾP LƯỢT NỮA
+          Đổ đôi {d1}–{d2}<span>Đi tiếp lượt nữa</span>
         </motion.span>
       )}
     </div>

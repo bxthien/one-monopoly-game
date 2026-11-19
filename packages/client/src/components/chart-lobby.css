@@ -189,30 +189,62 @@
   padding: 9px 12px;
 }
 .chart-token-field { padding: 0; margin: 0; min-width: 0; }
-.chart-token-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+.chart-token-preview {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  align-items: center;
+  gap: clamp(8px, 1.1vw, 16px);
+  margin: 0 0 9px;
+  border-block: 1px solid var(--lobby-line);
+  background-color: #f0f2e9;
+  background-image: linear-gradient(90deg, #526d7110 1px, transparent 1px), linear-gradient(#526d7110 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+.chart-token-stage {
+  position: relative;
+  min-width: 0;
+  height: clamp(125px, 12vw, 158px);
+}
+.chart-token-stage > * { width: 100%; height: 100%; }
+.chart-token-preview figcaption {
+  display: grid;
+  gap: 5px;
+  padding: 12px 14px 12px 0;
+  color: var(--lobby-navy);
+}
+.chart-token-preview figcaption strong {
+  font: 600 clamp(18px, 1.4vw, 23px)/1.15 var(--chart-display, Georgia, serif);
+  text-wrap: balance;
+}
+.chart-token-preview figcaption span { font-size: .78rem; line-height: 1.45; color: #47606a; }
+.chart-token-rotate-hint { display: none; font-size: .71rem; line-height: 1.4; color: #52666b; }
+.chart-token-preview:has(.token-model[data-ready]) .chart-token-rotate-hint { display: block; }
+.chart-token-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
 .chart-token-option { position: relative; cursor: pointer; }
 .chart-token-option input { position: absolute; inset: 0; z-index: 1; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
 .chart-token-card {
   position: relative;
   height: 100%;
-  min-height: 74px;
+  min-height: 66px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  padding: 9px 5px;
+  gap: 2px;
+  padding: 3px 3px 7px;
   border: 1px solid var(--lobby-line);
   border-radius: 3px;
   background: #fffdf7;
   color: var(--lobby-ink);
-  font-weight: 600;
-  font-size: .72rem;
+  font-family: var(--chart-mono, ui-monospace, monospace);
+  font-weight: 650;
+  font-size: .67rem;
+  letter-spacing: .035em;
   line-height: 1.22;
   text-align: center;
 }
 
-.chart-token-icon { font-size: 25px; line-height: 1.15; }
+.chart-token-thumbnail { display: block; width: 100%; height: 42px; object-fit: contain; }
 .chart-token-option:hover .chart-token-card { border-color: #7e8a8c; }
 .chart-token-option input:checked + .chart-token-card {
   color: #99154e;
@@ -273,7 +305,7 @@
 .chart-crew-heading span { margin-left: auto; font: 600 .77rem var(--chart-mono, ui-monospace, monospace); }
 .chart-crew { list-style: none; padding: 0; margin: 0; }
 .chart-crew li { border-bottom: 1px solid var(--lobby-line); padding: 12px 0; }
-.chart-crew-token { width: 40px; text-align: center; background: #edece2; border-radius: 3px; font-size: 23px; line-height: 40px; flex: none; }
+.chart-crew-token { width: 48px; height: 40px; object-fit: contain; background: #efeee4; border-radius: 3px; flex: none; }
 .chart-crew-name { min-width: 0; }
 .chart-crew-name strong { display: block; font-size: .88rem; overflow-wrap: anywhere; }
 .chart-crew-name small { display: block; font-size: .72rem; color: #58696c; }
@@ -302,7 +334,11 @@
   .chart-lobby-poster-title h1 { font-size: 41px; margin-top: 10px; }
   .chart-lobby-panel { padding: 19px 15px; }
   .chart-lobby-modes { margin-bottom: 19px; }
-  .chart-token-card { min-height: 68px; font-size: .69rem; }
+  .chart-token-grid { gap: 5px; }
+  .chart-token-card { min-height: 58px; font-size: .63rem; }
+  .chart-token-thumbnail { height: 35px; }
+  .chart-token-stage { height: 110px; }
+  .chart-token-preview figcaption { padding-right: 9px; }
   .chart-lobby-network { gap: 7px; }
   .chart-lobby-network > svg { display: none; }
 }

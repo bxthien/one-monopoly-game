@@ -4,6 +4,7 @@ import {
   GameState,
   OneMonopolyEngine,
   VesselToken,
+  VESSEL_TOKENS,
 } from '@one-monopoly/shared';
 import crypto from 'node:crypto';
 import { TurnTimer } from './turnTimer.js';
@@ -131,15 +132,7 @@ export class RoomManager {
     const tokenTaken = room.players.some((p) => p.token === token);
     if (tokenTaken) {
       // Pick available token
-      const allTokens: VesselToken[] = [
-        'ONE_APUS',
-        'ONE_MAGENTA',
-        'GANTRY_CRANE',
-        'CONTAINER_TRUCK',
-        'FREIGHT_TRAIN',
-        'REEFER_TRUCK',
-      ];
-      const available = allTokens.find((t) => !room.players.some((p) => p.token === t));
+      const available = VESSEL_TOKENS.find((t) => !room.players.some((p) => p.token === t));
       if (available) token = available;
     }
 
