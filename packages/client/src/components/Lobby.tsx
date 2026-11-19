@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { VesselToken } from '@one-monopoly/shared';
 import { RoomState } from '../hooks/useSocket.js';
 import { TOKEN_CONFIG, TokenBadge } from './TokenBadge.js';
-import { Users, Copy, Check, Play, Anchor, ShieldCheck } from 'lucide-react';
+import { Users, Copy, Check, Play, Anchor, ShieldCheck, Wifi } from 'lucide-react';
 
 interface Props {
   room: RoomState | null;
@@ -28,9 +28,21 @@ export const Lobby: React.FC<Props> = ({
   const [roomCode, setRoomCode] = useState('');
   const [selectedToken, setSelectedToken] = useState<VesselToken>('ONE_APUS');
   const [copied, setCopied] = useState(false);
+  const [lanUrl, setLanUrl] = useState<string>('');
+  const [copiedLan, setCopiedLan] = useState(false);
+
+  // Lấy thông tin IP mạng nội bộ (LAN / Wi-Fi) từ máy chủ
+  useEffect(() => {
+    fetch('/api/network-info')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.lanUrl) setLanUrl(data.lanUrl);
+      })
+      .catch(() => {});
+  }, []);
 
   // Auto-fill room code from URL params if present
-  React.useEffect(() => {
+  useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const code = params.get('room');
     if (code) {
@@ -41,10 +53,18 @@ export const Lobby: React.FC<Props> = ({
 
   const handleCopyLink = () => {
     if (!room) return;
-    const url = `${window.location.origin}?room=${room.id}`;
+    const baseOrigin = lanUrl || window.location.origin;
+    const url = `${baseOrigin}?room=${room.id}`;
     navigator.clipboard.writeText(url);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleCopyLanUrl = () => {
+    const url = lanUrl || `${window.location.protocol}//${window.location.hostname}:3000`;
+    navigator.clipboard.writeText(url);
+    setCopiedLan(true);
+    setTimeout(() => setCopiedLan(false), 2000);
   };
 
   const availableTokens: VesselToken[] = [
@@ -200,6 +220,34 @@ export const Lobby: React.FC<Props> = ({
         </div>
         <h1 className="text-3xl font-black text-gray-900 tracking-tight">ONE MONOPOLY</h1>
         <p className="text-gray-500 text-sm mt-1">Cờ Tỷ Phú Chuẩn Logistics Ocean Network Express</p>
+      </div>
+
+      {/* LAN / Wi-Fi Network Sharing Banner */}
+      <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-pink-50 via-purple-50 to-blue-50 border border-pink-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-[#E1007A]/10 text-[#E1007A] flex items-center justify-center shrink-0">
+            <Wifi className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="text-xs font-black text-gray-800 tracking-tight flex items-center gap-1.5">
+              <span>CHƠI TRONG MẠNG NỘI BỘ (WI-FI / LAN)</span>
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            </div>
+            <p className="text-[11px] text-gray-500 font-medium mt-0.5">
+              Mọi người cùng Wi-Fi có thể truy cập qua trình duyệt:
+            </p>
+            <code className="text-xs font-black text-[#E1007A] bg-white/90 px-2 py-0.5 rounded-md border border-pink-200 mt-1 inline-block select-all">
+              {lanUrl || `${window.location.protocol}//${window.location.hostname}:3000`}
+            </code>
+          </div>
+        </div>
+        <button
+          onClick={handleCopyLanUrl}
+          className="px-3 py-2 rounded-xl bg-white border border-gray-200 hover:border-[#E1007A] text-xs font-bold text-gray-700 hover:text-[#E1007A] transition flex items-center gap-1.5 shadow-xs shrink-0 cursor-pointer"
+        >
+          {copiedLan ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+          <span>{copiedLan ? 'Đã sao chép!' : 'Chép link LAN'}</span>
+        </button>
       </div>
 
       {/* Tabs */}
