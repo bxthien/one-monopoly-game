@@ -219,13 +219,13 @@ export const Board: React.FC<Props> = ({
         {/* Main Board Slab - Góc nghiêng 3D isometric chuẩn Business Tour, zoom to rõ nét */}
         <div
           className={`relative ${
-            is3D ? 'w-[min(720px,82vh)]' : 'w-[min(600px,74vh)]'
+            is3D ? 'board-tilted' : 'board-flat'
           } aspect-square bg-[#FDFDFE] rounded-3xl border-4 border-gray-200 p-2 select-none transition-all duration-700 ease-out ${
             is3D ? 'origin-center' : 'shadow-2xl'
           }`}
           style={{
             transform: is3D
-              ? 'rotateX(46deg) rotateZ(-45deg) scale(0.90) translateY(-26px)'
+              ? 'rotateX(var(--board-tilt)) rotateZ(var(--board-yaw)) scale(var(--board-scale))'
               : 'none',
             boxShadow: is3D
               ? '0 32px 60px -10px rgba(0, 0, 0, 0.42), 0 10px 0 #CBD5E1, 0 18px 0 #94A3B8, 0 26px 32px rgba(0,0,0,0.28)'
@@ -235,10 +235,10 @@ export const Board: React.FC<Props> = ({
         >
           {/* Lưới 9x9: 4 ô góc hình vuông (1.35fr x 1.35fr), các ô cạnh hình chữ nhật (1fr x 1.35fr) */}
           <div
-            className="w-full h-full gap-1 grid"
+            className="board-grid w-full h-full gap-1 grid"
             style={{
-              gridTemplateColumns: '1.35fr repeat(7, 1fr) 1.35fr',
-              gridTemplateRows: '1.35fr repeat(7, 1fr) 1.35fr',
+              gridTemplateColumns: 'minmax(0, 1.35fr) repeat(7, minmax(0, 1fr)) minmax(0, 1.35fr)',
+              gridTemplateRows: 'minmax(0, 1.35fr) repeat(7, minmax(0, 1fr)) minmax(0, 1.35fr)',
               transformStyle: is3D ? 'preserve-3d' : undefined,
             }}
           >
@@ -277,7 +277,7 @@ export const Board: React.FC<Props> = ({
                 gridColumn: '2 / 9',
                 transformStyle: is3D ? 'preserve-3d' : undefined,
               }}
-              className="bg-radial from-pink-50/70 via-white to-gray-50 rounded-2xl border-2 border-gray-200/90 shadow-inner relative flex items-center justify-center p-3"
+              className="pointer-events-none bg-radial from-pink-50/70 via-white to-gray-50 rounded-2xl border-2 border-gray-200/90 shadow-inner relative flex items-center justify-center p-3"
             >
               {/* Vòng tròn sân đỗ hải trình trang trí nhẹ (Maritime Dock Rings) */}
               <div className="absolute inset-6 rounded-full border border-pink-100/80 pointer-events-none" />
@@ -287,7 +287,7 @@ export const Board: React.FC<Props> = ({
               <div
                 className="w-full h-full flex items-center justify-center select-none z-10"
                 style={{
-                  transform: is3D ? 'rotateZ(45deg) rotateX(-46deg) translateZ(38px)' : undefined,
+                  transform: is3D ? 'var(--board-billboard) translateZ(38px) scale(var(--model-scale))' : undefined,
                   transformStyle: is3D ? 'preserve-3d' : undefined,
                   transformOrigin: 'center center',
                 }}
@@ -327,7 +327,7 @@ export const Board: React.FC<Props> = ({
                 return (
                   <motion.div
                     key={p.id}
-                    className="absolute pointer-events-auto"
+                    className="absolute pointer-events-none"
                     style={{
                       transform: 'translate(-50%, -50%)',
                       transformStyle: is3D ? 'preserve-3d' : undefined,

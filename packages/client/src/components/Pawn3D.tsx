@@ -592,11 +592,11 @@ export const Pawn3D: React.FC<Props> = ({
 
   return (
     <div
-      className="relative flex items-center justify-center select-none pointer-events-auto cursor-pointer"
+      className="relative flex items-center justify-center select-none pointer-events-none"
       style={{
         transformStyle: is3D ? 'preserve-3d' : undefined,
         transform: is3D
-          ? `rotateZ(45deg) rotateX(-46deg) translateZ(${22 + stackIndex * 4}px) translateY(-6px)`
+          ? `var(--board-billboard) translateZ(${22 + stackIndex * 4}px) translateY(-6px) scale(var(--model-scale))`
           : undefined,
       }}
       title={`${player.name} (${cfg.label})`}

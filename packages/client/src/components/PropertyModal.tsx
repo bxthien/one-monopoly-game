@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useId } from 'react';
 import {
   BOARD_TILES,
   GameAction,
@@ -9,6 +9,7 @@ import {
   Player,
 } from '@one-monopoly/shared';
 import { TOKEN_CONFIG, TokenBadge } from './TokenBadge.js';
+import { BoardDialog } from './BoardDialog.js';
 import { X, Building2, TrendingDown, DollarSign, ShieldAlert, Leaf, Handshake, Award } from 'lucide-react';
 
 interface Props {
@@ -26,6 +27,8 @@ export const PropertyModal: React.FC<Props> = ({
   onClose,
   onAction,
 }) => {
+  const titleId = useId();
+
   if (tileId === null) return null;
 
   const tile = BOARD_TILES[tileId];
@@ -80,9 +83,11 @@ export const PropertyModal: React.FC<Props> = ({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
-      <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-gray-100 relative max-h-[90vh] overflow-y-auto">
+    <BoardDialog key={tileId} labelledBy={titleId} onClose={onClose}>
+      <div className="relative rounded-3xl border border-gray-100 bg-white p-6">
         <button
+          type="button"
+          aria-label="Đóng chi tiết ô"
           onClick={onClose}
           className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition"
         >
@@ -99,7 +104,7 @@ export const PropertyModal: React.FC<Props> = ({
               {groupConfig.name}
             </div>
           )}
-          <h3 className="text-xl font-black text-gray-900">{tile.name}</h3>
+          <h3 id={titleId} className="text-xl font-black text-gray-900">{tile.name}</h3>
           <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">
             MÃ CẢNG: {tile.code}
           </span>
@@ -236,6 +241,6 @@ export const PropertyModal: React.FC<Props> = ({
           </div>
         )}
       </div>
-    </div>
+    </BoardDialog>
   );
 };

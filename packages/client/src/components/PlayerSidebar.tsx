@@ -17,9 +17,9 @@ export const PlayerSidebar: React.FC<Props> = ({
   const activePlayer = gameState.players[gameState.activePlayerIndex];
 
   return (
-    <div className="flex flex-col gap-1.5 select-none pointer-events-auto">
+    <div className="table-scoreboard flex flex-col gap-1.5 select-none pointer-events-auto">
       {/* Danh Sách Người Chơi Tinh Gọn: Góc Trên Bên Trái, Mỗi User 1 Hàng */}
-      <div className="bg-white/95 backdrop-blur-md p-2 rounded-2xl shadow-lg border border-gray-200/90 flex flex-col gap-1 min-w-[210px] sm:min-w-[230px]">
+      <div className="table-players bg-white/95 backdrop-blur-md p-2 rounded-2xl shadow-lg border border-gray-200/90 flex flex-col gap-1 min-w-0">
         {gameState.players.map((p) => {
           const isActive = p.id === activePlayer.id;
           const isMe = p.id === myPlayerId;
@@ -28,7 +28,7 @@ export const PlayerSidebar: React.FC<Props> = ({
           return (
             <div
               key={p.id}
-              className={`flex items-center justify-between px-2.5 py-1.5 rounded-xl transition ${
+              className={`table-player flex items-center justify-between px-2.5 py-1.5 rounded-xl transition ${
                 isActive
                   ? 'bg-pink-50/90 border-2 border-[#E1007A] shadow-xs'
                   : 'bg-gray-50/80 border border-transparent'
@@ -56,7 +56,7 @@ export const PlayerSidebar: React.FC<Props> = ({
               </div>
 
               {/* Số tiền mặt */}
-              <div className="flex items-center gap-1.5 shrink-0 ml-2">
+              <div className="table-player-balance flex items-center gap-1.5 shrink-0 ml-2">
                 {p.isBankrupt ? (
                   <span className="text-[10px] font-black text-red-600 bg-red-50 px-1.5 py-0.2 rounded">
                     Phá sản

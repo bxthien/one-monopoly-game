@@ -97,7 +97,7 @@ export const App: React.FC = () => {
   }, [latestEvents]);
 
   return (
-    <div className="w-screen h-screen overflow-hidden flex flex-col bg-[#F4F6F9] font-sans select-none relative">
+    <div className="w-full h-screen h-dvh overflow-hidden flex flex-col bg-[#F4F6F9] font-sans select-none relative">
       {/* Top Navbar */}
       <header className="bg-white border-b border-gray-200 px-4 py-2 sticky top-0 z-50 shadow-xs flex items-center justify-between h-12 shrink-0">
         {/* Left: Logo & Title */}
@@ -131,6 +131,7 @@ export const App: React.FC = () => {
               <button
                 type="button"
                 role="switch"
+                aria-label="Góc nhìn 3D"
                 aria-checked={is3D}
                 onClick={() => setIs3D(!is3D)}
                 className={`relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
@@ -238,36 +239,22 @@ export const App: React.FC = () => {
           />
         </main>
       ) : (
-        <main className="relative flex-1 w-full h-[calc(100vh-3rem)] overflow-hidden">
-          {/* LAYER 0: Bàn Cờ Nằm Ở Chính Giữa Màn Hình (Zoom to, Rõ nét) */}
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="pointer-events-auto">
-              <Board
-                gameState={gameState}
-                myPlayerId={myPlayerId}
-                onAction={sendAction}
-                isRolling={isRolling}
-                activeCard={activeCard}
-                onCloseCard={() => setActiveCard(null)}
-                is3D={is3D}
-                onPawnMovingChange={setIsPawnMoving}
-              />
-            </div>
-          </div>
-
-          {/* LAYER 1: Thông Tin Người Chơi (Góc Trên Bên Trái, Dùng Absolute Đè Lên) */}
-          <div className="absolute top-3 left-4 z-40 pointer-events-auto">
-            <PlayerSidebar
+        <main className="game-table">
+          <div className="board-viewport">
+            <Board
               gameState={gameState}
               myPlayerId={myPlayerId}
-              turnTimer={turnTimer}
               onAction={sendAction}
+              isRolling={isRolling}
+              activeCard={activeCard}
+              onCloseCard={() => setActiveCard(null)}
+              is3D={is3D}
+              onPawnMovingChange={setIsPawnMoving}
             />
           </div>
-
-          {/* LAYER 2: Action Controls (Docked Góc Dưới Trung Tâm, Dùng Absolute) */}
-          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-40 max-w-md w-full px-4 pointer-events-auto">
-            <div className="bg-white/95 backdrop-blur-md p-3 rounded-2xl shadow-xl border-2 border-pink-100">
+          <aside className="table-controls">
+            <PlayerSidebar gameState={gameState} myPlayerId={myPlayerId} turnTimer={turnTimer} />
+            <div className="table-actions bg-white/95 p-3 rounded-2xl shadow-lg border-2 border-pink-100">
               <ActionControls
                 gameState={gameState}
                 myPlayerId={myPlayerId}
@@ -276,16 +263,10 @@ export const App: React.FC = () => {
                 isPawnMoving={isPawnMoving}
               />
             </div>
-          </div>
-        </main>
-      )}
-
-      {/* Floating Reactions & Game Over Modal */}
-      {room && gameState && (
-        <>
-          <ReactionFloatingBar reactions={reactions} onSendReaction={sendReaction} />
+            <ReactionFloatingBar reactions={reactions} onSendReaction={sendReaction} />
+          </aside>
           <GameOverModal gameState={gameState} onRestart={leaveRoom} />
-        </>
+        </main>
       )}
     </div>
   );

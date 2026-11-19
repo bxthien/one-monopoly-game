@@ -31,7 +31,7 @@ export const ReactionFloatingBar: React.FC<Props> = ({ reactions, onSendReaction
       </div>
 
       {/* Floating Action Trigger Bar */}
-      <div className="fixed bottom-6 right-6 bg-white/90 backdrop-blur-md px-3 py-2 rounded-2xl shadow-xl border border-gray-100 flex items-center gap-1.5 z-30">
+      <div className="table-reactions self-center bg-white/90 backdrop-blur-md px-2 py-1 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-center gap-1">
         {emojis.map((emoji) => (
           <button
             key={emoji}
