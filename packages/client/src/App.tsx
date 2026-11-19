@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BOARD_TILES, GameCard } from '@one-monopoly/shared';
+import { BOARD_TILES, GameCard, STORM_DRIFT_STEPS, STORM_TUG_FEE } from '@one-monopoly/shared';
 import { useSocket } from './hooks/useSocket.js';
 import { Lobby } from './components/Lobby.js';
 import { Board } from './components/Board.js';
@@ -56,14 +56,23 @@ export const App: React.FC = () => {
 
     for (const evt of latestEvents) {
       if (evt.type === 'CARD_DRAWN') {
-        // Lưu vào hàng đợi, chờ xúc xắc xong và nhân vật cập bến mới mở thẻ
-        pendingCardRef.current = evt.card;
+        if (evt.card.effect.type === 'STORM_CHOICE') {
+          // The action panel is the storm card. Keep its two routes directly accessible.
+          pendingCardRef.current = null;
+          setActiveCard(null);
+        } else {
+          pendingCardRef.current = evt.card;
+        }
       }
 
       // Add to event logs
       let logMsg = '';
       if (evt.type === 'DICE_ROLLED') {
         logMsg = `🎲 Đổ được ${evt.dice[0]} + ${evt.dice[1]} = ${evt.dice[0] + evt.dice[1]}`;
+      } else if (evt.type === 'STORM_RESOLVED') {
+        logMsg = evt.choice === 'TUG'
+          ? `⚓ Thuê tàu kéo giữ vị trí với phí $${STORM_TUG_FEE}M`
+          : `🌊 Tàu trôi lùi ${Math.abs(STORM_DRIFT_STEPS)} ô trong bão`;
       } else if (evt.type === 'PASSED_GO') {
         logMsg = `🏁 Đi qua Singapore Hub nhận $${evt.reward}M`;
       } else if (evt.type === 'TILE_PURCHASED') {

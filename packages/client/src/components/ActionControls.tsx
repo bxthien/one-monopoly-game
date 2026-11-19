@@ -1,6 +1,7 @@
 import React from 'react';
 import { BOARD_TILES, GameAction, GameState } from '@one-monopoly/shared';
 import { Dices, Check, X, DollarSign, Ticket, AlertTriangle, Handshake, Ship, Flag } from 'lucide-react';
+import { StormDecision } from './StormDecision.js';
 import './chart-actions.css';
 
 interface Props {
@@ -38,6 +39,10 @@ export const ActionControls: React.FC<Props> = ({
         <span>Tàu đang di chuyển tới bến cảng...</span>
       </div>
     );
+  }
+
+  if (gameState.phase === 'AWAITING_STORM_DECISION') {
+    return <StormDecision gameState={gameState} isMyTurn={isMyTurn} onAction={onAction} />;
   }
 
   if (gameState.phase === 'AWAITING_SLOT_CHARTER_RESPONSE' && gameState.pendingSlotCharter) {

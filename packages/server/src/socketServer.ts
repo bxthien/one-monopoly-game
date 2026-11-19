@@ -99,9 +99,16 @@ export function setupSocketServer(httpServer: HttpServer): { io: Server; roomMan
 
         // If reconnecting to an ongoing game, send latest GameState
         if (result.isReconnect && result.room.gameState) {
+          const state = result.room.gameState;
           socket.emit('game:init', {
-            state: result.room.gameState,
+            state,
           });
+          if (result.room.timer && !state.winnerId) {
+            socket.emit('game:timer', {
+              remainingSeconds: result.room.timer.getRemainingSeconds(),
+              playerId: state.players[state.activePlayerIndex].id,
+            });
+          }
         }
 
         if (callback) {
@@ -142,11 +149,7 @@ export function setupSocketServer(httpServer: HttpServer): { io: Server; roomMan
         data: { roomId: string; playerId: string; action: GameAction },
         callback?: (res: any) => void
       ) => {
-        const result = roomManager.dispatchAction(
-          data.roomId,
-          data.playerId,
-          data.action
-        );
+        const result = roomManager.dispatchSocketAction(socket.id, data);
         if (callback) callback(result);
       }
     );
