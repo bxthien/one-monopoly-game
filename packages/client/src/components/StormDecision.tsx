@@ -1,5 +1,5 @@
 import { useId } from 'react';
-import { Anchor, ChevronRight, CloudLightning, Waves } from 'lucide-react';
+import { ChevronRight, CloudLightning, Waves } from 'lucide-react';
 import { BOARD_TILES, OneMonopolyEngine, STORM_DRIFT_STEPS, STORM_TUG_FEE } from '@one-monopoly/shared';
 import type { GameAction, GameState } from '@one-monopoly/shared';
 
@@ -38,9 +38,9 @@ export function StormDecision({ gameState, isMyTurn, onAction }: Props) {
       </h3>
       {isMyTurn ? (
         <>
-          <button type="button" className="chart-button chart-storm-choice" disabled={!canHireTug}
+          <button type="button" className="chart-button chart-storm-choice chart-storm-tug-choice" disabled={!canHireTug}
             onClick={() => onAction({ type: 'RESOLVE_STORM', choice: 'TUG' })}>
-            <Anchor aria-hidden="true" />
+            <img className="storm-tug-portrait" src="/models/storm/harbor-tug.webp" width="68" height="51" alt="" />
             <span>
               <strong>Gọi tàu kéo · ${STORM_TUG_FEE}M</strong>
               <small>{canHireTug ? 'Giữ tàu tại ô hiện tại.' : `Số dư $${captain.balance}M, chưa đủ để gọi tàu kéo.`}</small>

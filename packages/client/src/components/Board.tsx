@@ -5,6 +5,8 @@ import { DiceView } from './DiceView.js';
 import { PropertyModal } from './PropertyModal.js';
 import { CardModal } from './CardModal.js';
 import { Pawn3D } from './Pawn3D.js';
+import { StormTugRescue } from './StormTugRescue.js';
+import { useStormTugRescue } from './stormTugPlayback.js';
 import { BoardSky } from './BoardSky.js';
 import type { BoardLighting } from './boardLighting.js';
 import { forwardHeading, type TravelFrame } from './boardTravel.js';
@@ -130,6 +132,7 @@ const PacificChart = React.memo(function PacificChart() {
 });
 
 interface MovingPawnProps {
+  children?: React.ReactNode;
   player: Player;
   frame?: TravelFrame;
   allowIdle: boolean;
@@ -143,7 +146,7 @@ interface MovingPawnProps {
   advance: (id: string, frame: TravelFrame) => void;
 }
 
-function MovingPawn({ player, frame, allowIdle, exposure, tile, heading, is3D, zIndex, stackIndex, stackSize, advance }: MovingPawnProps) {
+function MovingPawn({ player, frame, allowIdle, exposure, tile, heading, is3D, zIndex, stackIndex, stackSize, advance, children }: MovingPawnProps) {
   useLayoutEffect(() => {
     if (!frame) return;
     if (frame.duration === 0) {
@@ -164,7 +167,9 @@ function MovingPawn({ player, frame, allowIdle, exposure, tile, heading, is3D, z
       transformStyle: is3D ? 'preserve-3d' : undefined,
       zIndex,
     }}>
-      <Pawn3D player={player} idle={allowIdle && !frame} exposure={exposure} is3D={is3D} heading={heading} stackIndex={stackIndex} stackSize={stackSize} />
+      <Pawn3D player={player} idle={allowIdle && !frame} exposure={exposure} is3D={is3D} heading={heading} stackIndex={stackIndex} stackSize={stackSize}>
+        {children}
+      </Pawn3D>
     </div>
   );
 }
@@ -189,6 +194,7 @@ export const Board: React.FC<Props> = ({
   const idleMotion = useIdleMotion();
   const allowIdle = idleMotion && selectedTileId === null && !activeCard && !gameState.winnerId;
   const { tracks, claims, rentReceipts, pendingRentReceipts, advance } = useBoardPlayback(gameState, subscribeBoard);
+  const { rescue, finishRescue } = useStormTugRescue(subscribeBoard);
   const moving = gameState.players.some((player) => !player.isBankrupt && tracks[player.id]?.frames.length);
   useLayoutEffect(() => { onPawnMovingChange?.(moving); }, [moving, onPawnMovingChange]);
   useLayoutEffect(() => {
@@ -373,7 +379,13 @@ export const Board: React.FC<Props> = ({
                   stackIndex={Math.max(0, occupants.indexOf(player))}
                   stackSize={occupants.length || 1}
                   advance={advance}
-                />
+                >
+                  {rescue?.playerId === player.id && rescue.tileId === tile && !frame && (
+                    <StormTugRescue key={rescue.sequence} rescue={rescue} is3D={is3D}
+                      motion={idleMotion} exposure={sky.exposure} faceLeft={TILE_CENTER_PERCENT[tile].x > 50}
+                      finish={finishRescue} />
+                  )}
+                </MovingPawn>
               );
             })}
           </div>

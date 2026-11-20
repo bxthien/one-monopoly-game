@@ -6,6 +6,7 @@ import { TokenModel } from './TokenModel.js';
 import './board-shadows.css';
 
 interface Props {
+  children?: React.ReactNode;
   player: Player;
   is3D: boolean;
   stackIndex: number;
@@ -40,7 +41,7 @@ const counterArt = {
 
 const compassPoints: Record<number, string> = { 0: 'đông', 90: 'nam', 180: 'tây', 270: 'bắc' };
 
-export const Pawn3D: React.FC<Props> = ({ player, is3D, stackIndex, stackSize, heading, idle, exposure }) => {
+export const Pawn3D: React.FC<Props> = ({ player, is3D, stackIndex, stackSize, heading, idle, exposure, children }) => {
   const pawnRef = useRef<HTMLSpanElement>(null);
   const [camera, setCamera] = useState({ yaw: 0, tilt: 0 });
 
@@ -102,6 +103,7 @@ export const Pawn3D: React.FC<Props> = ({ player, is3D, stackIndex, stackSize, h
         : <Icon strokeWidth={2.2} aria-hidden="true" />}
       <span className="chart-pawn-heading" aria-hidden="true"
         style={{ transform: `matrix(${cos}, ${sin}, ${-sin}, ${cos}, 0, 0)` }} />
+      {children}
     </span>
   );
 };
