@@ -8,7 +8,9 @@ import {
   GREEN_FLEET_ESG_BONUS,
   getTradeRestriction,
   getEmptyNeed,
+  getImportTruckReservation,
   getPortTruckSchedule,
+  getReserveImportTruckAction,
   type PortTruckSchedule,
   type PortStock,
   LOOP_GROUPS_CONFIG,
@@ -18,6 +20,9 @@ import { TokenBadge } from './TokenBadge.js';
 import { TerminalCargoExchange } from './TerminalCargoExchange.js';
 import { PortDeliverySlip, PortLoadingSlip } from './PortDeliverySlip.js';
 import { TerminalOutboundBooking } from './TerminalOutboundBooking.js';
+import { ImportTruckDesk } from './ImportTruckDesk.js';
+import { TruckAppointmentNotice } from './TruckAppointmentNotice.js';
+import type { SubscribeBoard } from '../hooks/useSocket.js';
 import { getPortCallCargo, getPortCallLoad } from './ports/portCallCargo.js';
 import type { PortDischarge, PortLoad } from './ports/portArrival.js';
 import { ScheduledOperations } from './TruckTimetable.js';
@@ -58,7 +63,7 @@ function getRentSchedule(tile: BoardTile): [string, string][] {
 }
 
 function TerminalQueue({ quantity, direction }: { quantity: number; direction: 'export' | 'import' }) {
-  const label = direction === 'export' ? 'Xe chở hàng xuất' : 'Xe chờ hàng nhập';
+  const label = direction === 'export' ? 'Xe chở hàng xuất' : 'Xe nhận hàng còn trống';
   return (
     <div className="terminal-queue" data-direction={direction}>
       <dt>{label}</dt>
@@ -74,7 +79,8 @@ function TerminalQueue({ quantity, direction }: { quantity: number; direction: '
 
 type TerminalHandling = PortDischarge | PortLoad;
 
-function TerminalDetails({ guide, stock, tender, schedule, titleId, onClose, onShowPort, cargo, handling, captainName, is3D }: {
+function TerminalDetails({ guide, stock, tender, schedule, titleId, onClose, onShowPort, cargo, handling, captainName, is3D, truckNotice }: {
+  truckNotice: React.ReactNode;
   cargo: React.ReactNode;
   handling: TerminalHandling | null;
   captainName: string;
@@ -142,7 +148,8 @@ function TerminalDetails({ guide, stock, tender, schedule, titleId, onClose, onS
               </dl>
             </section>
           )}
-          {schedule && schedule.operations.length > 0 && <section className="terminal-truck-schedule" aria-label="Lịch xe tại bến">
+          {truckNotice}
+          {schedule && (schedule.operations.length > 0 || !!schedule.returningImportTrucks) && <section className="terminal-truck-schedule" aria-label="Lịch xe tại bến">
             <h4>Lịch xe vòng {schedule.scheduledRound}</h4>
             <ScheduledOperations schedule={schedule} />
           </section>}
@@ -157,6 +164,7 @@ function TerminalDetails({ guide, stock, tender, schedule, titleId, onClose, onS
 }
 
 interface Props {
+  subscribeBoard: SubscribeBoard;
   tileId: number | null;
   gameState: GameState;
   myPlayerId: string | null;
@@ -171,6 +179,7 @@ interface Props {
 }
 
 export const PropertyModal: React.FC<Props> = ({
+  subscribeBoard,
   tileId,
   gameState,
   myPlayerId,
@@ -195,16 +204,24 @@ export const PropertyModal: React.FC<Props> = ({
     const captainId = arrivalCaptainId ?? gameState.players[gameState.activePlayerIndex]?.id;
     const call = captainId ? getPortCallCargo(gameState, tileId, captainId, portDischarge) : null;
     const load = getPortCallLoad(call, portLoad);
+    const captain = gameState.players[gameState.activePlayerIndex];
+    // A captain can contact the booked receiver from either end of the voyage.
+    const appointmentDesk = captain?.id === myPlayerId && captain.cargo &&
+      (captain.position === tileId || captain.cargo.destinationTileId === tileId) &&
+      (getImportTruckReservation(gameState, captain.id) || getReserveImportTruckAction(gameState, captain.id));
     const showExchange = call?.booking && !load;
     const showOutbound = call?.active && myPlayerId === call.playerId && (!call.booking ||
       (call.booking.originTileId === tileId && gameState.players[gameState.activePlayerIndex].backhaul?.originTileId === tileId));
-    const cargo = call && (showExchange || showOutbound) ? <>
-      {showExchange && <TerminalCargoExchange state={gameState} tileId={tileId} playerId={call.playerId}
+    const cargo = showExchange || showOutbound || appointmentDesk ? <>
+      {call && showExchange && <TerminalCargoExchange state={gameState} tileId={tileId} playerId={call.playerId}
         myPlayerId={myPlayerId} onAction={dispatch} />}
-      {showOutbound && <TerminalOutboundBooking state={gameState} tileId={tileId}
+      {call && showOutbound && <TerminalOutboundBooking state={gameState} tileId={tileId}
         playerId={call.playerId} myPlayerId={myPlayerId} onAction={dispatch} />}
+      {appointmentDesk && <ImportTruckDesk state={gameState} playerId={captain.id} myPlayerId={myPlayerId}
+        onAction={dispatch} surface="quay" />}
     </> : null;
     return guide ? <TerminalDetails key={tileId} guide={guide} stock={gameState.logistics?.ports[tileId]}
+      truckNotice={<TruckAppointmentNotice state={gameState} tileId={tileId} is3D={is3D} subscribeBoard={subscribeBoard} />}
       tender={getPortTender(gameState, tileId)} schedule={getPortTruckSchedule(gameState, tileId)}
       titleId={titleId} onClose={onClose} onShowPort={onShowPort} is3D={is3D} captainName={call?.playerName ?? ''}
       handling={load ?? (call?.receipt ? portDischarge : null)} cargo={cargo} /> : null;

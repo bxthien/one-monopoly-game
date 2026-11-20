@@ -1,4 +1,4 @@
-import { BACKHAUL_BONUS, BOARD_TILES, getAcceptBackhaulAction, getEmptyNeed, getTenderBonus, isFinalLogisticsRound, isReeferPort,
+import { BACKHAUL_BONUS, BOARD_TILES, getAcceptBackhaulAction, getEmptyNeed, getImportTruckReservation, getTenderBonus, isFinalLogisticsRound, isReeferPort,
   type BackhaulJob, type GameAction, type GameState, type Player } from '@one-monopoly/shared';
 import { ArrowRight, Check, CornerDownLeft } from 'lucide-react';
 import { portGuide } from './ports/portGuide.js';
@@ -12,7 +12,8 @@ function place(id: number) {
 function advice(state: GameState, captain: Player, job: BackhaulJob) {
   const pickup = state.logistics!.ports[job.originTileId];
   const receiver = state.logistics!.ports[job.destinationTileId];
-  const laden = receiver.demand > 0 || getTenderBonus(state, captain.id, job.destinationTileId, 'laden') > 0;
+  const laden = receiver.demand > 0 || getImportTruckReservation(state, captain.id)?.destinationTileId === job.destinationTileId ||
+    getTenderBonus(state, captain.id, job.destinationTileId, 'laden') > 0;
   const empty = getEmptyNeed(receiver) > 0 || getTenderBonus(state, captain.id, job.destinationTileId, 'empty') > 0;
   const cargo = captain.cargo;
   if (cargo) {

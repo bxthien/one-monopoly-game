@@ -12,6 +12,7 @@ import './tile-mission.css';
 import './tile-weather.css';
 import './ports/port-layout.css';
 import './logistics-board.css';
+import './truck-appointments.css';
 
 const tileSymbols: Partial<Record<BoardTile['type'], typeof Anchor>> = {
   GO: ArrowUpRight,
@@ -44,12 +45,13 @@ interface LogisticsTileProps {
   tile: BoardTile;
   stock?: PortStock;
   tender: PortTenderNotice | null;
+  heldTrucks?: number;
   placement: React.CSSProperties;
   is3D: boolean;
   onClick: () => void;
 }
 
-export function LogisticsTile({ tile, stock, tender, placement, is3D, onClick }: LogisticsTileProps) {
+export function LogisticsTile({ tile, stock, tender, heldTrucks = 0, placement, is3D, onClick }: LogisticsTileProps) {
   const port = portGuide[tile.code];
   if (!port) {
     const Mark = seamarks[tile.id % seamarks.length];
@@ -60,12 +62,21 @@ export function LogisticsTile({ tile, stock, tender, placement, is3D, onClick }:
       </div>
     );
   }
+  const holdsLabel = heldTrucks ? `${heldTrucks} xe nhận hàng đã được giữ chỗ.` : '';
   return (
     <button type="button" className="board-tile logistics-port" style={placement} data-port-tile={tile.code}
-      data-terminal-tile={tile.id} data-port-tender={tender?.phase} aria-haspopup="dialog" onClick={onClick}
-      aria-label={`Xem cảng ${port.name}. ${tender ? tender.label + '. ' : ''}${stock ? `${stock.supply} xe chở hàng xuất, ${stock.demand} xe chờ hàng nhập, ${stock.empties} vỏ rỗng.` : ''}`}>
+      data-terminal-tile={tile.id} data-port-tender={tender?.phase} data-port-truck-hold={heldTrucks || undefined} aria-haspopup="dialog" onClick={onClick}
+      aria-label={`Xem cảng ${port.name}. ${tender ? tender.label + '. ' : ''}${stock ? `${stock.supply} xe chở hàng xuất, ${stock.demand} xe chờ hàng nhập, ${stock.empties} vỏ rỗng.` : ''} ${holdsLabel}`.trim()}>
       <TileWeather id={tile.id} />
       <PortMiniature code={tile.code} variant="tile" is3D={is3D} />
+      {heldTrucks > 0 && <span className="terminal-truck-marker" data-held-truck-marker title={holdsLabel} aria-hidden="true">
+        <svg viewBox="0 0 18 15" focusable="false">
+          <path d="M1 8h8.6V4h3.5l3.4 3.7v3.2H1z" fill="currentColor" />
+          <path d="M11 5.3h1.6l1.8 2h-3.4z" fill="#2e6565" />
+          <g fill="currentColor" stroke="#2e6565" strokeWidth=".9"><circle cx="4.2" cy="11.9" r="2" /><circle cx="13.6" cy="11.9" r="2" /></g>
+          <path d="m2.4 3.9 1.8 1.8L7.7 2" fill="none" stroke="#f8d778" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </span>}
       {tender && <span className="port-tender-flag" title={tender.label} aria-hidden="true">
         {tender.phase === 'open' ? <Flag /> : <Check />}
       </span>}

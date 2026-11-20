@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
-  OneMonopolyEngine, getCargoBookings, getCargoOpportunity, getFeederRoutes, getLogisticsRoutes,
+  OneMonopolyEngine, getCargoBookings, getCargoOpportunity, getFeederRoutes, getLogisticsRoutes, getReserveImportTruckAction,
   type CargoKind, type GameAction, type GameEvent, type GameState,
 } from '@one-monopoly/shared';
 import { getPortCallCargo, getPortCallLoad } from '../src/components/ports/portCallCargo.js';
@@ -21,6 +21,19 @@ const sail = (state: GameState, destination: number) =>
 const feeder = (state: GameState, destination: number) =>
   act(state, getFeederRoutes(state, 'a').find(route => route.tileId === destination)!.action).state;
 const unloadEvent = (events: GameEvent[]) => events.find(e => e.type === 'CARGO_UNLOADED')!;
+
+test('the quay uses the booked truck and leaves other waiting trucks available', () => {
+  const departure = load(start(), 3);
+  const held = act(departure, getReserveImportTruckAction(departure, 'a')!).state;
+  const arrival = sail(held, 3);
+  const call = getPortCallCargo(arrival, 3, 'a')!;
+  assert.equal(call.receiver, 'appointment');
+  assert.equal(call.estimate?.receiver, 'appointment');
+  assert.equal(call.publicSlots, 1);
+  assert.equal(call.stockAfterUnload?.demand, 1);
+  const settled = act(arrival, call.unloadAction!);
+  assert.deepEqual(call.stockAfterUnload, settled.state.logistics!.ports[3]);
+});
 
 test('an intermediate call offers a local diversion while the feeder arrival permits the booked container to discharge', () => {
   let state = sail(load(start(), 1), 3);

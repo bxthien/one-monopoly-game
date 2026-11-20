@@ -1,4 +1,5 @@
 import { BOARD_TILES } from './boardData.js';
+import { closeImportTruckRound, getImportTruckReservation, releaseImportTruck } from './importTruck.js';
 import { closeBackhaulTurn, getAcceptBackhaulAction, offerBackhaul, settleBackhaul } from './backhaul.js';
 import { getVoyagePayment, recordVoyage } from './voyageLog.js';
 import { getReeferBonus, hasReeferSlot, isReeferPort } from './reefer.js';
@@ -8,7 +9,7 @@ import {
 import type {
   CargoAction, CargoKind, DestinationChange, EngineResult, FreightQuote, GameAction, GameEvent,
   DeliveryReceipt, EarlyTruckChoice, FeederSailAction, FreightTenderBid, GameState, LogisticsState,
-  Player, PortStock, PortTruckSchedule, SailAction, TruckOperation,
+  Player, PortStock, PortTruckSchedule, ReserveImportTruckAction, SailAction, TruckOperation,
 } from './types.js';
 
 export const LOGISTICS_DELIVERY_TARGET = 3;
@@ -71,6 +72,8 @@ export function createLogisticsState(players: Player[]): LogisticsState {
   });
   return {
     voyageLog: [],
+    importTruckAvailable: Object.fromEntries(players.map(player => [player.id, true])),
+    importTruckReservations: {},
     earlyTruckAvailable: Object.fromEntries(players.map(player => [player.id, true])),
     calledTrucks: {},
     ports: stocks, backhaulEnabled: true, reeferSlots: {}, market: createFreightMarket(stocks, players),
@@ -105,17 +108,34 @@ export function getPublicReceivingSlots(stock: PortStock, kind: CargoKind): numb
   return kind === 'laden' ? stock.demand : getEmptyNeed(stock);
 }
 
-export function getPortStockAfterDischarge(stock: PortStock, kind: CargoKind): PortStock {
+export function getPortStockAfterDischarge(stock: PortStock, kind: CargoKind, heldTruck = false): PortStock {
   return {
     ...stock,
-    demand: kind === 'laden' ? Math.max(0, stock.demand - 1) : stock.demand,
+    demand: kind === 'laden' && !heldTruck ? Math.max(0, stock.demand - 1) : stock.demand,
     empties: Math.min(LOGISTICS_PORT_CAPACITY, stock.empties + 1),
   };
 }
 
 function canReceive(state: GameState, playerId: string, tileId: number, kind: CargoKind) {
   const stock = state.logistics!.ports[tileId];
-  return getPublicReceivingSlots(stock, kind) > 0 || getTenderBonus(state, playerId, tileId, kind) > 0;
+  return getPublicReceivingSlots(stock, kind) > 0 || getTenderBonus(state, playerId, tileId, kind) > 0 ||
+    (kind === 'laden' && getImportTruckReservation(state, playerId)?.destinationTileId === tileId);
+}
+
+export function getImportTruckThroughRound(state: GameState): number {
+  return isFinalLogisticsRound(state) ? state.turnCount : Math.min(state.turnCount + 1, LOGISTICS_ROUND_LIMIT);
+}
+
+export function getReserveImportTruckAction(state: GameState, playerId: string): ReserveImportTruckAction | null {
+  const captain = activeCaptain(state, playerId);
+  const booking = captain?.cargo;
+  if (!captain || booking?.kind !== 'laden' || state.logistics?.importTruckAvailable?.[playerId] !== true) return null;
+  const { bookingId, destinationTileId } = booking;
+  if (destinationTileId === captain.position || (state.logistics.ports[destinationTileId]?.demand ?? 0) < 1 ||
+      getTenderBonus(state, playerId, destinationTileId, 'laden') > 0) return null;
+  if (isFinalLogisticsRound(state) && state.logistics.hasSailed &&
+      !getFeederRoutes(state, playerId).some(route => route.tileId === destinationTileId)) return null;
+  return { type: 'RESERVE_IMPORT_TRUCK', bookingId, destinationTileId, revision: state.cargoRevision ?? 0 };
 }
 
 export function getTenderBidAction(state: GameState, playerId: string, amount: number): FreightTenderBid | null {
@@ -229,9 +249,9 @@ export function getFeederRoutes(state: GameState, playerId: string): FeederRoute
 
 // The rotating truck schedule adds individual import orders and packs available empty
 // equipment into new export loads. Existing cargo and unfilled orders stay in the yard.
-function runTruck(stock: PortStock, operation: TruckOperation): boolean {
+function runTruck(stock: PortStock, operation: TruckOperation, heldTrucks: number): boolean {
   if (operation === 'import') {
-    if (stock.demand >= LOGISTICS_PORT_CAPACITY) return false;
+    if (stock.demand + heldTrucks >= LOGISTICS_PORT_CAPACITY) return false;
     stock.demand++;
   } else {
     if (stock.supply >= LOGISTICS_PORT_CAPACITY || stock.empties < 1) return false;
@@ -243,17 +263,20 @@ function runTruck(stock: PortStock, operation: TruckOperation): boolean {
 
 function scheduledTrucks(logistics: LogisticsState, tileId: number, index: number, round: number): PortTruckSchedule {
   const before = { ...logistics.ports[tileId] }, projected = { ...before };
+  const held = Object.values(logistics.importTruckReservations ?? {}).filter(appointment => appointment.destinationTileId === tileId);
+  const returning = held.filter(appointment => appointment.throughRound < round).length;
+  projected.demand += returning;
   const scheduled: TruckOperation[] = [];
   if ((index + round) % 3 === 0) scheduled.push('export');
   if (index % 3 === round % 3) scheduled.push('import');
   const operations = scheduled.map(operation => {
     const consumed = logistics.calledTrucks?.[tileId]?.includes(operation) === true;
     const after = { ...before };
-    const available = !consumed && runTruck(after, operation);
-    if (available) runTruck(projected, operation);
+    const available = !consumed && runTruck(after, operation, held.length);
+    if (!consumed) runTruck(projected, operation, held.length - returning);
     return { operation, consumed, available, after };
   });
-  return { tileId, scheduledRound: round, before, projected, operations };
+  return { tileId, scheduledRound: round, ...(returning > 0 && { returningImportTrucks: returning }), before, projected, operations };
 }
 
 export function getPortTruckSchedule(state: GameState, tileId: number): PortTruckSchedule | null {
@@ -302,6 +325,17 @@ export function dispatchLogistics(state: GameState, action: GameAction, playerId
   };
   const at = player.position;
   switch (action.type) {
+    case 'RESERVE_IMPORT_TRUCK': {
+      const eligible = getReserveImportTruckAction(state, playerId);
+      if (!eligible || action.bookingId !== eligible.bookingId || action.destinationTileId !== eligible.destinationTileId) return unchanged;
+      const result = next();
+      const logistics = result.logistics!;
+      const held = { bookingId: eligible.bookingId, destinationTileId: eligible.destinationTileId, throughRound: getImportTruckThroughRound(state) };
+      logistics.importTruckAvailable![playerId] = false;
+      (logistics.importTruckReservations ??= {})[playerId] = held;
+      logistics.ports[held.destinationTileId].demand--;
+      return { state: result, events: [{ type: 'IMPORT_TRUCK_RESERVED', playerId, ...held }] };
+    }
     case 'CALL_PORT_TRUCK': {
       if (action.tileId !== at) return unchanged;
       const choice = getEarlyTruckCalls(state, playerId).find(option => option.operation === action.operation);
@@ -351,6 +385,7 @@ export function dispatchLogistics(state: GameState, action: GameAction, playerId
           !getCargoRedirections(state, playerId).some(item => item.tileId === action.destinationTileId)) return unchanged;
       const result = next();
       const updated = { ...booking, destinationTileId: action.destinationTileId };
+      releaseImportTruck(result.logistics!, playerId);
       result.players[state.activePlayerIndex].cargo = updated;
       return { state: result, events: [{ type: 'CARGO_DESTINATION_CHANGED', playerId, tileId: at,
         previousDestinationTileId: booking.destinationTileId, ...updated }] };
@@ -382,13 +417,15 @@ export function dispatchLogistics(state: GameState, action: GameAction, playerId
       const contractEvent = fulfillFreightContract(result, playerId, receipt);
       const backhaulEvent = settleBackhaul(result, captain, receipt);
       const payment = getVoyagePayment(receipt);
+      const heldTruck = getImportTruckReservation(state, playerId) !== null;
+      if (heldTruck) delete logistics.importTruckReservations![playerId];
       delete captain.cargo;
       captain.lastDelivery = receipt;
       captain.balance += payment;
       logistics.deliveries[playerId]++;
       logistics.earnings[playerId] += payment;
       if (booking.kind === 'empty') logistics.emptyDeliveries[playerId]++;
-      logistics.ports[at] = getPortStockAfterDischarge(stock, booking.kind);
+      logistics.ports[at] = getPortStockAfterDischarge(stock, booking.kind, heldTruck);
       recordVoyage(logistics, playerId, result.turnCount, receipt);
       const events: GameEvent[] = [{ type: 'CARGO_UNLOADED', playerId, ...receipt }];
       if (contractEvent) events.push(contractEvent);
@@ -397,6 +434,9 @@ export function dispatchLogistics(state: GameState, action: GameAction, playerId
         reason: contractEvent ? 'Cước giao container và thưởng hợp đồng' : 'Cước giao container' });
       if (isFinalLogisticsRound(result)) {
         if (logistics.market) logistics.market.tender = null;
+        for (const held of Object.values(logistics.importTruckReservations ?? {})) {
+          held.throughRound = Math.min(held.throughRound, result.turnCount);
+        }
         for (const player of result.players) {
           if (player.backhaul) player.backhaul.deadlineRound = Math.min(player.backhaul.deadlineRound, result.turnCount);
         }
@@ -412,6 +452,7 @@ export function dispatchLogistics(state: GameState, action: GameAction, playerId
       const result = next();
       const events: GameEvent[] = [{ type: 'LOGISTICS_TURN_ENDED', playerId, sailed: state.logistics!.hasSailed }];
       closeBackhaulTurn(result, events, isFinalLogisticsRound(state));
+      if (state.activePlayerIndex === state.players.length - 1) closeImportTruckRound(result, isFinalLogisticsRound(state));
       if (state.activePlayerIndex === state.players.length - 1 && isFinalLogisticsRound(state)) {
         closeTenderRound(result, events, 'finished');
         result.winnerId = getLogisticsStandings(result)[0].playerId;

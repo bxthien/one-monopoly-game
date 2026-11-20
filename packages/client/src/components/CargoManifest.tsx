@@ -1,7 +1,8 @@
 import { useId, useRef, useState } from 'react';
 import {
   LOGISTICS_DELIVERY_TARGET, getCargoBookings, getCargoOpportunity, getCargoRedirections,
-  getEmptyNeed, getFeederDistanceNm, getFreightQuote, getLogisticsRoutes, getTenderBonus, isFinalLogisticsRound, type GameAction, type GameState, type Player,
+  getEmptyNeed, getFeederDistanceNm, getFreightQuote, getImportTruckReservation, getLogisticsRoutes, getTenderBonus,
+  isFinalLogisticsRound, type GameAction, type GameState, type Player,
 } from '@one-monopoly/shared';
 import { ArrowRight, Check, Container, Flag, MapPin, Route, Ship, Snowflake, Truck } from 'lucide-react';
 import {
@@ -14,6 +15,7 @@ import { FreightMarketBoard } from './FreightMarketBoard.js';
 import { TenderDesk } from './TenderDesk.js';
 import { BackhaulDesk } from './BackhaulDesk.js';
 import { EarlyTruckDesk } from './EarlyTruckDesk.js';
+import { ImportTruckDesk } from './ImportTruckDesk.js';
 import { FeederSailing } from './FeederSailing.js';
 import { ReeferDeadline, ReeferReceipt } from './ReeferCargo.js';
 
@@ -79,13 +81,21 @@ function Sailing({ state, player, busy, routes, submit }: {
   const feederDistance = preferred !== undefined && state.logistics?.feederAvailable?.[player.id] === true
     ? getFeederDistanceNm(choice.tileId, preferred) : null;
   const bonus = player.cargo && choice.tileId === preferred ? getTenderBonus(state, player.id, choice.tileId, player.cargo.kind) : 0;
-  const reserved = bonus > 0 && player.cargo && (player.cargo.kind === 'empty'
+  const tenderSlot = bonus > 0 && player.cargo && (player.cargo.kind === 'empty'
     ? getEmptyNeed(state.logistics!.ports[choice.tileId]) : choice.demand) === 0;
+  const appointment = getImportTruckReservation(state, player.id);
+  let arrivalNote = 'Ghé bến, giữ hàng trên tàu';
+  if (choice.tileId === preferred) {
+    if (!choice.quote) arrivalNote = 'Bến đích đã hết chỗ nhận';
+    else if (appointment?.destinationTileId === choice.tileId && appointment.throughRound >= state.turnCount) {
+      arrivalNote = `Xe nhận đã giữ đến hết vòng ${appointment.throughRound}`;
+    } else arrivalNote = tenderSlot ? 'Chỗ nhận riêng của chủ hàng' : 'Đến cảng đã đặt';
+  }
   const contents = <>
     <PortSelect label="Cảng ghé tiếp theo của tàu" value={choice.tileId} purpose="destination" onChange={setChosen}
       options={routes.map(r => ({ tileId: r.tileId, description: `${r.supply} xe xuất · ${r.demand} xe nhận` }))} />
     <div className="freight-terms">
-      <span>{player.cargo ? choice.tileId === preferred ? choice.quote ? reserved ? 'Chỗ nhận riêng của chủ hàng' : 'Đến cảng đã đặt' : 'Bến đích đã hết chỗ nhận' : 'Ghé bến, giữ hàng trên tàu'
+      <span>{player.cargo ? arrivalNote
         : `${state.logistics!.ports[choice.tileId].empties} vỏ rỗng tại bến`}</span>
       <Quote nm={choice.distanceNm} reward={choice.quote?.reward} />
     </div>
@@ -132,7 +142,8 @@ function CaptainDesk({ gameState, myPlayerId, onAction, player, ...planning }: D
   const opportunity = canAct ? getCargoOpportunity(gameState, player.id) : null;
   const unload = opportunity?.action.type === 'UNLOAD_CARGO' ? opportunity : null;
   const dischargeBonus = unload && cargo ? getTenderBonus(gameState, player.id, player.position, cargo.kind) : 0;
-  const reservedReceiver = dischargeBonus > 0 && cargo && (cargo.kind === 'empty' ? getEmptyNeed(stock) : stock.demand) === 0;
+  const tenderReceiver = dischargeBonus > 0 && cargo && !getImportTruckReservation(gameState, player.id) &&
+    (cargo.kind === 'empty' ? getEmptyNeed(stock) : stock.demand) === 0;
   const routes = canAct ? getLogisticsRoutes(gameState, player.id) : [];
   const delivered = logistics.deliveries[player.id] ?? 0;
   const finalRound = isFinalLogisticsRound(gameState);
@@ -158,11 +169,12 @@ function CaptainDesk({ gameState, myPlayerId, onAction, player, ...planning }: D
     {stock && <Stock stock={stock} />}
     <EarlyTruckDesk state={gameState} player={player} canAct={canAct} busy={busy} submit={submit} />
     {cargo ? <CargoTicket state={gameState} player={player} /> : <p className="freight-empty"><Container aria-hidden="true" />Khoang tàu trống</p>}
+    {cargo && <ImportTruckDesk state={gameState} playerId={player.id} myPlayerId={myPlayerId} onAction={onAction} />}
     {canAct && (cargo ? <>
       {unload && <button type="button" className="chart-button freight-handling" data-cargo-action="UNLOAD_CARGO" disabled={busy}
         onClick={() => submit(unload.action)}><Truck aria-hidden="true" />Dỡ {cargo.kind === 'empty' ? 'container rỗng' : 'hàng lên xe'}{unload.quote && <strong>+${unload.quote.reward}M</strong>}</button>}
       {dischargeBonus > 0 && (
-        <p className="freight-note freight-discharge-bonus">{reservedReceiver && 'Chủ hàng có chỗ nhận riêng. '}Dỡ tại đây nhận thêm ${dischargeBonus}M theo hợp đồng.</p>
+        <p className="freight-note freight-discharge-bonus">{tenderReceiver && 'Chủ hàng có chỗ nhận riêng. '}Dỡ tại đây nhận thêm ${dischargeBonus}M theo hợp đồng.</p>
       )}
       {target && !unload && <p className="freight-note">{cargo.kind === 'empty' ? 'Bến đã đủ vỏ rỗng.' : 'Bến đã hết xe chờ nhận hàng.'} Bạn có thể đổi cảng đích.</p>}
       <ChangeDestination key={cargo.bookingId} choices={getCargoRedirections(gameState, player.id)} booked={cargo}

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import {
-  BOARD_TILES, getCargoDestinationEstimate, type CargoDestinationEstimate, type CargoKind, type GameState,
+  BOARD_TILES, getCargoDestinationEstimate, getImportTruckReservation, type CargoDestinationEstimate, type CargoKind, type GameState,
 } from '@one-monopoly/shared';
 import { portGuide } from './ports/portGuide.js';
 import './diversion-comparison.css';
@@ -24,9 +24,10 @@ function arrivalLabel(estimate: CargoDestinationEstimate | null) {
   return <>Vòng {estimate.arrivalRound}<small>{method}</small></>;
 }
 
-function receiverLabel(estimate: CargoDestinationEstimate | null, kind: CargoKind) {
+function receiverLabel(estimate: CargoDestinationEstimate | null, kind: CargoKind, throughRound?: number) {
   if (!estimate) return unknown;
   switch (estimate.receiver) {
+    case 'appointment': return <>Xe đã giữ{throughRound !== undefined && <small>Đến hết vòng {throughRound}</small>}</>;
     case 'reserved': return 'Chỗ chủ hàng';
     case 'public': return kind === 'empty' ? `Cần ${estimate.publicSlots} vỏ` : `${estimate.publicSlots} xe chờ`;
     case 'conditional': return 'Chưa chốt';
@@ -57,6 +58,7 @@ export function DiversionComparison({ state, playerId, currentId, proposedId }: 
   if (!player?.cargo || currentId === proposedId) return null;
   const current = getCargoDestinationEstimate(state, playerId, currentId);
   const proposed = getCargoDestinationEstimate(state, playerId, proposedId);
+  const appointment = getImportTruckReservation(state, playerId);
   const maxNm = Math.max(current?.legDistanceNm ?? 0, proposed?.legDistanceNm ?? 0);
   const conditional = current?.receiver === 'conditional' || proposed?.receiver === 'conditional';
   const difference = current?.total != null && proposed?.total != null ? proposed.total - current.total : null;
@@ -85,7 +87,7 @@ export function DiversionComparison({ state, playerId, currentId, proposedId }: 
         {row('leg', `Từ ${portName(player.position)}`, <RemainingLeg estimate={current} maxNm={maxNm} />,
           <RemainingLeg estimate={proposed} maxNm={maxNm} proposed />)}
         {row('arrival', 'Đến sớm nhất', arrivalLabel(current), arrivalLabel(proposed))}
-        {row('receiver', 'Chỗ nhận', receiverLabel(current, player.cargo.kind), receiverLabel(proposed, player.cargo.kind))}
+        {row('receiver', 'Chỗ nhận', receiverLabel(current, player.cargo.kind, appointment?.throughRound), receiverLabel(proposed, player.cargo.kind))}
         {row('distance', 'Cự ly tính cước',
           current ? `${number.format(current.freightDistanceNm)} hải lý` : unknown,
           proposed ? `${number.format(proposed.freightDistanceNm)} hải lý` : unknown)}
@@ -102,5 +104,8 @@ export function DiversionComparison({ state, playerId, currentId, proposedId }: 
         `${difference > 0 ? 'tăng' : 'giảm'} ${money(Math.abs(difference))}`}</strong> theo dự kiến.
     </p>}
     {conditional && <p className="diversion-condition">Mức thu ở vòng sau phụ thuộc vào chỗ nhận khi tàu đến.</p>}
+    {appointment?.destinationTileId === currentId && <p className="diversion-condition" data-appointment-release>
+      Đổi sang {portName(proposedId)} sẽ trả xe đã giữ tại {portName(currentId)} cho bến. Lượt giữ xe trong ván đã dùng.
+    </p>}
   </section>;
 }

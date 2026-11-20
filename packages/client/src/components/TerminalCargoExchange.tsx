@@ -75,8 +75,9 @@ export function TerminalCargoExchange({ state, tileId, playerId, myPlayerId, onA
     {unloadAction && stockAfterUnload && <div className="quay-discharge">
       {model.receiver === 'reserved' && <p>Chủ hàng đã dành chỗ nhận tại bến.</p>}
       <dl aria-label="Tồn bến trước và sau khi dỡ">
-        <div><dt>{empty ? 'Chỗ nhận vỏ rỗng' : 'Xe nhận hàng nhập'}</dt>
-          <dd data-quay-stock="receiver">{empty ? getEmptyNeed(stock) : stock.demand} → {empty ? getEmptyNeed(stockAfterUnload) : stockAfterUnload.demand}</dd></div>
+        {model.receiver === 'appointment' ? <div><dt>Xe đã giữ cho lô này</dt>
+          <dd data-quay-stock="receiver">1 → 0</dd></div> : <div><dt>{empty ? 'Chỗ nhận vỏ rỗng' : 'Xe nhận hàng nhập'}</dt>
+          <dd data-quay-stock="receiver">{empty ? getEmptyNeed(stock) : stock.demand} → {empty ? getEmptyNeed(stockAfterUnload) : stockAfterUnload.demand}</dd></div>}
         <div><dt>Vỏ rỗng tại bãi</dt><dd data-quay-stock="empties">{stock.empties} → {stockAfterUnload.empties}</dd></div>
       </dl>
       {mine && <button ref={unloadButton} type="button" className="quay-primary" data-terminal-unload disabled={busy} onClick={() => send(unloadAction)}>
@@ -97,6 +98,6 @@ export function TerminalCargoExchange({ state, tileId, playerId, myPlayerId, onA
     </> : <p>{model.playerName} có thể đổi cảng dỡ sang {port}.</p>)}
     {status === 'blocked' && <p>{tileId === booking.originTileId ? 'Tàu đang ở cảng xếp hàng.'
       : cargoType === 'reefer' && !isReeferPort(tileId) ? 'Bến này không có kho lạnh để nhận lô hàng.'
-        : empty ? 'Bến đã đủ vỏ rỗng.' : 'Bến chưa có xe chờ nhận hàng nhập.'}</p>}
+        : empty ? 'Bến đã đủ vỏ rỗng.' : 'Bến chưa có xe trống để nhận hàng nhập.'}</p>}
   </section>;
 }

@@ -316,6 +316,12 @@ export class RoomManager {
     const room = this.getRoom(roomId);
     if (!room || !room.gameState) return { success: false, error: 'Phòng hoặc ván chơi không tồn tại' };
     if (!action || typeof action.type !== 'string') return { success: false, error: 'Hành động không hợp lệ.' };
+    if (action.type === 'RESERVE_IMPORT_TRUCK' && (
+      Object.keys(action).length !== 4 ||
+      !Number.isSafeInteger(action.bookingId) || action.bookingId < 1 ||
+      !Number.isSafeInteger(action.destinationTileId) || action.destinationTileId < 0 ||
+      !Number.isSafeInteger(action.revision) || action.revision < 0
+    )) return { success: false, error: 'Yêu cầu giữ xe nhận hàng không hợp lệ.' };
 
     const activePlayer = room.gameState.players[room.gameState.activePlayerIndex];
     if (room.gameState.mode === 'logistics' && activePlayer.id !== playerId) {
@@ -368,7 +374,8 @@ export class RoomManager {
     const { state: nextState, events } = OneMonopolyEngine.dispatch(room.gameState, action, playerId);
     const freightCommand = action.type === 'LOAD_CARGO' || action.type === 'UNLOAD_CARGO' ||
       action.type === 'CHANGE_DESTINATION' || action.type === 'SAIL_TO_PORT' || action.type === 'SAIL_FEEDER' ||
-      action.type === 'ACCEPT_BACKHAUL' || action.type === 'BID_FREIGHT_TENDER' || action.type === 'CALL_PORT_TRUCK';
+      action.type === 'ACCEPT_BACKHAUL' || action.type === 'BID_FREIGHT_TENDER' || action.type === 'CALL_PORT_TRUCK' ||
+      action.type === 'RESERVE_IMPORT_TRUCK';
     if (nextState === room.gameState && (room.gameState.mode === 'logistics' || freightCommand)) {
       return { success: false, error: 'Lệnh điều độ không còn hợp lệ. Hãy kiểm tra lại vận đơn và tình trạng bến.' };
     }

@@ -1,4 +1,4 @@
-import { BOARD_TILES, getEmptyNeed, getFreightQuote, isReeferPort, type CargoKind, type GameState } from '@one-monopoly/shared';
+import { BOARD_TILES, getEmptyNeed, getFreightQuote, getImportTruckReservation, isReeferPort, type CargoKind, type GameState } from '@one-monopoly/shared';
 import { portGuide } from './ports/portGuide.js';
 
 export type MarketFilter = 'all' | 'export' | 'surplus' | 'shortage' | 'import';
@@ -8,6 +8,7 @@ interface Incoming {
   captain: string;
   kind: CargoKind;
   refrigerated: boolean;
+  heldThrough?: number;
 }
 
 export function freightMarketRows(state: GameState, viewerId: string | null, filter: MarketFilter, sort: MarketSort) {
@@ -16,12 +17,15 @@ export function freightMarketRows(state: GameState, viewerId: string | null, fil
   if (!logistics || !captain) return [];
   const cargo = captain.cargo;
   const currentAward = logistics.market?.contract;
+  const ownTruck = getImportTruckReservation(state, captain.id);
   const inbound = new Map<number, Incoming[]>();
   for (const rival of state.players) {
     if (rival.id === captain.id || rival.isBankrupt || !rival.cargo) continue;
     const { destinationTileId, kind, reeferDueRound } = rival.cargo;
     const arrivals = inbound.get(destinationTileId) ?? [];
-    arrivals.push({ captain: rival.name, kind, refrigerated: reeferDueRound !== undefined });
+    const truck = getImportTruckReservation(state, rival.id);
+    arrivals.push({ captain: rival.name, kind, refrigerated: reeferDueRound !== undefined,
+      ...(truck && { heldThrough: truck.throughRound }) });
     inbound.set(destinationTileId, arrivals);
   }
 
@@ -42,10 +46,10 @@ export function freightMarketRows(state: GameState, viewerId: string | null, fil
     const cargoCompatible = !!cargo && cargo.originTileId !== tile.id &&
       (cargo.reeferDueRound === undefined || isReeferPort(tile.id));
     const capacity = cargo?.kind === 'empty' ? shortage : demand;
-    const canReceive = cargoCompatible && (capacity > 0 || (ownAward && cargo.kind === award?.kind));
-    const matchingInbound = incoming.filter(box => box.kind === cargo?.kind).length;
-    // Incoming bookings signal competition; they do not consume trucks until delivery.
-    // Keep the reported stock literal and use inbound demand only to break close opportunity ties.
+    const ownTruckThrough = ownTruck?.destinationTileId === tile.id ? ownTruck.throughRound : undefined;
+    const canReceive = cargoCompatible && (capacity > 0 || ownTruckThrough !== undefined || (ownAward && cargo.kind === award?.kind));
+    // Trucks already reserved have been removed from public stock.
+    const matchingInbound = incoming.filter(box => box.kind === cargo?.kind && box.heldThrough === undefined).length;
     const quantity = filter !== 'all' ? counts[filter] : cargo ? Number(canReceive) * Math.max(1, capacity) : Math.max(supply, surplus);
     let priority = 0;
     if (filter === 'all') {
@@ -54,13 +58,13 @@ export function freightMarketRows(state: GameState, viewerId: string | null, fil
       else if (canReceive) priority = 1;
     }
     const competition = filter === 'shortage' ? incoming.filter(b => b.kind === 'empty').length
-      : filter === 'import' ? incoming.filter(b => b.kind === 'laden').length
+      : filter === 'import' ? incoming.filter(b => b.kind === 'laden' && b.heldThrough === undefined).length
       : filter === 'all' && cargo ? matchingInbound : 0;
     const awardHolder = award && state.players.find(p => p.id === award.playerId);
     return [{
       tileId: tile.id, code: tile.code, name: guide.name, country: guide.country,
       supply, surplus, shortage, demand, current, distanceNm, booked, canReceive,
-      incoming, award: award && { name: awardHolder?.name ?? 'Hãng tàu', own: award.playerId === viewerId, kind: award.kind, amount: award.amount },
+      incoming, ownTruckThrough, award: award && { name: awardHolder?.name ?? 'Hãng tàu', own: award.playerId === viewerId, kind: award.kind, amount: award.amount },
       quantity, priority, competition,
     }];
   });

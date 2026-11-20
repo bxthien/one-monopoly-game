@@ -149,13 +149,22 @@ export interface TruckScheduleEntry {
 export interface PortTruckSchedule {
   tileId: number;
   scheduledRound: number;
+  /** Appointments expiring before this round opens, releasing trucks into the public queue. */
+  returningImportTrucks?: number;
   before: PortStock;
   /** Next round's opening yard if no other captain changes the current stock. */
   projected: PortStock;
   operations: TruckScheduleEntry[];
 }
 export interface EarlyTruckChoice { operation: TruckOperation; after: PortStock; action: PortTruckCall }
+export interface ImportTruckReservation { bookingId: number; destinationTileId: number; throughRound: number }
+export interface ReserveImportTruckAction {
+  type: 'RESERVE_IMPORT_TRUCK'; bookingId: number; destinationTileId: number; revision: number;
+}
 export interface LogisticsState {
+  /** Ports report public demand; held import trucks are recorded separately by captain. */
+  importTruckAvailable?: Record<string, boolean>;
+  importTruckReservations?: Record<string, ImportTruckReservation>;
   /** Absent in freight rooms created before early truck calls were introduced. */
   earlyTruckAvailable?: Record<string, boolean>;
   /** Advanced operations for the upcoming rollover, grouped by terminal. */
@@ -308,6 +317,7 @@ export type SailAction = { type: 'SAIL_TO_PORT'; tileId: number; revision: numbe
 export type FeederSailAction = { type: 'SAIL_FEEDER'; tileId: number; revision: number };
 
 export type GameAction =
+  | ReserveImportTruckAction
   | PortTruckCall
   | BackhaulAccept
   | CargoAction | DestinationChange | SailAction | FeederSailAction | FreightTenderBid
@@ -335,6 +345,7 @@ export type GameAction =
   | { type: 'END_TURN' };
 
 export type GameEvent =
+  | ({ type: 'IMPORT_TRUCK_RESERVED'; playerId: string } & ImportTruckReservation)
   | { type: 'PORT_TRUCK_CALLED'; operation: TruckOperation; tileId: number; playerId: string; scheduledRound: number }
   | { type: 'BACKHAUL_ACCEPTED' | 'BACKHAUL_EXPIRED' | 'BACKHAUL_FULFILLED'; playerId: string; job: BackhaulJob }
   | { type: 'FREIGHT_TENDER_BID'; tenderId: number; playerId: string }

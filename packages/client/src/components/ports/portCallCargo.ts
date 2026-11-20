@@ -1,6 +1,6 @@
 import {
   BOARD_TILES, getCargoDestinationEstimate, getCargoOpportunity, getCargoRedirections, getEmptyNeed,
-  getPortStockAfterDischarge, getTenderBonus, isReeferPort,
+  getImportTruckReservation, getPortStockAfterDischarge, getTenderBonus, isReeferPort,
   type CargoAction, type CargoBooking, type CargoDestinationEstimate, type CargoKind, type DeliveryReceipt,
   type DestinationChange, type GameState, type PortStock,
 } from '@one-monopoly/shared';
@@ -16,7 +16,7 @@ export interface PortCallCargo {
   booking: CargoBooking | null;
   cargoType: CargoKind | 'reefer' | null;
   bookedHere: boolean;
-  receiver: 'public' | 'reserved' | 'unavailable' | null;
+  receiver: 'public' | 'reserved' | 'appointment' | 'unavailable' | null;
   publicSlots: number | null;
   estimate: CargoDestinationEstimate | null;
   unloadAction: Extract<CargoAction, { type: 'UNLOAD_CARGO' }> | null;
@@ -55,7 +55,8 @@ export function getPortCallCargo(
   if (booking) {
     receiver = 'unavailable';
     if (booking.originTileId !== tileId && (cargoType !== 'reefer' || isReeferPort(tileId))) {
-      if (getTenderBonus(state, playerId, tileId, booking.kind) > 0) receiver = 'reserved';
+      if (getImportTruckReservation(state, playerId)?.destinationTileId === tileId) receiver = 'appointment';
+      else if (getTenderBonus(state, playerId, tileId, booking.kind) > 0) receiver = 'reserved';
       else if ((publicSlots ?? 0) > 0) receiver = 'public';
     }
   }
@@ -71,7 +72,7 @@ export function getPortCallCargo(
 
   return {
     tileId, playerId, playerName: captain.name, active, stock: { ...stock }, booking: booking ? { ...booking } : null,
-    stockAfterUnload: unloadAction && booking ? getPortStockAfterDischarge(stock, booking.kind) : null,
+    stockAfterUnload: unloadAction && booking ? getPortStockAfterDischarge(stock, booking.kind, receiver === 'appointment') : null,
     cargoType, bookedHere, receiver, publicSlots, estimate, unloadAction, redirectAction, receipt,
   };
 }

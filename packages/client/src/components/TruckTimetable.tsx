@@ -9,6 +9,10 @@ const number = new Intl.NumberFormat('vi-VN');
 
 export function ScheduledOperations({ schedule }: { schedule: PortTruckSchedule }) {
   return <ul className="scheduled-operations">
+    {!!schedule.returningImportTrucks && <li data-released-appointments={schedule.returningImportTrucks}>
+      <Truck size={15} aria-hidden="true" /><span>{schedule.returningImportTrucks} xe hết hạn giữ chỗ
+        <small>Trở lại hàng xe công cộng nếu chưa giao hàng</small></span>
+    </li>}
     {schedule.operations.map(entry => {
       const exporting = entry.operation === 'export';
       const status = entry.consumed ? 'Đã gọi sớm' : entry.available ? undefined
@@ -39,7 +43,8 @@ export function TruckTimetable({ state, viewerId, inspect }: TimetableProps) {
   const round = state.turnCount + 1;
   const scheduled = freightMarketRows(state, viewerId, 'all', 'distance').flatMap(port => {
     const schedule = getPortTruckSchedule(state, port.tileId);
-    return schedule?.operations.some(entry => filter === 'all' || entry.operation === filter)
+    return schedule && (schedule.operations.some(entry => filter === 'all' || entry.operation === filter) ||
+      (filter !== 'export' && !!schedule.returningImportTrucks))
       ? [{ port, schedule }] : [];
   });
   return <>

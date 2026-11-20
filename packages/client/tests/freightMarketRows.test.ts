@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { getFreightQuote, OneMonopolyEngine } from '@one-monopoly/shared';
+import { getCargoBookings, getFreightQuote, getReserveImportTruckAction, OneMonopolyEngine } from '@one-monopoly/shared';
 import { freightMarketRows } from '../src/components/freightMarketRows.js';
 
 function game() {
@@ -10,6 +10,21 @@ function game() {
 }
 
 describe('live freight market', () => {
+  it('shows the same held receiver to rivals and the holder while keeping the public queue empty', () => {
+    const opening = game();
+    const load = getCargoBookings(opening, 'a', 'laden').find(choice => choice.tileId === 1)!.action;
+    const loaded = OneMonopolyEngine.dispatch(opening, load, 'a').state;
+    const held = OneMonopolyEngine.dispatch(loaded, getReserveImportTruckAction(loaded, 'a')!, 'a').state;
+    const preferred = freightMarketRows(held, 'a', 'all', 'opportunity')[0];
+    assert.equal(preferred.tileId, 1);
+    assert.equal(preferred.canReceive, true);
+    assert.equal(preferred.demand, 0);
+    assert.equal(preferred.ownTruckThrough, held.turnCount + 1);
+    const rivals = freightMarketRows(held, 'b', 'all', 'distance').find(port => port.tileId === 1)!;
+    assert.equal(rivals.ownTruckThrough, undefined);
+    assert.equal(rivals.incoming[0].heldThrough, held.turnCount + 1);
+    assert.ok(!freightMarketRows(held, 'b', 'import', 'distance').some(port => port.tileId === 1));
+  });
   it('lists every terminal, including Singapore, and measures from the viewer even on another turn', () => {
     const state = game();
     state.players[1].position = 15;

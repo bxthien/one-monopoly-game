@@ -4,6 +4,7 @@ import {
   getNextRoundReceivingSlots, getPublicReceivingSlots, isFinalLogisticsRound,
 } from './cargo.js';
 import { getTenderBonus } from './freightTender.js';
+import { getImportTruckReservation } from './importTruck.js';
 import { getReeferBonus, isReeferPort } from './reefer.js';
 import type { GameState, Player } from './types.js';
 import { getVoyagePayment } from './voyageLog.js';
@@ -14,7 +15,7 @@ export interface CargoDestinationEstimate {
   freightDistanceNm: number;
   arrival: 'here' | 'sail' | 'feeder' | 'next-round' | 'unreachable';
   arrivalRound: number | null;
-  receiver: 'public' | 'reserved' | 'conditional' | 'unavailable';
+  receiver: 'public' | 'reserved' | 'appointment' | 'conditional' | 'unavailable';
   publicSlots: number;
   baseFreight: number;
   reeferBonus: number;
@@ -45,8 +46,10 @@ export function getCargoDestinationEstimate(state: GameState, playerId: string, 
   const arrivalRound = arrival === 'unreachable' ? null : travelRound;
   const publicSlots = getPublicReceivingSlots(stock, booking.kind);
   const tenderBonus = arrivalRound === state.turnCount ? getTenderBonus(state, playerId, tileId, booking.kind) : 0;
+  const appointment = getImportTruckReservation(state, playerId);
   let receiver: CargoDestinationEstimate['receiver'] = 'unavailable';
-  if (tenderBonus) receiver = 'reserved';
+  if (appointment?.destinationTileId === tileId && arrivalRound !== null && arrivalRound <= appointment.throughRound) receiver = 'appointment';
+  else if (tenderBonus) receiver = 'reserved';
   else if (arrival === 'next-round') {
     if (getNextRoundReceivingSlots(state, tileId, booking.kind) > 0) receiver = 'conditional';
   } else if (arrivalRound !== null && publicSlots > 0) receiver = 'public';

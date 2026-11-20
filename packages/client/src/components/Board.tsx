@@ -1,5 +1,5 @@
 import React, { useLayoutEffect } from 'react';
-import { BOARD_TILES, GameAction, GameCard, GameState, getCargoOpportunity, getVoyagePayment, OneMonopolyEngine, Player } from '@one-monopoly/shared';
+import { BOARD_TILES, GameAction, GameCard, GameState, getCargoOpportunity, getImportTruckReservation, getVoyagePayment, OneMonopolyEngine, Player } from '@one-monopoly/shared';
 import { LogisticsTile, TileView } from './TileView.js';
 import { TILE_CENTER_PERCENT } from './boardCoordinates.js';
 import { getPortTender } from './ports/portTender.js';
@@ -166,8 +166,9 @@ function arrivalStatus(call: NonNullable<ReturnType<typeof getPortCallCargo>>, l
     return loadedHere ? `Đã xếp ${service.toLocaleLowerCase('vi')} → ${destination}` : `${service} còn trên tàu → ${destination}`;
   }
   if (!call.active) return `${service} · chờ lượt dỡ`;
-  if (call.receiver === 'unavailable') return call.cargoType === 'empty' ? 'Bến đã đủ vỏ rỗng' : 'Chưa có xe nhận tại bến';
+  if (call.receiver === 'unavailable') return call.cargoType === 'empty' ? 'Bến đã đủ vỏ rỗng' : 'Chưa có xe trống nhận hàng';
   const total = call.estimate?.total;
+  if (call.receiver === 'appointment') return `${service} · xe đã giữ${total != null ? ` · $${total}M` : ''}`;
   return `${service} · có thể dỡ tại bến${total != null ? ` · $${total}M` : ''}`;
 }
 
@@ -190,6 +191,14 @@ export const Board: React.FC<Props> = ({
 }) => {
   const idleMotion = useIdleMotion();
   const isLogistics = gameState.mode === 'logistics';
+  const heldTrucks = React.useMemo(() => {
+    const counts: Record<number, number> = {};
+    for (const player of gameState.players) {
+      const hold = getImportTruckReservation(gameState, player.id);
+      if (hold) counts[hold.destinationTileId] = (counts[hold.destinationTileId] ?? 0) + 1;
+    }
+    return counts;
+  }, [gameState]);
   const allowIdle = idleMotion && selectedTileId === null && !activeCard && !gameState.winnerId;
   const { tracks, claims, rentReceipts, pendingRentReceipts, advance, atlas, showPort, closeAtlas, portDischarge, portLoad } = useBoardPlayback(gameState, subscribeBoard);
   const { rescue, finishRescue } = useStormTugRescue(subscribeBoard);
@@ -325,6 +334,7 @@ export const Board: React.FC<Props> = ({
                 return (
                   <LogisticsTile key={tile.id} tile={tile} placement={getTileGridStyle(tile.id)}
                     stock={gameState.logistics?.ports[tile.id]} tender={getPortTender(gameState, tile.id)}
+                    heldTrucks={heldTrucks[tile.id]}
                     is3D={is3D} onClick={() => onSelectTile(tile.id)} />
                 );
               }
@@ -501,6 +511,7 @@ export const Board: React.FC<Props> = ({
 
       {/* Property Details Modal */}
       <PropertyModal
+        subscribeBoard={subscribeBoard}
         tileId={selectedTileId}
         gameState={gameState}
         myPlayerId={myPlayerId}

@@ -29,7 +29,7 @@ const filters: { key: MarketFilter; label: string }[] = [
 const number = new Intl.NumberFormat('vi-VN');
 const columns = [
   { key: 'supply', label: 'Xe hàng xuất' }, { key: 'surplus', label: 'Vỏ dư' },
-  { key: 'shortage', label: 'Thiếu vỏ' }, { key: 'demand', label: 'Xe nhận' },
+  { key: 'shortage', label: 'Thiếu vỏ' }, { key: 'demand', label: 'Xe nhận trống' },
 ] as const;
 
 export function FreightMarketBoard({ gameState, myPlayerId, onClose, onSelectPort, service = 'laden', onPlanPort }: Props) {
@@ -55,7 +55,7 @@ export function FreightMarketBoard({ gameState, myPlayerId, onClose, onSelectPor
     : freightMarketRows(gameState, myPlayerId, filter, effectiveSort),
   [effectiveSort, gameState, myPlayerId, filter, baseRates]);
   const hasPlans = rows.some(row => baseRates.has(row.tileId));
-  const hasActivity = rows.some(row => row.incoming.length || row.award);
+  const hasActivity = rows.some(row => row.incoming.length || row.award || row.ownTruckThrough !== undefined);
   function inspect(tileId: number) {
     onClose();
     onSelectPort(tileId);
@@ -118,11 +118,14 @@ export function FreightMarketBoard({ gameState, myPlayerId, onClose, onSelectPor
               <span className="market-mobile-label" aria-hidden="true">{column.label}</span>{row[column.key]}</td>)}
             <td className="market-distance"><span className="market-mobile-label" aria-hidden="true">Hải lý</span>
               {row.distanceNm === null ? '—' : number.format(row.distanceNm)}</td>
-            {hasActivity && <td className="market-activity" data-empty={!row.award && !row.incoming.length || undefined}>
+            {hasActivity && <td className="market-activity" data-empty={!row.award && !row.incoming.length && row.ownTruckThrough === undefined || undefined}>
+              {row.ownTruckThrough !== undefined && <div className="market-award" data-market-held-truck><Truck aria-hidden="true" />
+                <span>{captain.id === myPlayerId ? 'Xe của bạn' : `Xe của ${captain.name}`} · giữ đến hết vòng {row.ownTruckThrough}</span></div>}
               {row.award && <div className="market-award"><Award aria-hidden="true" /><span>{row.award.own ? 'Hợp đồng của bạn' : `Hợp đồng · ${row.award.name}`} · {row.award.kind === 'empty' ? 'vỏ rỗng' : 'hàng xuất'} +${row.award.amount}M</span></div>}
               {row.incoming.map((shipment, index) => <div className="market-inbound" key={index}>{shipment.kind === 'empty'
-                ? <Container aria-hidden="true" /> : <Truck aria-hidden="true" />}<span>{shipment.captain} · {shipment.refrigerated ? 'hàng lạnh' : shipment.kind === 'empty' ? 'vỏ rỗng' : 'hàng xuất'}</span></div>)}
-              {!row.award && !row.incoming.length && <span aria-label="Chưa có lô đặt tại bến">—</span>}
+                ? <Container aria-hidden="true" /> : <Truck aria-hidden="true" />}<span>{shipment.captain} · {shipment.refrigerated ? 'hàng lạnh' : shipment.kind === 'empty' ? 'vỏ rỗng' : 'hàng xuất'}
+                  {shipment.heldThrough !== undefined && <strong data-market-held-truck> · xe giữ đến hết vòng {shipment.heldThrough}</strong>}</span></div>)}
+              {!row.award && !row.incoming.length && row.ownTruckThrough === undefined && <span aria-label="Chưa có lô đặt tại bến">—</span>}
             </td>}
             {hasPlans && <td className="market-plan-cell" data-empty={rate === undefined || undefined}>
               {rate !== undefined && <button type="button" className="market-plan-button" data-market-plan={row.tileId}
