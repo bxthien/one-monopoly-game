@@ -1,12 +1,14 @@
 import React from 'react';
 import { BoardTile, LOOP_GROUPS_CONFIG, Player, PropertyState } from '@one-monopoly/shared';
 import { TOKEN_CONFIG } from './TokenBadge.js';
+import { PortMiniature } from './ports/PortMiniature.js';
 import { Anchor, ArrowUpRight, Boxes, Coins, FileText, Flag, Handshake, Leaf, RadioTower, Ship, Siren, Stamp, Waves } from 'lucide-react';
 import type { RentReceipt } from './useBoardPlayback.js';
 import './tile-claim.css';
 import './tile-rent.css';
 import './tile-mission.css';
 import './tile-weather.css';
+import './ports/port-layout.css';
 
 const tileSymbols: Partial<Record<BoardTile['type'], typeof Anchor>> = {
   GO: ArrowUpRight,
@@ -55,6 +57,7 @@ export const TileView: React.FC<Props> = ({
 }) => {
   const groupConfig = tile.group ? LOOP_GROUPS_CONFIG[tile.group] : null;
   const isCorner = orientation === 'corner';
+  const isPort = tile.type === 'PORT' || tile.type === 'GO';
   const isFreshClaim = owner && claim?.tileId === tile.id && claim.playerId === owner.id;
   const TileSymbol = tileSymbols[tile.type] ?? Waves;
 
@@ -145,6 +148,7 @@ export const TileView: React.FC<Props> = ({
       type="button"
       aria-haspopup="dialog"
       data-tile-type={tile.type}
+      data-port-tile={isPort ? tile.code : undefined}
       data-auction={auctioned || undefined}
       data-mission-target={missionTarget || undefined}
       data-claim-edge={isFreshClaim ? orientation : undefined}
@@ -179,9 +183,12 @@ export const TileView: React.FC<Props> = ({
             className="tile-group-color w-full h-2 shrink-0 mb-0.5"
             style={{ backgroundColor: groupConfig.color }}
           />
+        ) : isPort ? (
+          <span className="port-start-stripe" aria-hidden="true" />
         ) : (
           <TileSymbol className="chart-tile-symbol" strokeWidth={1.75} aria-hidden="true" />
         )}
+        {isPort && <PortMiniature code={tile.code} variant="tile" is3D={is3D} />}
 
         {/* MÃ CẢNG - ĐẶT NGAY DƯỚI VẠCH MÀU, CHỮ TO RÕ NÉT */}
         <span className="tile-code-row flex items-center justify-center gap-0.5 w-full my-auto">

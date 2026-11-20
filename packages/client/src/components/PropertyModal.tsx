@@ -12,6 +12,8 @@ import {
 } from '@one-monopoly/shared';
 import { TokenBadge } from './TokenBadge.js';
 import { BoardDialog } from './BoardDialog.js';
+import { PortMiniature } from './ports/PortMiniature.js';
+import { portGuide, type PortGuide } from './ports/portGuide.js';
 import { X, Building2, TrendingDown, DollarSign, ShieldAlert, Leaf, Handshake } from 'lucide-react';
 
 function getRentSchedule(tile: BoardTile): [string, string][] {
@@ -51,6 +53,7 @@ interface Props {
   onClose: () => void;
   onAction: (action: GameAction) => void;
   onOfferForTile: (tileId: number) => void;
+  onShowPort: (port: PortGuide) => void;
 }
 
 export const PropertyModal: React.FC<Props> = ({
@@ -60,6 +63,7 @@ export const PropertyModal: React.FC<Props> = ({
   onClose,
   onAction,
   onOfferForTile,
+  onShowPort,
 }) => {
   const titleId = useId();
 
@@ -69,6 +73,7 @@ export const PropertyModal: React.FC<Props> = ({
   if (!tile) return null;
 
   const rentSchedule = getRentSchedule(tile);
+  const guide = portGuide[tile.code];
   const prop = gameState.properties[tileId];
   const owner = prop?.ownerId
     ? gameState.players.find((p) => p.id === prop.ownerId)
@@ -138,6 +143,17 @@ export const PropertyModal: React.FC<Props> = ({
           </div>
           <h3 id={titleId} className="chart-dialog-title">{tile.name}</h3>
         </header>
+
+        {guide && (
+          <div className="port-deed">
+            <PortMiniature code={tile.code} variant="detail" />
+            <div className="port-deed-geography">
+              <strong>{guide.country}</strong>
+              <p>{guide.fact}</p>
+              <button type="button" onClick={() => onShowPort(guide)}>Xem trên bản đồ</button>
+            </div>
+          </div>
+        )}
 
         {prop && (
           <dl className="chart-manifest-facts">

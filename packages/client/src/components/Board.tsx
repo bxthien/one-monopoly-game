@@ -8,6 +8,7 @@ import { Pawn3D } from './Pawn3D.js';
 import { StormTugRescue } from './StormTugRescue.js';
 import { useStormTugRescue } from './stormTugPlayback.js';
 import { BoardSky } from './BoardSky.js';
+import { WorldPortAtlas } from './WorldPortAtlas.js';
 import { ChartTerrainContours } from './ChartTerrainContours.js';
 import { TerrainRelief } from './TerrainRelief.js';
 import { TERRAIN_RANGES } from './terrainMesh.js';
@@ -200,9 +201,17 @@ export const Board: React.FC<Props> = ({
 }) => {
   const idleMotion = useIdleMotion();
   const allowIdle = idleMotion && selectedTileId === null && !activeCard && !gameState.winnerId;
-  const { tracks, claims, rentReceipts, pendingRentReceipts, advance } = useBoardPlayback(gameState, subscribeBoard);
+  const { tracks, claims, rentReceipts, pendingRentReceipts, advance, atlas, showPort, closeAtlas } = useBoardPlayback(gameState, subscribeBoard);
   const { rescue, finishRescue } = useStormTugRescue(subscribeBoard);
   const moving = gameState.players.some((player) => !player.isBankrupt && tracks[player.id]?.frames.length);
+  const visibleAtlas = !moving && !isRolling && !gameState.winnerId ? atlas : null;
+  const boardRoot = React.useRef<HTMLDivElement>(null);
+  const returnToPortTile = () => {
+    if (visibleAtlas) boardRoot.current?.querySelector<HTMLButtonElement>(
+      `button[data-port-tile="${visibleAtlas.port.code}"]`,
+    )?.focus({ preventScroll: true });
+    closeAtlas();
+  };
   useLayoutEffect(() => { onPawnMovingChange?.(moving); }, [moving, onPawnMovingChange]);
   useLayoutEffect(() => {
     onRentReceiptsChange?.(rentReceipts, pendingRentReceipts);
@@ -261,7 +270,7 @@ export const Board: React.FC<Props> = ({
   const livePlayers = gameState.players.filter((player) => !player.isBankrupt);
 
   return (
-    <div className="relative flex items-center justify-center">
+    <div ref={boardRoot} className="relative flex items-center justify-center">
       {/* 3D Perspective Scene Container */}
       <div
         className="w-full flex items-center justify-center overflow-visible transition-all duration-700"
@@ -341,21 +350,26 @@ export const Board: React.FC<Props> = ({
               }}
               className="chart-water pointer-events-none relative flex items-center justify-center p-3"
             >
-              <PacificChart is3D={is3D} />
-              {is3D && <TerrainRelief sky={sky} />}
-              <BoardSky sky={sky} />
-
-              {/* Khối xúc xắc 3D khối hộp Magenta & Navy - Billboard counter-rotate để không bị cấn móp, giống y chang 2D */}
-              <div
-                className="w-full h-full flex items-center justify-center select-none z-10"
-                style={{
-                  transform: is3D ? 'var(--board-billboard) translateZ(38px) scale(var(--model-scale))' : undefined,
-                  transformStyle: is3D ? 'preserve-3d' : undefined,
-                  transformOrigin: 'center center',
-                }}
-              >
-                <DiceView is3D={is3D} dice={gameState.dice} isRolling={isRolling} hasRolled={gameState.hasRolled} />
-              </div>
+              {visibleAtlas ? (
+                <WorldPortAtlas arrival={visibleAtlas} is3D={is3D} onClose={returnToPortTile}
+                  dice={gameState.hasRolled ? gameState.dice : undefined} />
+              ) : (
+                <>
+                  <PacificChart is3D={is3D} />
+                  {is3D && <TerrainRelief sky={sky} />}
+                  <BoardSky sky={sky} />
+                  <div
+                    className="w-full h-full flex items-center justify-center select-none z-10"
+                    style={{
+                      transform: is3D ? 'var(--board-billboard) translateZ(38px) scale(var(--model-scale))' : undefined,
+                      transformStyle: is3D ? 'preserve-3d' : undefined,
+                      transformOrigin: 'center center',
+                    }}
+                  >
+                    <DiceView is3D={is3D} dice={gameState.dice} isRolling={isRolling} hasRolled={gameState.hasRolled} />
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -458,6 +472,10 @@ export const Board: React.FC<Props> = ({
         gameState={gameState}
         myPlayerId={myPlayerId}
         onClose={() => onSelectTile(null)}
+        onShowPort={(port) => {
+          onSelectTile(null);
+          showPort(port);
+        }}
         onOfferForTile={(id) => {
           onSelectTile(null);
           onOfferForTile(id);
