@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Crosshair, Dices, Globe2, X } from 'lucide-react';
+import { ChevronRight, Crosshair, Dices, Globe2, X } from 'lucide-react';
 import { useReducedMotion } from 'framer-motion';
 import { portGuide, type PortArrival, type PortGuide } from './ports/portGuide.js';
 import { atlasPoint, atlasWidth as worldWidth, unwrapAtlasX } from './ports/atlasGeometry.js';
@@ -43,13 +43,14 @@ interface Props {
   is3D: boolean;
   onClose: () => void;
   dice?: readonly number[];
+  freight?: { status: string; actionLabel: string; onOpenTerminal: () => void };
 }
 
 export function WorldPortAtlas(props: Props) {
   return <AtlasArrival key={props.arrival.id} {...props} />;
 }
 
-function AtlasArrival({ arrival, is3D, onClose, dice }: Props) {
+function AtlasArrival({ arrival, is3D, onClose, dice, freight }: Props) {
   const { port, origin } = arrival;
   const focus = atlasPoint(port);
   const reduceMotion = useReducedMotion();
@@ -89,26 +90,31 @@ function AtlasArrival({ arrival, is3D, onClose, dice }: Props) {
     return () => observer.disconnect();
   }, [is3D]);
 
+  const targetX = overview ? world.x : focus.x;
+  const targetY = overview ? world.y : focus.y;
+  const targetScale = overview ? overviewScale : harborScale;
   useEffect(() => {
-    const target = overview ? { ...world, scale: overviewScale } : { x: focus.x, y: focus.y, scale: harborScale };
+    const target = { x: targetX, y: targetY, scale: targetScale };
     const start = currentCamera.current;
+    if (start.x === target.x && start.y === target.y && start.scale === target.scale) return;
     const apply = (next: Camera) => { currentCamera.current = next; setCamera(next); };
     if (reduceMotion) { apply(target); return; }
     const startingAt = performance.now();
     let frame = 0;
     const move = (now: number) => {
-      const t = Math.min(1, (now - startingAt) / 1050);
+      const t = Math.max(0, Math.min(1, (now - startingAt) / 1050));
+      if (t === 1) { apply(target); return; }
       const ease = t * t * (3 - 2 * t);
       apply({
         x: start.x + (target.x - start.x) * ease,
         y: start.y + (target.y - start.y) * ease,
         scale: start.scale * (target.scale / start.scale) ** ease,
       });
-      if (t < 1) frame = requestAnimationFrame(move);
+      frame = requestAnimationFrame(move);
     };
     frame = requestAnimationFrame(move);
     return () => cancelAnimationFrame(frame);
-  }, [overview, reduceMotion, focus.x, focus.y, overviewScale]);
+  }, [reduceMotion, targetX, targetY, targetScale]);
 
   const project = (x: number, y: number) => ({
     x: (x - camera.x) * camera.scale + 180,
@@ -131,7 +137,16 @@ function AtlasArrival({ arrival, is3D, onClose, dice }: Props) {
   return (
     <section className={`world-port-atlas${is3D ? ' world-port-atlas-tilted' : ''}`}
       aria-label={`Hải đồ cảng ${port.name}`} data-port-code={port.code}
-      data-view={overview ? 'world' : 'port'} data-latitude={port.latitude} data-longitude={port.longitude}>
+      data-view={overview ? 'world' : 'port'} data-latitude={port.latitude} data-longitude={port.longitude}
+      data-has-freight={freight ? '' : undefined}
+      onKeyDown={event => {
+        if (event.key !== 'Escape' || event.defaultPrevented) return;
+        const atlas = event.currentTarget;
+        if (!atlas.contains(event.target as Node) || atlas.ownerDocument.querySelector('dialog[open]')) return;
+        event.preventDefault();
+        event.stopPropagation();
+        onClose();
+      }}>
       <div className="world-atlas-sheet">
         <header className="world-atlas-heading">
           <div>
@@ -199,6 +214,12 @@ function AtlasArrival({ arrival, is3D, onClose, dice }: Props) {
             </span>}
           </div>
           <p>{overview ? `${port.name} · ${port.country}` : port.fact}</p>
+          {freight && <div className="world-atlas-freight" data-atlas-freight>
+            <span role="status" aria-atomic="true">{freight.status}</span>
+            <button type="button" data-atlas-terminal onClick={freight.onOpenTerminal}>
+              {freight.actionLabel}<ChevronRight aria-hidden="true" />
+            </button>
+          </div>}
         </footer>
       </div>
     </section>

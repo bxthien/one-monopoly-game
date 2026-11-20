@@ -105,6 +105,14 @@ export function getPublicReceivingSlots(stock: PortStock, kind: CargoKind): numb
   return kind === 'laden' ? stock.demand : getEmptyNeed(stock);
 }
 
+export function getPortStockAfterDischarge(stock: PortStock, kind: CargoKind): PortStock {
+  return {
+    ...stock,
+    demand: kind === 'laden' ? Math.max(0, stock.demand - 1) : stock.demand,
+    empties: Math.min(LOGISTICS_PORT_CAPACITY, stock.empties + 1),
+  };
+}
+
 function canReceive(state: GameState, playerId: string, tileId: number, kind: CargoKind) {
   const stock = state.logistics!.ports[tileId];
   return getPublicReceivingSlots(stock, kind) > 0 || getTenderBonus(state, playerId, tileId, kind) > 0;
@@ -379,8 +387,8 @@ export function dispatchLogistics(state: GameState, action: GameAction, playerId
       captain.balance += payment;
       logistics.deliveries[playerId]++;
       logistics.earnings[playerId] += payment;
-      if (booking.kind === 'laden') stock.demand = Math.max(0, stock.demand - 1); else logistics.emptyDeliveries[playerId]++;
-      stock.empties = Math.min(LOGISTICS_PORT_CAPACITY, stock.empties + 1);
+      if (booking.kind === 'empty') logistics.emptyDeliveries[playerId]++;
+      logistics.ports[at] = getPortStockAfterDischarge(stock, booking.kind);
       recordVoyage(logistics, playerId, result.turnCount, receipt);
       const events: GameEvent[] = [{ type: 'CARGO_UNLOADED', playerId, ...receipt }];
       if (contractEvent) events.push(contractEvent);

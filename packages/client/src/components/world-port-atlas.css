@@ -175,6 +175,46 @@
   font: 500 clamp(10px, 3.12cqw, 13px)/1.34 var(--chart-sans);
   color: #283f40;
 }
+.world-atlas-freight {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-top: 5px;
+  padding-top: 4px;
+  border-top: 1px solid #a6b5a6;
+}
+.world-atlas-freight [role="status"] {
+  color: #275248;
+  font: 600 clamp(10px, 2.85cqw, 12px)/1.3 var(--chart-sans);
+}
+.world-atlas-freight button {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  max-width: 50%;
+  min-height: 27px;
+  padding: 3px 6px;
+  border: 1px solid #265c51;
+  border-radius: 3px;
+  background: #28584e;
+  color: #fffcef;
+  font: 650 clamp(10px, 2.8cqw, 12px)/1.2 var(--chart-sans);
+  pointer-events: auto;
+  touch-action: manipulation;
+  cursor: pointer;
+}
+.world-atlas-freight button svg { width: 12px; height: 12px; flex: none; }
+.world-atlas-freight button:hover { background: #153e36; }
+.world-atlas-freight button:focus-visible { outline: 2px solid #ffd47f; outline-offset: -3px; }
+.world-port-atlas-tilted[data-has-freight] .world-atlas-caption {
+  left: 33%; top: 67%; width: 69%;
+}
+.world-port-atlas-tilted[data-has-freight][data-view="world"] .world-atlas-caption {
+  left: 31%; top: 69%; width: 62%;
+}
 
 @container (max-width: 780px) or (max-height: 520px) {
   .world-port-atlas-tilted .world-atlas-heading,
@@ -183,6 +223,10 @@
   .world-port-atlas-tilted[data-view="world"] .world-atlas-heading { left: 52%; top: 15%; width: 86%; }
   .world-port-atlas-tilted .world-atlas-caption,
   .world-port-atlas-tilted[data-view="world"] .world-atlas-caption { left: 48%; top: 83%; width: 86%; }
+  .world-port-atlas-tilted[data-has-freight] .world-atlas-caption,
+  .world-port-atlas-tilted[data-has-freight][data-view="world"] .world-atlas-caption {
+    left: 48%; top: 77%; width: 86%;
+  }
 }
 @container (max-width: 270px) {
   .world-atlas-heading { padding: 3px 4px 4px 6px; }
@@ -190,6 +234,8 @@
   .world-atlas-toggle span { display: none; }
   .world-atlas-heading h3 { font-size: 15px; }
   .world-atlas-caption { padding: 3px 6px 4px; }
+  .world-atlas-freight { gap: 4px; margin-top: 3px; padding-top: 3px; }
+  .world-atlas-freight button { min-height: 24px; }
   .world-atlas-toggle { min-height: 24px; gap: 3px; padding-inline: 5px; }
 }
 .world-atlas-meta { display: flex; align-items: center; justify-content: space-between; gap: 6px; }

@@ -2,7 +2,7 @@ import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import type { GameEvent, GameState } from '@one-monopoly/shared';
 import type { SubscribeBoard } from '../hooks/useSocket.js';
 import { buildTravelFrames, restingPose, type Pose, type TravelFrame } from './boardTravel.js';
-import { readPortLanding } from './ports/portArrival.js';
+import { readPortLanding, updatePortDischarge, type PortDischarge } from './ports/portArrival.js';
 import type { PortArrival, PortGuide } from './ports/portGuide.js';
 
 export interface RentLine {
@@ -89,6 +89,7 @@ function snapshot(state: GameState): Record<string, Track> {
 export function useBoardPlayback(initialState: GameState, subscribe: SubscribeBoard) {
   const [tracks, setTracks] = useState(() => snapshot(initialState));
   const [atlas, setAtlas] = useState<PortArrival | null>(null);
+  const [portDischarge, setPortDischarge] = useState<PortDischarge | null>(null);
   const atlasSequence = useRef(0);
   const showPort = (port: PortGuide) => setAtlas({ id: ++atlasSequence.current, port });
   const closeAtlas = () => setAtlas(null);
@@ -101,7 +102,7 @@ export function useBoardPlayback(initialState: GameState, subscribe: SubscribeBo
     const preference = window.matchMedia('(prefers-reduced-motion: reduce)');
     const skipTravel = () => preference.matches || document.hidden;
     const settlePending = () => {
-      if (document.hidden) setAtlas(null);
+      if (document.hidden) { setAtlas(null); setPortDischarge(null); }
       if (!skipTravel()) return;
       setTracks((tracks) => Object.fromEntries(Object.entries(tracks).map(([id, track]) => [
         id, { settled: track.frames.at(-1) ?? track.settled, frames: [] },
@@ -122,6 +123,7 @@ export function useBoardPlayback(initialState: GameState, subscribe: SubscribeBo
       if (events === null) {
         resetTimers();
         setAtlas(null);
+        setPortDischarge(null);
         setClaims({});
         setRentReceipts({});
         setPendingRentReceipts({});
@@ -129,6 +131,10 @@ export function useBoardPlayback(initialState: GameState, subscribe: SubscribeBo
         return;
       }
 
+      if (state.mode === 'logistics') {
+        const hidden = document.hidden;
+        setPortDischarge(previous => hidden ? null : updatePortDischarge(previous, events));
+      }
       const landing = document.hidden ? null : readPortLanding(state, events);
       if (landing !== undefined) setAtlas(landing ? { id: ++atlasSequence.current, ...landing } : null);
 
@@ -228,5 +234,5 @@ export function useBoardPlayback(initialState: GameState, subscribe: SubscribeBo
     });
   }, []);
 
-  return { tracks, claims, rentReceipts, pendingRentReceipts, advance, atlas, showPort, closeAtlas };
+  return { tracks, claims, rentReceipts, pendingRentReceipts, advance, atlas, showPort, closeAtlas, portDischarge };
 }

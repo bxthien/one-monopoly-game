@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { BOARD_TILES, OneMonopolyEngine, type GameState } from '@one-monopoly/shared';
-import { readPortLanding } from '../src/components/ports/portArrival.js';
+import { readPortLanding, updatePortDischarge, type PortDischarge } from '../src/components/ports/portArrival.js';
 import { portGuide } from '../src/components/ports/portGuide.js';
 import { portModels } from '../src/components/ports/portModels.js';
 
@@ -74,6 +74,7 @@ describe('port arrivals', () => {
     assert.deepEqual(events.filter(event => event.type === 'SHIP_STEPPED').map(step => step.to), [26, 0]);
     const arrival = readPortLanding(state, events);
     assert.ok(arrival);
+    assert.equal(arrival.playerId, 'captain');
     assert.equal(arrival.playerName, 'Linh');
     assert.equal(arrival.origin?.code, 'USLAX');
     assert.equal(arrival.port.code, 'SGSIN');
@@ -126,5 +127,18 @@ describe('port arrivals', () => {
     const { state, events } = roll(gameAt(0), [1, 2]);
     state.players[0].position = 8;
     assert.equal(readPortLanding(state, events), null);
+  });
+
+  it('retains a discharge through unrelated updates and clears it in event order at the next operation', () => {
+    const receipt: PortDischarge = { type: 'CARGO_UNLOADED', playerId: 'captain', bookingId: 7, kind: 'empty',
+      originTileId: 0, destinationTileId: 1, tileId: 1, distanceNm: 596, reward: 6 };
+    const move = { type: 'SHIP_STEPPED', playerId: 'captain', from: 0, to: 1 } as const;
+    assert.equal(updatePortDischarge(null, [move, receipt]), receipt);
+    assert.equal(updatePortDischarge(receipt, []), receipt);
+    assert.equal(updatePortDischarge(receipt, [{ type: 'DICE_ROLLED', playerId: 'pilot', dice: [1, 2], isDouble: false }]), receipt);
+    assert.equal(updatePortDischarge(null, [receipt, move]), null);
+    assert.equal(updatePortDischarge(receipt, [{ type: 'LOGISTICS_TURN_ENDED', playerId: 'captain', sailed: true }]), null);
+    assert.equal(updatePortDischarge(receipt, [{ type: 'CARGO_LOADED', playerId: 'captain', bookingId: 8, kind: 'laden',
+      tileId: 1, originTileId: 1, destinationTileId: 3 }]), null);
   });
 });

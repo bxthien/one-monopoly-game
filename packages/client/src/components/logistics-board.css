@@ -132,7 +132,16 @@
   .logistics-chart-key { gap: 4px; padding: 3px 4px; }
 }
 
-.terminal-detail > .port-miniature-detail { margin: 0; }
+.terminal-port-information { display: grid; gap: 15px; min-width: 0; align-content: start; }
+.terminal-port-information > .port-miniature-detail { margin: 0; }
+.terminal-quay-column { min-width: 0; }
+@media (min-width: 760px) {
+  .chart-dialog:has(.terminal-detail[data-working-berth]) { width: min(49rem, calc(100vw - 2rem)); }
+  .terminal-detail[data-working-berth] { grid-template-columns: minmax(0, 1fr) minmax(0, 1.12fr); column-gap: 22px; }
+  .terminal-detail[data-working-berth] > .chart-manifest-heading { grid-column: 1 / -1; }
+  .terminal-detail[data-working-berth] .terminal-port-information { grid-column: 1; grid-row: 2; }
+  .terminal-detail[data-working-berth] .terminal-quay-column { grid-column: 2; grid-row: 2; }
+}
 .terminal-activity { color: var(--action-ink); }
 .terminal-activity h4 {
   margin: 0 0 6px;

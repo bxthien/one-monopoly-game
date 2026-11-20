@@ -11,6 +11,7 @@ export interface PortGuide {
 
 export interface PortArrival {
   id: number;
+  playerId?: string;
   playerName?: string;
   port: PortGuide;
   origin?: PortGuide;

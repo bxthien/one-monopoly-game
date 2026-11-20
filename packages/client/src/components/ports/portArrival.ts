@@ -11,5 +11,18 @@ export function readPortLanding(state: GameState, events: GameEvent[]): Omit<Por
   const destination = portGuide[BOARD_TILES[last.to]?.code];
   if (!destination || !player || player.isBankrupt || player.position !== last.to) return null;
   const first = movement.find(event => event.playerId === player.id)!;
-  return { playerName: player.name, port: destination, origin: portGuide[BOARD_TILES[first.from]?.code] };
+  return { playerId: player.id, playerName: player.name, port: destination, origin: portGuide[BOARD_TILES[first.from]?.code] };
+}
+
+export type PortDischarge = Extract<GameEvent, { type: 'CARGO_UNLOADED' }>;
+
+// The arrival map follows one live port call. A later visit to the same berth
+// must start fresh even when the previous delivery is still the player's last receipt.
+export function updatePortDischarge(previous: PortDischarge | null, events: GameEvent[]): PortDischarge | null {
+  let current = previous;
+  for (const event of events) {
+    if (event.type === 'CARGO_UNLOADED') current = event;
+    else if (event.type === 'SHIP_STEPPED' || event.type === 'CARGO_LOADED' || event.type === 'LOGISTICS_TURN_ENDED') current = null;
+  }
+  return current;
 }
