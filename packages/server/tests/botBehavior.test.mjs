@@ -9,7 +9,7 @@ function startSoloGame(t) {
     onBroadcastUpdate: (_id, _state, emitted) => events.push(...emitted),
   });
   const { room, playerId: human } = manager.createRoom('Captain ONE', 'ONE_APUS', 'human-socket');
-  assert.ok(manager.startGame(room.id, human).success);
+  assert.ok(manager.startGame(room.id, human, 'classic').success);
   const bot = room.players.find((p) => manager.isBot(room, p.id)).id;
   assert.equal(room.players.length, 2);
   assert.equal(manager.isBot(room, human), false);

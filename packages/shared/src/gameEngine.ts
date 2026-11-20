@@ -6,6 +6,7 @@ import {
   GameAction,
   GameCard,
   GameEvent,
+  GameMode,
   GameState,
   LoopGroup,
   PendingSlotCharter,
@@ -34,6 +35,7 @@ import {
   STORM_DRIFT_STEPS,
   STORM_TUG_FEE,
 } from './boardData.js';
+import { createLogisticsState, dispatchLogistics } from './cargo.js';
 import { dispatchTrade, expireTradeOffers } from './trade.js';
 import { getMissionProgress } from './missionProgress.js';
 import { getMortgageValue, getPropertyCashOption } from './debtRecovery.js';
@@ -50,24 +52,24 @@ function shuffle<T>(array: T[]): T[] {
 export class OneMonopolyEngine {
   public static createGame(
     roomId: string,
-    playersData: Array<{ id: string; name: string; token: VesselToken }>
+    playersData: Array<{ id: string; name: string; token: VesselToken }>,
+    mode: GameMode = 'classic'
   ): GameState {
-    const shuffledMissions = shuffle(SECRET_MISSIONS);
+    const freight = mode === 'logistics';
+    const shuffledMissions = freight ? [] : shuffle(SECRET_MISSIONS);
 
     const players: Player[] = playersData.map((p, idx) => ({
       id: p.id,
       name: p.name,
       token: p.token,
-      balance: STARTING_BALANCE,
+      balance: freight ? 0 : STARTING_BALANCE,
       position: 0,
       inHold: false,
       holdTurns: 0,
       customsClearancePasses: 0,
       isBankrupt: false,
       isOnline: true,
-      secretMission: JSON.parse(
-        JSON.stringify(shuffledMissions[idx % shuffledMissions.length])
-      ),
+      ...(freight ? {} : { secretMission: structuredClone(shuffledMissions[idx % shuffledMissions.length]) }),
     }));
 
     const properties: Record<number, PropertyState> = {};
@@ -83,19 +85,21 @@ export class OneMonopolyEngine {
       }
     }
 
-    const marketCardIds = shuffle(
+    const marketCardIds = freight ? [] : shuffle(
       GAME_CARDS.filter((c) => c.type === 'MARKET').map((c) => c.id)
     );
-    const opsCardIds = shuffle(
+    const opsCardIds = freight ? [] : shuffle(
       GAME_CARDS.filter((c) => c.type === 'OPS').map((c) => c.id)
     );
 
     return {
       roomId,
+      mode,
+      ...(freight ? { logistics: createLogisticsState(players), cargoRevision: 0 } : {}),
       players,
       activePlayerIndex: 0,
       properties,
-      phase: 'WAIT_FOR_ROLL',
+      phase: freight ? 'AWAITING_SAIL' : 'WAIT_FOR_ROLL',
       dice: [1, 1],
       consecutiveDoubles: 0,
       hasRolled: false,
@@ -117,6 +121,11 @@ export class OneMonopolyEngine {
 
   public static dispatch(state: GameState, action: GameAction, actorId?: string): EngineResult {
     if (!action || state.winnerId !== null) return { state, events: [] };
+    if (state.mode === 'logistics') {
+      return dispatchLogistics(state, action, actorId ?? state.players[state.activePlayerIndex]?.id);
+    }
+    if (action.type === 'LOAD_CARGO' || action.type === 'UNLOAD_CARGO' ||
+        action.type === 'SAIL_TO_PORT' || action.type === 'CHANGE_DESTINATION') return { state, events: [] };
     const result = action.type === 'OFFER_TRADE' || action.type === 'RESPOND_TRADE' || action.type === 'CANCEL_TRADE'
       ? dispatchTrade(state, action, actorId, OneMonopolyEngine.checkMissionCompletion)
       : OneMonopolyEngine.dispatchTurnAction(state, action);

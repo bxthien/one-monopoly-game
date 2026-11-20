@@ -11,7 +11,7 @@ function setup(t, solo = false) {
     const guest = manager.joinRoom(room.id, 'Minh', 'PILOT_BOAT', 'minh');
     manager.setReady(room.id, guest.playerId, true);
   }
-  assert.equal(manager.startGame(room.id, host).success, true);
+  assert.equal(manager.startGame(room.id, host, 'classic').success, true);
   t.after(() => { room.timer.stop(); manager.clearBotTimer(room); });
   const guest = room.players[1].id;
   const debtor = solo ? guest : host;

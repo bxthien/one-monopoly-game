@@ -63,7 +63,7 @@ function solo(t) {
   const events = [];
   const manager = new RoomManager({ onBroadcastUpdate: (_roomId, _state, batch) => events.push(...batch) });
   const { room, playerId: human, sessionToken } = manager.createRoom('Captain', 'ONE_APUS', 'first-socket');
-  assert.ok(manager.startGame(room.id, human).success);
+  assert.ok(manager.startGame(room.id, human, 'classic').success);
   t.after(() => {
     room.timer.stop();
     manager.clearBotTimer(room);

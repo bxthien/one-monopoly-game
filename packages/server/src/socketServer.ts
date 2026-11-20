@@ -151,8 +151,11 @@ export function setupSocketServer(httpServer: HttpServer): { io: Server; roomMan
     // 4. Start Game
     socket.on(
       'room:start',
-      (data: { roomId: string; playerId: string }, callback?: (res: any) => void) => {
-        const result = roomManager.startGame(data.roomId, data.playerId);
+      (data: { roomId: string; playerId: string; mode?: 'classic' | 'logistics' }, callback?: (res: any) => void) => {
+        const seat = typeof data?.roomId === 'string' ? roomManager.getRoom(data.roomId)?.socketToPlayer.get(socket.id) : undefined;
+        const result = seat && seat === data.playerId
+          ? roomManager.startGame(data.roomId, seat, data.mode === 'classic' ? 'classic' : 'logistics')
+          : { success: false, error: 'Kết nối này không đại diện cho phòng trưởng.' };
         if (callback) callback(result);
       }
     );

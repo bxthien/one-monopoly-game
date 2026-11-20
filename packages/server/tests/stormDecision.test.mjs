@@ -11,7 +11,7 @@ function createRoom(t) {
   const { room, playerId: captainId, sessionToken } = manager.createRoom('Captain', 'ONE_APUS', 'host');
   const { playerId: ownerId } = manager.joinRoom(room.id, 'Port owner', 'GANTRY_CRANE', 'guest');
   assert.ok(ownerId);
-  assert.equal(manager.startGame(room.id, captainId).success, true);
+  assert.equal(manager.startGame(room.id, captainId, 'classic').success, true);
   t.after(() => room.timer.stop());
 
   room.gameState.players[0].position = 3;

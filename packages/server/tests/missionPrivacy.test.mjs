@@ -92,7 +92,7 @@ test('two captains receive private cards on startup, turn actions, trades and re
     return checkUpdates(() => request(client, 'game:action', { roomId, playerId, action }), playerId);
   }
 
-  await checkUpdates(() => request(buyer, 'room:start', { roomId, playerId: buyerId }));
+  await checkUpdates(() => request(buyer, 'room:start', { roomId, playerId: buyerId, mode: 'classic' }));
   // Set up an Intra-Asia mission one purchase and one trade away from completion.
   room.gameState.players[0].secretMission = structuredClone(SECRET_MISSIONS.find((m) => m.id === 'MISSION-5'));
   room.gameState.players[1].secretMission = structuredClone(SECRET_MISSIONS.find((m) => m.id === 'MISSION-4'));

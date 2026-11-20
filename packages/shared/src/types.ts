@@ -67,6 +67,25 @@ export interface SecretMissionCard {
   isCompleted: boolean;
 }
 
+export type GameMode = 'classic' | 'logistics';
+export type CargoKind = 'laden' | 'empty';
+export interface CargoBooking {
+  bookingId: number;
+  kind: CargoKind;
+  originTileId: number;
+  destinationTileId: number;
+}
+export interface FreightQuote { distanceNm: number; reward: number }
+export interface DeliveryReceipt extends CargoBooking, FreightQuote { tileId: number }
+export interface PortStock { supply: number; demand: number; empties: number; emptyTarget: number }
+export interface LogisticsState {
+  ports: Record<number, PortStock>;
+  deliveries: Record<string, number>;
+  emptyDeliveries: Record<string, number>;
+  earnings: Record<string, number>;
+  hasSailed: boolean;
+}
+
 export interface Player {
   id: string;
   name: string;
@@ -80,6 +99,8 @@ export interface Player {
   bankruptTo?: string | 'BANK';
   isOnline: boolean;
   secretMission?: SecretMissionCard;
+  cargo?: CargoBooking;
+  lastDelivery?: DeliveryReceipt;
 }
 
 export type CardType = 'MARKET' | 'OPS';
@@ -113,6 +134,7 @@ export interface GameCard {
 }
 
 export type TurnPhase =
+  | 'AWAITING_SAIL'
   | 'WAIT_FOR_ROLL'
   | 'AWAITING_BUY_DECISION'
   | 'AWAITING_AUCTION'
@@ -160,6 +182,9 @@ export interface TradeOffer {
 }
 
 export interface GameState {
+  mode?: GameMode; // Snapshots without a mode use the original board rules.
+  logistics?: LogisticsState;
+  cargoRevision?: number;
   roomId: string;
   players: Player[];
   activePlayerIndex: number;
@@ -185,7 +210,14 @@ export interface GameState {
 
 export type StormChoice = 'TUG' | 'DRIFT';
 
+export type CargoAction =
+  | { type: 'LOAD_CARGO'; tileId: number; kind: CargoKind; destinationTileId: number; revision: number }
+  | { type: 'UNLOAD_CARGO'; tileId: number; originTileId: number; bookingId: number; revision: number };
+export type DestinationChange = { type: 'CHANGE_DESTINATION'; bookingId: number; destinationTileId: number; revision: number };
+export type SailAction = { type: 'SAIL_TO_PORT'; tileId: number; revision: number };
+
 export type GameAction =
+  | CargoAction | DestinationChange | SailAction
   | { type: 'OFFER_TRADE'; tileId: number; sellerId: string; price: number }
   | { type: 'RESPOND_TRADE'; offerId: number; accept: boolean }
   | { type: 'CANCEL_TRADE'; offerId: number }
@@ -210,6 +242,10 @@ export type GameAction =
   | { type: 'END_TURN' };
 
 export type GameEvent =
+  | { type: 'LOGISTICS_TURN_ENDED'; playerId: string; sailed: boolean }
+  | ({ type: 'CARGO_LOADED'; playerId: string; tileId: number } & CargoBooking)
+  | ({ type: 'CARGO_UNLOADED'; playerId: string } & DeliveryReceipt)
+  | ({ type: 'CARGO_DESTINATION_CHANGED'; playerId: string; tileId: number; previousDestinationTileId: number } & CargoBooking)
   | { type: 'TRADE_OFFERED'; offer: TradeOffer }
   | { type: 'TRADE_CLOSED'; offer: TradeOffer; result: 'ACCEPTED' | 'DECLINED' | 'WITHDRAWN' | 'EXPIRED' }
   | { type: 'AUCTION_STARTED'; tileId: number }

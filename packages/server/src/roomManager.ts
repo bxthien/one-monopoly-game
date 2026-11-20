@@ -14,6 +14,7 @@ import {
 import crypto from 'node:crypto';
 import { TurnTimer } from './turnTimer.js';
 import { getBotTradeResponse } from './botTrade.js';
+import { getFreightBotAction } from './freightBot.js';
 
 const TURN_SECONDS = 45;
 const BOT_PURCHASE_RESERVE = 80;
@@ -200,7 +201,7 @@ export class RoomManager {
     return true;
   }
 
-  public startGame(roomId: string, callerId: string): { success: boolean; error?: string } {
+  public startGame(roomId: string, callerId: string, mode: 'classic' | 'logistics' = 'logistics'): { success: boolean; error?: string } {
     const room = this.getRoom(roomId);
     if (!room) return { success: false, error: 'Phòng không tồn tại!' };
     if (room.hostId !== callerId) return { success: false, error: 'Chỉ phòng trưởng (Host) mới có quyền bắt đầu!' };
@@ -223,7 +224,7 @@ export class RoomManager {
         id: p.id,
         name: p.name,
         token: p.token,
-      }))
+      })), mode
     );
 
     room.gameState = gameState;
@@ -283,6 +284,9 @@ export class RoomManager {
     if (!action || typeof action.type !== 'string') return { success: false, error: 'Hành động không hợp lệ.' };
 
     const activePlayer = room.gameState.players[room.gameState.activePlayerIndex];
+    if (room.gameState.mode === 'logistics' && activePlayer.id !== playerId) {
+      return { success: false, error: 'Chưa đến lượt điều độ của bạn.' };
+    }
     const isAuctionAction = action.type === 'AUCTION_BID' || action.type === 'AUCTION_PASS';
     const isTradeAction = action.type === 'OFFER_TRADE' || action.type === 'RESPOND_TRADE' || action.type === 'CANCEL_TRADE';
     const inAuction = room.gameState.phase === 'AWAITING_AUCTION';
@@ -328,6 +332,11 @@ export class RoomManager {
     const prevActiveIndex = room.gameState.activePlayerIndex;
 
     const { state: nextState, events } = OneMonopolyEngine.dispatch(room.gameState, action, playerId);
+    const freightCommand = action.type === 'LOAD_CARGO' || action.type === 'UNLOAD_CARGO' ||
+      action.type === 'CHANGE_DESTINATION' || action.type === 'SAIL_TO_PORT';
+    if (nextState === room.gameState && (room.gameState.mode === 'logistics' || freightCommand)) {
+      return { success: false, error: 'Lệnh điều độ không còn hợp lệ. Hãy kiểm tra lại vận đơn và tình trạng bến.' };
+    }
     if ((action.type === 'SELL_CONTAINER' && !events.some(e => e.type === 'CONTAINER_SOLD')) ||
         (action.type === 'MORTGAGE_TILE' && !events.some(e => e.type === 'TILE_MORTGAGED')) ||
         (action.type === 'SETTLE_DEBT' && !events.some(e => e.type === 'DEBT_SETTLED'))) {
@@ -410,6 +419,20 @@ export class RoomManager {
     this.clearBotTimer(room);
 
     const state = room.gameState;
+
+    if (state.mode === 'logistics') {
+      const captain = state.players[state.activePlayerIndex];
+      if (this.isBot(room, captain.id)) {
+        // Leave time for the 3.4-second handoff before moving the ship or starting another job.
+        const delay = lastActionType === 'LOAD_CARGO' || lastActionType === 'UNLOAD_CARGO' ? 3600 : 1800;
+        room.botTimer = setTimeout(() => {
+          room.botTimer = null;
+          if (room.gameState !== state) return;
+          this.dispatchAction(room.id, captain.id, getFreightBotAction(state));
+        }, delay);
+      }
+      return;
+    }
 
     if (state.phase === 'AWAITING_AUCTION') {
       const auction = state.auction;
@@ -554,6 +577,11 @@ export class RoomManager {
 
     const activePlayer = room.gameState.players[room.gameState.activePlayerIndex];
     if (!activePlayer) return;
+
+    if (room.gameState.mode === 'logistics') {
+      this.dispatchAction(roomId, activePlayer.id, { type: 'END_TURN' });
+      return;
+    }
 
     switch (room.gameState.phase) {
       case 'WAIT_FOR_ROLL':

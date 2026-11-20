@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { VESSEL_TOKENS, type VesselToken } from '@one-monopoly/shared';
+import { LOGISTICS_DELIVERY_TARGET, LOGISTICS_ROUND_LIMIT, VESSEL_TOKENS, type VesselToken } from '@one-monopoly/shared';
 import { ArrowRight, Check, Compass, Copy, KeyRound, Plus, Users } from 'lucide-react';
 import { RoomState } from '../hooks/useSocket.js';
 import { TOKEN_CONFIG } from './TokenBadge.js';
@@ -65,16 +65,21 @@ export const Lobby: React.FC<Props> = ({
           <img src="/images/harbor-approach.webp" alt="" className="chart-lobby-photo" />
           <div className="chart-lobby-poster-grid" aria-hidden="true" />
           <div className="chart-lobby-poster-title">
-            <p>Cờ tỷ phú hàng hải</p>
+            <p>Vận tải container</p>
             <h1>ONE <em>Monopoly</em></h1>
           </div>
           <Compass aria-hidden="true" className="chart-lobby-compass" strokeWidth={0.8} />
         </div>
 
         <section className="chart-lobby-panel" aria-labelledby="lobby-panel-title">
+          <h2 id="lobby-panel-title">{room ? 'Phòng chờ' : 'Phòng chơi'}</h2>
+          <p className="chart-lobby-freight-intro">
+            Nhận đơn đặt chỗ, chuyển container giữa xe tải và tàu biển để giao hàng hoặc điều chuyển vỏ rỗng.
+            Các đội chơi hết vòng có người giao đủ {LOGISTICS_DELIVERY_TARGET} chuyến, tối đa {LOGISTICS_ROUND_LIMIT} vòng.
+            Xếp hạng theo số chuyến, rồi đến tiền cước.
+          </p>
           {room ? (
             <>
-              <h2 id="lobby-panel-title">Phòng chờ</h2>
               <div className="chart-room-invite">
                 <div><span className="chart-field-label">Mã phòng</span><strong>{room.id}</strong></div>
                 <button type="button" className="chart-link-button" onClick={copyRoomCode}>
@@ -105,7 +110,6 @@ export const Lobby: React.FC<Props> = ({
             </>
           ) : (
             <>
-              <h2 id="lobby-panel-title">Phòng chơi</h2>
               <div className="chart-lobby-modes" role="group" aria-label="Chọn cách vào phòng">
                 <button type="button" aria-pressed={creating} onClick={() => setTab('create')}><Plus />Tạo phòng mới</button>
                 <button type="button" aria-pressed={!creating} onClick={() => setTab('join')}><KeyRound />Vào bằng mã</button>

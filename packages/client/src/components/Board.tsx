@@ -1,11 +1,13 @@
 import React, { useLayoutEffect } from 'react';
 import { BOARD_TILES, GameAction, GameCard, GameState, OneMonopolyEngine, Player } from '@one-monopoly/shared';
-import { TileView } from './TileView.js';
+import { LogisticsTile, TileView } from './TileView.js';
+import { TILE_CENTER_PERCENT } from './boardCoordinates.js';
 import { DiceView } from './DiceView.js';
 import { PropertyModal } from './PropertyModal.js';
 import { CardModal } from './CardModal.js';
 import { Pawn3D } from './Pawn3D.js';
 import { StormTugRescue } from './StormTugRescue.js';
+import { CargoTransfer, useCargoTransfer } from './CargoTransfer.js';
 import { useStormTugRescue } from './stormTugPlayback.js';
 import { BoardSky } from './BoardSky.js';
 import { WorldPortAtlas } from './WorldPortAtlas.js';
@@ -37,42 +39,6 @@ interface Props {
   onPawnMovingChange?: (isMoving: boolean) => void;
   onRentReceiptsChange?: (visible: Record<number, RentReceipt>, pending: Record<number, RentReceipt>) => void;
 }
-
-// Bảng toạ độ phần trăm chính xác theo tâm từng ô cờ (0..31) trên lưới 9x9 (1.35fr + 7*1fr + 1.35fr)
-const TILE_CENTER_PERCENT: Record<number, { x: number; y: number }> = {
-  0: { x: 6.96, y: 93.04 }, // Cảng Singapore SGSIN (Xuất phát)
-  1: { x: 6.96, y: 80.93 },
-  2: { x: 6.96, y: 70.62 },
-  3: { x: 6.96, y: 60.31 },
-  4: { x: 6.96, y: 50.00 },
-  5: { x: 6.96, y: 39.69 },
-  6: { x: 6.96, y: 29.38 },
-  7: { x: 6.96, y: 19.07 },
-  8: { x: 6.96, y: 6.96 }, // Giữ Hàng Hải Quan CUSTOMS_HOLD
-  9: { x: 19.07, y: 6.96 },
-  10: { x: 29.38, y: 6.96 },
-  11: { x: 39.69, y: 6.96 },
-  12: { x: 50.00, y: 6.96 },
-  13: { x: 60.31, y: 6.96 },
-  14: { x: 70.62, y: 6.96 },
-  15: { x: 80.93, y: 6.96 },
-  16: { x: 93.04, y: 6.96 }, // Cảng Neo Đậu FREE_ANCHOR
-  17: { x: 93.04, y: 19.07 },
-  18: { x: 93.04, y: 29.38 },
-  19: { x: 93.04, y: 39.69 },
-  20: { x: 93.04, y: 50.00 },
-  21: { x: 93.04, y: 60.31 },
-  22: { x: 93.04, y: 70.62 },
-  23: { x: 93.04, y: 80.93 },
-  24: { x: 93.04, y: 93.04 }, // Vào Khu Hải Quan GO_TO_HOLD
-  25: { x: 80.93, y: 93.04 },
-  26: { x: 70.62, y: 93.04 },
-  27: { x: 60.31, y: 93.04 },
-  28: { x: 50.00, y: 93.04 },
-  29: { x: 39.69, y: 93.04 },
-  30: { x: 29.38, y: 93.04 },
-  31: { x: 19.07, y: 93.04 },
-};
 
 // Original schematic of the Pacific basin. The open ocean is the dice landing area.
 const PacificChart = React.memo(function PacificChart({ is3D }: { is3D: boolean }) {
@@ -200,9 +166,11 @@ export const Board: React.FC<Props> = ({
   onRentReceiptsChange,
 }) => {
   const idleMotion = useIdleMotion();
+  const isLogistics = gameState.mode === 'logistics';
   const allowIdle = idleMotion && selectedTileId === null && !activeCard && !gameState.winnerId;
   const { tracks, claims, rentReceipts, pendingRentReceipts, advance, atlas, showPort, closeAtlas } = useBoardPlayback(gameState, subscribeBoard);
   const { rescue, finishRescue } = useStormTugRescue(subscribeBoard);
+  const { transfer, finishTransfer } = useCargoTransfer(subscribeBoard);
   const moving = gameState.players.some((player) => !player.isBankrupt && tracks[player.id]?.frames.length);
   const visibleAtlas = !moving && !isRolling && !gameState.winnerId ? atlas : null;
   const boardRoot = React.useRef<HTMLDivElement>(null);
@@ -284,6 +252,7 @@ export const Board: React.FC<Props> = ({
           className={`chart-slab relative ${
             is3D ? 'board-tilted' : 'board-flat'
           } aspect-square origin-center border-4 p-2 select-none transition-all duration-700 ease-out`}
+          data-mode={gameState.mode ?? 'classic'}
           data-sky-phase={sky.phase}
           data-light={sky.body}
           data-weather={sky.weather}
@@ -311,6 +280,12 @@ export const Board: React.FC<Props> = ({
           >
             {/* 32 Ô Bàn Cờ */}
             {BOARD_TILES.map((tile) => {
+              if (isLogistics) {
+                return (
+                  <LogisticsTile key={tile.id} tile={tile} placement={getTileGridStyle(tile.id)}
+                    stock={gameState.logistics?.ports[tile.id]} is3D={is3D} onClick={() => onSelectTile(tile.id)} />
+                );
+              }
               const prop = gameState.properties[tile.id];
               const owner = prop?.ownerId
                 ? gameState.players.find((p) => p.id === prop.ownerId)
@@ -352,13 +327,19 @@ export const Board: React.FC<Props> = ({
             >
               {visibleAtlas ? (
                 <WorldPortAtlas arrival={visibleAtlas} is3D={is3D} onClose={returnToPortTile}
-                  dice={gameState.hasRolled ? gameState.dice : undefined} />
+                  dice={!isLogistics && gameState.hasRolled ? gameState.dice : undefined} />
               ) : (
                 <>
                   <PacificChart is3D={is3D} />
                   {is3D && <TerrainRelief sky={sky} />}
                   <BoardSky sky={sky} />
-                  <div
+                  {isLogistics ? (
+                    <div className="logistics-chart-key" aria-label="Chú giải hoạt động cảng">
+                      <span className="stock-out">↑ Hàng xuất</span>
+                      <span className="stock-in">↓ Xe chờ nhập</span>
+                      <span className="stock-empty">□ Vỏ rỗng</span>
+                    </div>
+                  ) : <div
                     className="w-full h-full flex items-center justify-center select-none z-10"
                     style={{
                       transform: is3D ? 'var(--board-billboard) translateZ(38px) scale(var(--model-scale))' : undefined,
@@ -367,7 +348,7 @@ export const Board: React.FC<Props> = ({
                     }}
                   >
                     <DiceView is3D={is3D} dice={gameState.dice} isRolling={isRolling} hasRolled={gameState.hasRolled} />
-                  </div>
+                  </div>}
                 </>
               )}
             </div>
@@ -403,6 +384,14 @@ export const Board: React.FC<Props> = ({
                   stackSize={occupants.length || 1}
                   advance={advance}
                 >
+                  {player.cargo && transfer?.playerId !== player.id && (
+                    <span className="cargo-box cargo-manifest-box" data-cargo-kind={player.cargo.kind}
+                      data-cargo-origin={player.cargo.originTileId} aria-hidden="true" />
+                  )}
+                  {transfer?.playerId === player.id && transfer.tileId === tile && !frame && (
+                    <CargoTransfer key={transfer.revision} transfer={transfer} is3D={is3D} motion={idleMotion}
+                      faceLeft={TILE_CENTER_PERCENT[tile].x > 50} finish={finishTransfer} />
+                  )}
                   {rescue?.playerId === player.id && rescue.tileId === tile && !frame && (
                     <StormTugRescue key={rescue.sequence} rescue={rescue} is3D={is3D}
                       motion={idleMotion} exposure={sky.exposure} faceLeft={TILE_CENTER_PERCENT[tile].x > 50}

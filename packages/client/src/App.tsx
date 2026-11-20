@@ -7,13 +7,15 @@ import { getBoardLighting } from './components/boardLighting.js';
 import { PlayerSidebar } from './components/PlayerSidebar.js';
 import { TradeDesk } from './components/TradeDesk.js';
 import { ActionControls } from './components/ActionControls.js';
+import { FreightDesk } from './components/CargoManifest.js';
+import { portGuide } from './components/ports/portGuide.js';
 import { SecretMissionCardView } from './components/SecretMissionCardView.js';
 import { ReactionFloatingBar } from './components/ReactionFloatingBar.js';
 import type { RentReceipt } from './components/useBoardPlayback.js';
 import { GameOverModal } from './components/GameOverModal.js';
-import { AlertCircle, BookOpen, Box, CloudLightning, CloudRain, Compass, Gavel, Handshake, LifeBuoy, LogOut, Map, MapPin, Moon, Radio, Sun, X } from 'lucide-react';
+import { AlertCircle, BookOpen, Box, CloudLightning, CloudRain, Compass, Gavel, Handshake, LifeBuoy, LogOut, Map, MapPin, Moon, Radio, Sun, Truck, X } from 'lucide-react';
 
-const noticeIcons = { auction: Gavel, trade: Handshake, debt: LifeBuoy };
+const noticeIcons = { auction: Gavel, trade: Handshake, debt: LifeBuoy, freight: Truck };
 const weatherReadouts = {
   sun: { Icon: Sun, label: 'Nắng' },
   moon: { Icon: Moon, label: 'Trời quang' },
@@ -101,7 +103,21 @@ export const App: React.FC = () => {
 
       // Add to event logs
       let logMsg = '';
-      if (evt.type === 'DICE_ROLLED') {
+      if (evt.type === 'CARGO_LOADED' || evt.type === 'CARGO_UNLOADED' || evt.type === 'CARGO_DESTINATION_CHANGED') {
+        const who = state.players.find(p => p.id === evt.playerId)?.name ?? 'Thuyền trưởng';
+        const to = portGuide[BOARD_TILES[evt.destinationTileId].code].name;
+        const box = evt.kind === 'empty' ? 'container rỗng' : 'container hàng';
+        if (evt.type === 'CARGO_LOADED') logMsg = `${who} đã xếp ${box} lên tàu đi ${to}.`;
+        else if (evt.type === 'CARGO_UNLOADED') logMsg = `${who} giao ${box} cho xe tại ${to}, nhận $${evt.reward}M.`;
+        else logMsg = `${who} đổi cảng đích của ${box} từ ${portGuide[BOARD_TILES[evt.previousDestinationTileId].code].name} sang ${to}.`;
+        setBoardNotice({ type: 'freight', text: logMsg });
+      } else if (state.mode === 'logistics' && evt.type === 'SHIP_STEPPED') {
+        const who = state.players.find(p => p.id === evt.playerId)?.name ?? 'Thuyền trưởng';
+        logMsg = `${who} cập cảng ${portGuide[BOARD_TILES[evt.to].code].name}.`;
+        setBoardNotice(null);
+      } else if (evt.type === 'LOGISTICS_TURN_ENDED') {
+        setBoardNotice(null);
+      } else if (evt.type === 'DICE_ROLLED') {
         setBoardNotice(null);
         logMsg = `🎲 Đổ được ${evt.dice[0]} + ${evt.dice[1]} = ${evt.dice[0] + evt.dice[1]}`;
       } else if (evt.type === 'AUCTION_STARTED') {
@@ -177,8 +193,9 @@ export const App: React.FC = () => {
   const activePlayer = gameState?.players[gameState.activePlayerIndex];
   const NoticeIcon = boardNotice ? noticeIcons[boardNotice.type] : MapPin;
   const captain = gameState?.players.find(player => player.id === myPlayerId);
-  const canOpenTrades = captain && !captain.isBankrupt && !gameState?.winnerId;
-  const mission = React.useMemo(() => gameState && myPlayerId ? getMissionProgress(gameState, myPlayerId) : null,
+  const freightGame = gameState?.mode === 'logistics';
+  const canOpenTrades = !freightGame && captain && !captain.isBankrupt && !gameState?.winnerId;
+  const mission = React.useMemo(() => gameState && gameState.mode !== 'logistics' && myPlayerId ? getMissionProgress(gameState, myPlayerId) : null,
     [gameState, myPlayerId]);
   const missionTargetIds = showMissionTargets && mission && !captain?.secretMission?.isCompleted && !captain?.isBankrupt
     ? mission.objectives.flatMap(objective => !objective.achieved && objective.tileId !== undefined ? [objective.tileId] : [])
@@ -294,14 +311,14 @@ export const App: React.FC = () => {
             <PlayerSidebar gameState={gameState} myPlayerId={myPlayerId} turnTimer={turnTimer}
               onOfferForTile={openTrades} rentReceipts={rent.visible} pendingRent={rent.pending} reactions={reactions} />
             <div className="table-actions">
-              <ActionControls
+              {freightGame ? <FreightDesk gameState={gameState} myPlayerId={myPlayerId} onAction={sendAction} /> : <ActionControls
                 gameState={gameState}
                 myPlayerId={myPlayerId}
                 onAction={sendAction}
                 onOpenTrades={() => openTrades()}
                 isRolling={isRolling}
                 isPawnMoving={isPawnMoving}
-              />
+              />}
               {captain && mission && (!captain.isBankrupt || captain.secretMission?.isCompleted) && (
                 <SecretMissionCardView gameState={gameState} player={captain} progress={mission}
                   showTargets={showMissionTargets} onToggleTargets={() => setShowMissionTargets(value => !value)}

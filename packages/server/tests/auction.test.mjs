@@ -13,7 +13,7 @@ function openAuction(t, dice = [1, 2]) {
   const { room, playerId: captainId } = manager.createRoom('Captain', 'ONE_APUS', 'captain-socket');
   assert.ok(manager.joinRoom(room.id, 'First mate', 'PILOT_BOAT', 'mate-socket').success);
   assert.ok(manager.joinRoom(room.id, 'Engineer', 'GANTRY_CRANE', 'engineer-socket').success);
-  assert.ok(manager.startGame(room.id, captainId).success);
+  assert.ok(manager.startGame(room.id, captainId, 'classic').success);
   t.after(() => room.timer.stop());
 
   function send(playerId, action) {
@@ -44,7 +44,7 @@ test('an auction without eligible bidders renews the clock for a doubles roll', 
   t.mock.timers.enable({ apis: ['setInterval'] });
   const manager = new RoomManager();
   const { room, playerId } = manager.createRoom('Captain', 'ONE_APUS', 'captain-socket');
-  assert.ok(manager.startGame(room.id, playerId).success);
+  assert.ok(manager.startGame(room.id, playerId, 'classic').success);
   t.after(() => room.timer.stop());
   for (const player of room.gameState.players) player.balance = 0;
   t.mock.timers.tick(40_000);

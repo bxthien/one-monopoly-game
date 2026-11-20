@@ -141,7 +141,7 @@ export function useBoardPlayback(initialState: GameState, subscribe: SubscribeBo
             continue;
           }
           const projected = existing.frames.at(-1) ?? existing.settled;
-          const additions = buildTravelFrames(projected, player.id, events);
+          const additions = buildTravelFrames(projected, player.id, events, state.mode === 'logistics');
           const arrival = additions.at(-1) ?? projected;
           if (arrival.tile !== player.position) {
             next[player.id] = { settled: restingPose(player.position), frames: [] };

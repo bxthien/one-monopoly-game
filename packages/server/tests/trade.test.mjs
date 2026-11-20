@@ -14,7 +14,7 @@ function tradingRoom(t) {
   const { playerId: observer } = manager.joinRoom(room.id, 'Observer', 'FREIGHT_TRAIN', 'observer');
   const { playerId: buyer } = manager.joinRoom(room.id, 'Buyer', 'ONE_APUS', 'buyer');
   const { playerId: seller, sessionToken } = manager.joinRoom(room.id, 'Seller', 'GANTRY_CRANE', 'seller');
-  assert.ok(manager.startGame(room.id, captain).success);
+  assert.ok(manager.startGame(room.id, captain, 'classic').success);
   t.after(() => room.timer.stop());
   room.gameState.properties[9].ownerId = seller;
 

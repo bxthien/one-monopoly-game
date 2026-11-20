@@ -7,6 +7,8 @@ import {
   GREEN_FLEET_COST,
   GREEN_FLEET_ESG_BONUS,
   getTradeRestriction,
+  getEmptyNeed,
+  type PortStock,
   LOOP_GROUPS_CONFIG,
   OneMonopolyEngine,
 } from '@one-monopoly/shared';
@@ -14,7 +16,7 @@ import { TokenBadge } from './TokenBadge.js';
 import { BoardDialog } from './BoardDialog.js';
 import { PortMiniature } from './ports/PortMiniature.js';
 import { portGuide, type PortGuide } from './ports/portGuide.js';
-import { X, Building2, TrendingDown, DollarSign, ShieldAlert, Leaf, Handshake } from 'lucide-react';
+import { X, Building2, TrendingDown, DollarSign, ShieldAlert, Leaf, Handshake, Truck, Container } from 'lucide-react';
 
 function getRentSchedule(tile: BoardTile): [string, string][] {
   if (tile.type === 'PORT' && tile.rentTiers) {
@@ -46,6 +48,66 @@ function getRentSchedule(tile: BoardTile): [string, string][] {
   return [];
 }
 
+function TerminalQueue({ quantity, direction }: { quantity: number; direction: 'export' | 'import' }) {
+  const label = direction === 'export' ? 'Xe chở hàng xuất' : 'Xe chờ hàng nhập';
+  return (
+    <div className="terminal-queue" data-direction={direction}>
+      <dt>{label}</dt>
+      <dd>
+        <span className="terminal-trucks" aria-hidden="true">
+          {Array.from({ length: Math.min(quantity, 5) }, (_, index) => <Truck key={index} />)}
+        </span>
+        <strong>{quantity} xe</strong>
+      </dd>
+    </div>
+  );
+}
+
+function TerminalDetails({ guide, stock, titleId, onClose, onShowPort }: {
+  guide: PortGuide;
+  stock?: PortStock;
+  titleId: string;
+  onClose: () => void;
+  onShowPort: (port: PortGuide) => void;
+}) {
+  const shortage = stock ? getEmptyNeed(stock) : 0;
+  const surplus = stock ? Math.max(0, stock.empties - stock.emptyTarget) : 0;
+  const equipmentStatus = shortage ? `Cần thêm ${shortage} vỏ` : surplus ? `Dư ${surplus} vỏ` : 'Đủ vỏ dự trữ';
+  return (
+    <BoardDialog labelledBy={titleId} onClose={onClose}>
+      <div className="chart-dialog-sheet chart-manifest terminal-detail">
+        <button type="button" aria-label="Đóng thông tin cảng" onClick={onClose} className="chart-dialog-close">
+          <X aria-hidden="true" />
+        </button>
+        <header className="chart-manifest-heading">
+          <div className="chart-dialog-kicker"><span>{guide.code}</span><span>{guide.country}</span></div>
+          <h3 id={titleId} className="chart-dialog-title">Cảng {guide.name}</h3>
+        </header>
+        <PortMiniature code={guide.code} variant="detail" />
+        {stock && (
+          <section className="terminal-activity" aria-label="Điều độ tại bến">
+            <h4>Điều độ tại bến</h4>
+            <dl>
+              <TerminalQueue quantity={stock.supply} direction="export" />
+              <TerminalQueue quantity={stock.demand} direction="import" />
+              <div className="terminal-equipment">
+                <dt><Container aria-hidden="true" /> Vỏ rỗng tại bãi</dt>
+                <dd><strong>{stock.empties} vỏ</strong>
+                  <span>{equipmentStatus}</span>
+                </dd>
+              </div>
+            </dl>
+          </section>
+        )}
+        <div className="port-deed-geography terminal-geography">
+          <p>{guide.fact}</p>
+          <button type="button" onClick={() => onShowPort(guide)}>Xem trên bản đồ</button>
+        </div>
+      </div>
+    </BoardDialog>
+  );
+}
+
 interface Props {
   tileId: number | null;
   gameState: GameState;
@@ -72,8 +134,12 @@ export const PropertyModal: React.FC<Props> = ({
   const tile = BOARD_TILES[tileId];
   if (!tile) return null;
 
-  const rentSchedule = getRentSchedule(tile);
   const guide = portGuide[tile.code];
+  if (gameState.mode === 'logistics') {
+    return guide ? <TerminalDetails key={tileId} guide={guide} stock={gameState.logistics?.ports[tileId]}
+      titleId={titleId} onClose={onClose} onShowPort={onShowPort} /> : null;
+  }
+  const rentSchedule = getRentSchedule(tile);
   const prop = gameState.properties[tileId];
   const owner = prop?.ownerId
     ? gameState.players.find((p) => p.id === prop.ownerId)

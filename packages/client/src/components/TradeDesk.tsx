@@ -22,6 +22,7 @@ const infrastructureGroup = { name: 'Hạ tầng số', color: '#6f7888', tileId
 const money = (amount: number) => `$${amount.toLocaleString('en-US')}M`;
 
 const boardPrompts: Record<GameState['phase'], string> = {
+  AWAITING_SAIL: 'Đến lượt bạn điều tàu.',
   WAIT_FOR_ROLL: 'Đến lượt bạn gieo xúc xắc.',
   AWAITING_BUY_DECISION: 'Đến lượt bạn quyết định mua tài sản.',
   AWAITING_AUCTION: 'Đến lượt bạn trả giá.',
