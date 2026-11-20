@@ -39,6 +39,18 @@
 .trade-facts dd { font-size: 14px; line-height: 1.4; font-weight: 700; }
 .trade-facts div:last-child dd, .trade-price-form small strong { font-family: var(--action-number); }
 .trade-price-form { display: grid; gap: 6px; padding-top: 3px; }
+.trade-bot-quote { display: grid; gap: 3px; border-top: 1px dotted #92a6a0; padding-top: 7px; }
+.trade-bot-quote p { display: flex; align-items: baseline; gap: 8px; color: var(--action-ink); font-weight: 700; }
+.trade-bot-quote strong { color: var(--action-magenta); font: 750 16px/1.25 var(--action-number); }
+.trade-bot-quote small { color: #466267; font-size: 12px; line-height: 1.4; }
+.trade-price-label { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 8px; }
+.trade-fill-quote {
+  padding: 5px 8px; border: 1px solid #829c98; border-radius: 4px; color: #285e63;
+  background: #f3f5ea; font: 700 12px/1.35 var(--chart-sans, system-ui); cursor: pointer;
+}
+.trade-fill-quote:hover:enabled { border-color: #285e63; background: #e5eee3; }
+.trade-fill-quote:focus-visible { outline: 3px solid #087d89; outline-offset: 2px; }
+.trade-fill-quote:disabled { cursor: default; opacity: .65; }
 .trade-price-entry { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 7px; }
 .trade-desk-guidance { display: grid; gap: 7px; }
 .trade-desk-notice:not(:empty) {

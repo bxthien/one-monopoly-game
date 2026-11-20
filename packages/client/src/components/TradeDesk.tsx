@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { ArrowLeftRight, X } from 'lucide-react';
 import {
-  BOARD_TILES, INFRA_TILES, LOOP_GROUPS_CONFIG, SERVICE_LINES, canSettleTrade, getTradeRestriction,
+  BOARD_TILES, INFRA_TILES, LOOP_GROUPS_CONFIG, SERVICE_LINES, canSettleTrade, getBotAskingPrice, getTradeRestriction,
   type GameAction, type GameState, type TradeOffer,
 } from '@one-monopoly/shared';
 import { BoardDialog } from './BoardDialog.js';
@@ -56,8 +56,8 @@ function rivalProperties(state: GameState, buyerId: string) {
     || b.owned / b.group.tileIds.length - a.owned / a.group.tileIds.length || a.tile.id - b.tile.id);
 }
 
-function CashOffer({ balance, listPrice, disabled, send }: {
-  balance: number; listPrice: number; disabled: boolean; send: (price: number) => void;
+function CashOffer({ balance, listPrice, askingPrice, disabled, send }: {
+  balance: number; listPrice: number; askingPrice: number | null; disabled: boolean; send: (price: number) => void;
 }) {
   const id = useId();
   const [amount, setAmount] = useState(String(Math.min(listPrice, balance) || ''));
@@ -68,14 +68,22 @@ function CashOffer({ balance, listPrice, disabled, send }: {
       event.preventDefault();
       if (valid && !disabled) send(price);
     }}>
-      <label htmlFor={id}>Giá đề nghị (triệu USD)</label>
+      <div className="trade-price-label">
+        <label htmlFor={id}>Giá đề nghị (triệu USD)</label>
+        {askingPrice !== null && (
+          <button type="button" className="trade-fill-quote" disabled={disabled}
+            onClick={() => setAmount(String(askingPrice))}>Điền giá AI</button>
+        )}
+      </div>
       <div className="trade-price-entry">
         <input id={id} type="number" inputMode="numeric" min="1" step="1" max={balance} required
           value={amount} onChange={event => setAmount(event.target.value)} disabled={disabled}
           aria-describedby={`${id}-balance`} />
         <button type="submit" className="chart-button chart-button-primary" disabled={!valid || disabled}>Gửi đề nghị</button>
       </div>
-      <small id={`${id}-balance`}>Số dư của bạn <strong>{money(balance)}</strong></small>
+      <small id={`${id}-balance`}>Số dư của bạn <strong>{money(balance)}</strong>
+        {price > balance && Number.isSafeInteger(price) && <> · Cần thêm {money(price - balance)} để gửi.</>}
+      </small>
     </form>
   );
 }
@@ -92,6 +100,8 @@ export function TradeDesk({ gameState, myPlayerId, initialTileId, onAction, onCl
   const [mode, setMode] = useState<'browse' | 'offers'>(initialTileId === null && offerCount ? 'offers' : 'browse');
   const [choice, setChoice] = useState<number | null>(initialTileId ?? options[0]?.tile.id ?? null);
   const selected = options.find(option => option.tile.id === (choice ?? options[0]?.tile.id));
+  const askingPrice = selected?.seller.id.startsWith('ai-')
+    ? getBotAskingPrice(gameState, selected.seller.id, selected.tile.id) : null;
   const [notice, setNotice] = useState('');
   const previousOffers = useRef(offers);
   const inFlight = useRef<TradeAction | null>(null);
@@ -118,13 +128,20 @@ export function TradeDesk({ gameState, myPlayerId, initialTileId, onAction, onCl
     } else if (closed) {
       const name = BOARD_TILES[closed.tileId].name;
       const settled = gameState.properties[closed.tileId]?.ownerId === closed.buyerId;
-      setNotice(settled
-        ? `Bạn đã ${closed.buyerId === myPlayerId ? 'mua' : 'bán'} ${name} với giá ${money(closed.price)}.`
-        : `Đề nghị mua ${name} đã đóng.`);
+      if (settled) {
+        setNotice(`Bạn đã ${closed.buyerId === myPlayerId ? 'mua' : 'bán'} ${name} với giá ${money(closed.price)}.`);
+      } else {
+        const currentAsk = closed.buyerId === myPlayerId && closed.sellerId.startsWith('ai-')
+          && !getTradeRestriction(gameState, myPlayerId, closed.tileId)
+          ? getBotAskingPrice(gameState, closed.sellerId, closed.tileId) : null;
+        setNotice(currentAsk !== null && closed.price < currentAsk
+          ? `Đề nghị ${money(closed.price)} mua ${name} đã đóng. Giá AI hiện tại là ${money(currentAsk)}.`
+          : `Đề nghị mua ${name} đã đóng.`);
+      }
     } else if (received) {
       setNotice(`Bạn có đề nghị mới cho ${BOARD_TILES[received.tileId].name}.`);
     }
-  }, [offers, myPlayerId, gameState.properties]);
+  }, [offers, myPlayerId, gameState]);
 
   function send(action: TradeAction) {
     if (inFlight.current) return;
@@ -192,6 +209,12 @@ export function TradeDesk({ gameState, myPlayerId, initialTileId, onAction, onCl
                       <div><dt>Chủ sở hữu</dt><dd>{selected.seller.name}</dd></div>
                       <div><dt>Giá niêm yết</dt><dd>{money(selected.price)}</dd></div>
                     </dl>
+                    {askingPrice !== null && (
+                      <div className="trade-bot-quote">
+                        <p>Giá AI yêu cầu <strong>{money(askingPrice)}</strong></p>
+                        <small>AI chỉ bán từ mức này. Giá tăng khi AI có nhiều tài sản cùng nhóm.</small>
+                      </div>
+                    )}
                   </div>
                   {outgoing ? (
                     <div className="trade-desk-guidance">
@@ -201,7 +224,7 @@ export function TradeDesk({ gameState, myPlayerId, initialTileId, onAction, onCl
                   ) : selected.restriction ? (
                     <p className="trade-desk-guidance">{selected.restriction}</p>
                   ) : buyer && (
-                    <CashOffer key={`${selected.tile.id}-${selected.seller.id}`} balance={buyer.balance} listPrice={selected.price}
+                    <CashOffer key={`${selected.tile.id}-${selected.seller.id}`} balance={buyer.balance} listPrice={selected.price} askingPrice={askingPrice}
                       disabled={pending} send={price => send({ type: 'OFFER_TRADE', tileId: selected.tile.id, sellerId: selected.seller.id, price })} />
                   )}
                 </>

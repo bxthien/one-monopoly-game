@@ -12,6 +12,7 @@ import {
 } from '@one-monopoly/shared';
 import crypto from 'node:crypto';
 import { TurnTimer } from './turnTimer.js';
+import { getBotTradeResponse } from './botTrade.js';
 
 const TURN_SECONDS = 45;
 const BOT_PURCHASE_RESERVE = 80;
@@ -38,6 +39,7 @@ export interface Room {
   isGameStarted: boolean;
   timer: TurnTimer | null;
   botTimer: NodeJS.Timeout | null;
+  botTradeTimer: NodeJS.Timeout | null;
   socketToPlayer: Map<string, string>; // socketId -> playerId
   playerToSocket: Map<string, string>; // playerId -> socketId
 }
@@ -90,6 +92,7 @@ export class RoomManager {
       isGameStarted: false,
       timer: null,
       botTimer: null,
+      botTradeTimer: null,
       socketToPlayer: new Map([[socketId, playerId]]),
       playerToSocket: new Map([[playerId, socketId]]),
     };
@@ -123,6 +126,7 @@ export class RoomManager {
         if (room.gameState) {
           const gp = room.gameState.players.find((p) => p.id === existingPlayer.id);
           if (gp) gp.isOnline = true;
+          this.scheduleBotTradeReply(room);
         }
 
         return {
@@ -346,6 +350,7 @@ export class RoomManager {
     }
 
     if (!isTradeAction) this.triggerBotIfNeeded(room, action.type);
+    this.scheduleBotTradeReply(room);
 
     return { success: true, state: nextState, events };
   }
@@ -353,6 +358,31 @@ export class RoomManager {
   public isBot(room: Room, playerId: string): boolean {
     const player = room.players.find((p) => p.id === playerId);
     return Boolean(player?.sessionToken?.startsWith('bot-') || playerId.startsWith('ai-'));
+  }
+
+  private scheduleBotTradeReply(room: Room): void {
+    const nextReply = () => {
+      const state = room.gameState;
+      if (!state?.tradeOffers?.length) return;
+      for (const seller of room.players) {
+        if (!this.isBot(room, seller.id)) continue;
+        const action = getBotTradeResponse(state, seller.id);
+        if (action) return { sellerId: seller.id, action };
+      }
+    };
+
+    if (!nextReply()) {
+      if (room.botTradeTimer) clearTimeout(room.botTradeTimer);
+      room.botTradeTimer = null;
+      return;
+    }
+    if (room.botTradeTimer) return;
+    // Keep the trade reply independent of the captain's turn or bidder deadline.
+    room.botTradeTimer = setTimeout(() => {
+      room.botTradeTimer = null;
+      const reply = nextReply();
+      if (reply) this.dispatchAction(room.id, reply.sellerId, reply.action);
+    }, 1000);
   }
 
   public clearBotTimer(room: Room): void {
@@ -420,7 +450,8 @@ export class RoomManager {
         const delay = lastActionType === 'ROLL_DICE' ? computeTravelDelay() : 1000;
         room.botTimer = setTimeout(() => {
           room.botTimer = null;
-          if (activePlayer.inHold && activePlayer.balance >= 150) {
+          const captain = room.gameState!.players[state.activePlayerIndex];
+          if (captain.inHold && captain.balance >= 150) {
             this.dispatchAction(room.id, activePlayer.id, { type: 'PAY_HOLD_FINE' });
           } else {
             this.dispatchAction(room.id, activePlayer.id, { type: 'ROLL_DICE' });
@@ -435,7 +466,7 @@ export class RoomManager {
           room.botTimer = null;
           const tile = BOARD_TILES[activePlayer.position];
           const price = tile?.price || 0;
-          if (activePlayer.balance >= price + BOT_PURCHASE_RESERVE) {
+          if (room.gameState!.players[state.activePlayerIndex].balance >= price + BOT_PURCHASE_RESERVE) {
             this.dispatchAction(room.id, activePlayer.id, { type: 'BUY_PROPERTY' });
           } else {
             this.dispatchAction(room.id, activePlayer.id, { type: 'SKIP_BUY' });
@@ -480,10 +511,12 @@ export class RoomManager {
         const delay = lastActionType === 'ROLL_DICE' ? computeTravelDelay() : 700;
         room.botTimer = setTimeout(() => {
           room.botTimer = null;
-          const tile = BOARD_TILES[activePlayer.position];
-          const prop = state.properties[activePlayer.position];
+          const current = room.gameState!;
+          const captain = current.players[current.activePlayerIndex];
+          const tile = BOARD_TILES[captain.position];
+          const prop = current.properties[captain.position];
           if (
-            state.canUpgradeCurrentPort &&
+            current.canUpgradeCurrentPort &&
             tile?.type === 'PORT' &&
             prop?.ownerId === activePlayer.id &&
             !prop.isMortgaged &&
@@ -491,7 +524,7 @@ export class RoomManager {
           ) {
             const groupConfig = tile.group ? LOOP_GROUPS_CONFIG[tile.group] : null;
             const cost = tile.buildCost || groupConfig?.buildCost || 100;
-            if (activePlayer.balance >= cost + 150) {
+            if (captain.balance >= cost + 150) {
               this.dispatchAction(room.id, activePlayer.id, {
                 type: 'BUILD_CONTAINER',
                 tileId: activePlayer.position,
