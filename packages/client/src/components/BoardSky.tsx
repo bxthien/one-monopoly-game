@@ -11,12 +11,13 @@ export function BoardSky({ sky }: Props) {
   const waterMaskId = useId();
   const x = 240 + sky.sourceX * 163;
   const y = 240 + sky.sourceY * 154;
+  const rainy = sky.weather !== 'clear';
 
   return (
     <svg className="board-sky" viewBox="0 0 480 480" aria-hidden="true" focusable="false"
       data-body={sky.body} data-phase={sky.phase} data-weather={sky.weather}
       style={{ '--sky-x': `${x / 4.8}%`, '--sky-y': `${y / 4.8}%` } as CSSProperties}>
-      {sky.weather === 'storm' && (
+      {rainy && (
         <>
           <defs>
             <pattern id={patternId} width="36" height="30" patternUnits="userSpaceOnUse">
@@ -31,11 +32,11 @@ export function BoardSky({ sky }: Props) {
           <g className="board-sky-storm" mask={`url(#${waterMaskId})`}>
             <g className="board-sky-showers" fill={`url(#${patternId})`}>
               <path d="M-18 177Q74 94 191 99q-11 20-46 46-83 15-163 97z" />
-              <path d="M239 329q135-118 258-106v55q-119-6-210 79z" />
+              {sky.weather === 'storm' && <path d="M239 329q135-118 258-106v55q-119-6-210 79z" />}
             </g>
-            <g className="board-sky-fronts" fill="none" stroke="currentColor" strokeLinecap="round">
+            {sky.weather === 'storm' && <g className="board-sky-fronts" fill="none" stroke="currentColor" strokeLinecap="round">
               <path d="M8 178q53-54 111-65t92-28m-171 72q35-32 77-42m196 173q68-51 146-49m-108 29q41-28 97-26" />
-            </g>
+            </g>}
           </g>
         </>
       )}
@@ -59,7 +60,7 @@ export function BoardSky({ sky }: Props) {
             <path d="m11-11 1.1 3.2 3.1 1-3.1 1.1L11-2.5l-1-3.2-3.2-1.1 3.2-1z" fill="currentColor" />
           </g>
         )}
-        {sky.weather === 'storm' && (
+        {rainy && (
           <g className="board-sky-cloud" transform="translate(-12 8)" strokeLinecap="round" strokeLinejoin="round">
             <path d="M-23 6q1-7 8-7 2-9 11-8 6 0 9 6 6-3 10 1 6-1 9 6z" />
             <path d="M-18 10H5m-15 4H0m8-4h6" fill="none" />

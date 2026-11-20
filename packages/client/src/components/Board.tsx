@@ -8,6 +8,9 @@ import { Pawn3D } from './Pawn3D.js';
 import { StormTugRescue } from './StormTugRescue.js';
 import { useStormTugRescue } from './stormTugPlayback.js';
 import { BoardSky } from './BoardSky.js';
+import { ChartTerrainContours } from './ChartTerrainContours.js';
+import { TerrainRelief } from './TerrainRelief.js';
+import { TERRAIN_RANGES } from './terrainMesh.js';
 import type { BoardLighting } from './boardLighting.js';
 import { forwardHeading, type TravelFrame } from './boardTravel.js';
 import { useBoardPlayback, type RentReceipt } from './useBoardPlayback.js';
@@ -71,9 +74,12 @@ const TILE_CENTER_PERCENT: Record<number, { x: number; y: number }> = {
 };
 
 // Original schematic of the Pacific basin. The open ocean is the dice landing area.
-const PacificChart = React.memo(function PacificChart() {
+const PacificChart = React.memo(function PacificChart({ is3D }: { is3D: boolean }) {
+  const descriptionId = React.useId();
   return (
-    <svg className="pacific-chart" viewBox="0 0 480 480" aria-hidden="true" focusable="false">
+    <svg className="pacific-chart" viewBox="0 0 480 480" role="img" focusable="false"
+      aria-describedby={descriptionId} aria-label={is3D ? 'Hải đồ Thái Bình Dương với các dãy núi nổi' : 'Hải đồ Thái Bình Dương với đường đồng mức và đỉnh núi'}>
+      <desc id={descriptionId}>{TERRAIN_RANGES.map(range => range.name).join(', ')}.</desc>
       <defs>
         <pattern id="chart-graticule" width="40" height="40" patternUnits="userSpaceOnUse">
           <path d="M40 0H0V40" fill="none" stroke="#75a7a0" strokeWidth="1" />
@@ -101,6 +107,7 @@ const PacificChart = React.memo(function PacificChart() {
         <use key={width} href="#chart-coasts" fill="none" stroke="#80b3a9" strokeOpacity=".22" strokeWidth={width} />
       ))}
       <use href="#chart-coasts" fill="url(#chart-land)" stroke="#7f9d88" strokeWidth="1.3" />
+      {!is3D && <ChartTerrainContours />}
       <g fill="none" strokeLinecap="round" strokeDasharray="5 4">
         <path d="M43 174Q188 12 404 107" stroke="#b92d67" strokeWidth="1.9" />
         <path d="M112 127Q286 37 422 150Q452 202 431 274" stroke="#417e80" strokeWidth="1.6" />
@@ -271,6 +278,7 @@ export const Board: React.FC<Props> = ({
           data-sky-phase={sky.phase}
           data-light={sky.body}
           data-weather={sky.weather}
+          data-weather-motion={idleMotion ? 'active' : 'still'}
           style={{
             '--cast-x': `${sky.shadowX.toFixed(2)}px`,
             '--cast-y': `${sky.shadowY.toFixed(2)}px`,
@@ -333,7 +341,8 @@ export const Board: React.FC<Props> = ({
               }}
               className="chart-water pointer-events-none relative flex items-center justify-center p-3"
             >
-              <PacificChart />
+              <PacificChart is3D={is3D} />
+              {is3D && <TerrainRelief sky={sky} />}
               <BoardSky sky={sky} />
 
               {/* Khối xúc xắc 3D khối hộp Magenta & Navy - Billboard counter-rotate để không bị cấn móp, giống y chang 2D */}

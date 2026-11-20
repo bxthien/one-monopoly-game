@@ -8,6 +8,9 @@ const watches = [
   { phase: 'moonset',  body: 'moon', label: 'Trăng lặn', bearing: -156, length: 7 },
 ] as const;
 
+// A separate eleven-turn weather cycle lets showers pass under every sun and moon phase.
+const forecast = ['clear', 'clear', 'clear', 'clear', 'showers', 'showers', 'clear', 'clear', 'clear', 'showers', 'clear'] as const;
+
 interface VoyageTime {
   turnCount: number;
   activePlayerIndex: number;
@@ -25,17 +28,23 @@ export function getBoardLighting({ turnCount, activePlayerIndex, playerCount, st
   const sourceX = Math.cos(radians);
   const sourceY = Math.sin(radians);
   const moonlit = watch.body === 'moon';
-  const length = watch.length * (stormActive ? .28 : 1);
+  const weather = stormActive ? 'storm' : forecast[turn % forecast.length];
+  const cloud = {
+    clear: { reach: 1, opacity: 1, exposure: 1, blur: moonlit ? 3.5 : 2 },
+    showers: { reach: .67, opacity: .72, exposure: .96, blur: 4.5 },
+    storm: { reach: .28, opacity: .42, exposure: .91, blur: 6 },
+  }[weather];
+  const length = watch.length * cloud.reach;
   return {
     phase: watch.phase,
     body: watch.body,
     label: watch.label,
-    weather: stormActive ? 'storm' as const : 'clear' as const,
+    weather,
     sourceX, sourceY,
     shadowX: -sourceX * length,
     shadowY: -sourceY * length,
-    shadowBlur: stormActive ? 6 : moonlit ? 3.5 : 2,
-    shadowOpacity: (moonlit ? .32 : .44) * (stormActive ? .42 : 1),
-    exposure: (moonlit ? .85 : 1) * (stormActive ? .91 : 1),
-  };
+    shadowBlur: cloud.blur,
+    shadowOpacity: (moonlit ? .32 : .44) * cloud.opacity,
+    exposure: (moonlit ? .85 : 1) * cloud.exposure,
+  } as const;
 }

@@ -6,6 +6,7 @@ import type { RentReceipt } from './useBoardPlayback.js';
 import './tile-claim.css';
 import './tile-rent.css';
 import './tile-mission.css';
+import './tile-weather.css';
 
 const tileSymbols: Partial<Record<BoardTile['type'], typeof Anchor>> = {
   GO: ArrowUpRight,
@@ -154,11 +155,20 @@ export const TileView: React.FC<Props> = ({
       } ${isCorner ? 'chart-corner' : ''} ${property?.isMortgaged ? 'chart-mortgaged' : ''}`}
       style={{
         '--tile-owner-color': owner && TOKEN_CONFIG[owner.token].color,
+        '--weather-inset': owner ? 'var(--tile-owner-ring, 3px)' : undefined,
         boxShadow: owner ? 'inset 0 0 0 var(--tile-owner-ring, 3px) var(--tile-owner-color)' : undefined,
         transformStyle: is3D ? 'preserve-3d' : undefined,
       } as React.CSSProperties}
     >
       <span className="sr-only">Xem chi tiết ô {tile.name}. {missionTarget && 'Mục tiêu nhiệm vụ của bạn. '}{auctioned && 'Đang đấu giá. '}{owner && `Chủ sở hữu: ${owner.name}. `}</span>
+      <span className="tile-weather-surface" aria-hidden="true"
+        data-shower={tile.id % 4 === 1 || undefined}
+        data-ripple={tile.id % 8 === 1 || undefined}
+        style={{
+          '--wet-x': `${12 + (tile.id * 31) % 74}%`,
+          '--rain-delay': `-${(tile.id * 137) % 1600}ms`,
+        } as React.CSSProperties}
+      />
       {/* KHUNG NỘI DUNG XOAY ĐỒNG BỘ: Vạch màu nằm INSIDE để luôn ở phía trên của mã cảng và song song với chữ */}
       <span
         className={`tile-content flex-1 flex flex-col items-center justify-between p-0.5 w-full h-full text-center ${is3D && (orientation === 'left' || orientation === 'right') ? 'rotate-90' : ''}`}

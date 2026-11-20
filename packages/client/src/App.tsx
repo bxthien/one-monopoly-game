@@ -11,9 +11,15 @@ import { SecretMissionCardView } from './components/SecretMissionCardView.js';
 import { ReactionFloatingBar } from './components/ReactionFloatingBar.js';
 import type { RentReceipt } from './components/useBoardPlayback.js';
 import { GameOverModal } from './components/GameOverModal.js';
-import { AlertCircle, BookOpen, Box, Compass, Gavel, Handshake, LifeBuoy, LogOut, Map, MapPin, Radio, X } from 'lucide-react';
+import { AlertCircle, BookOpen, Box, CloudLightning, CloudRain, Compass, Gavel, Handshake, LifeBuoy, LogOut, Map, MapPin, Moon, Radio, Sun, X } from 'lucide-react';
 
 const noticeIcons = { auction: Gavel, trade: Handshake, debt: LifeBuoy };
+const weatherReadouts = {
+  sun: { Icon: Sun, label: 'Nắng' },
+  moon: { Icon: Moon, label: 'Trời quang' },
+  showers: { Icon: CloudRain, label: 'Mưa rào' },
+  storm: { Icon: CloudLightning, label: 'Bão' },
+};
 
 export const App: React.FC = () => {
   const {
@@ -184,6 +190,7 @@ export const App: React.FC = () => {
     playerCount: gameState.players.length,
     stormActive: gameState.stormActive,
   });
+  const conditions = weatherReadouts[sky && sky.weather !== 'clear' ? sky.weather : sky?.body ?? 'sun'];
 
   return (
     <div className="chart-app">
@@ -241,7 +248,7 @@ export const App: React.FC = () => {
                 <h1>Hải đồ</h1>
                 <div className="chart-voyage-meta">
                   <span>Vòng {gameState.turnCount}</span>
-                  <span className="chart-weather-readout" role="status">{sky.label}{sky.weather === 'storm' && ' · Bão'}</span>
+                  <span className="chart-weather-readout" role="status"><conditions.Icon size={13} aria-hidden="true" />{sky.label} · {conditions.label}</span>
                 </div>
               </div>
               {canOpenTrades && (

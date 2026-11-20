@@ -113,7 +113,8 @@
 }
 .chart-sheet-heading span { color: var(--chart-muted); border-left: 1px solid var(--chart-rule); padding-left: 14px; }
 .chart-voyage-meta { display: flex; align-items: center; gap: 12px; }
-.chart-voyage-meta .chart-weather-readout { color: var(--chart-ink); }
+.chart-voyage-meta .chart-weather-readout { display: inline-flex; align-items: center; gap: 4px; color: var(--chart-ink); }
+.chart-weather-readout svg { flex-shrink: 0; }
 .chart-view-picker { border: 1px solid #77918b; border-radius: 4px; overflow: hidden; }
 .chart-sheet-header { flex-wrap: wrap; }
 .chart-trade-open {
