@@ -22,8 +22,16 @@ export interface RoomState {
   hasActiveGame: boolean;
 }
 
+export const cabinReactions = new Map([
+  ['🚢', 'tàu biển'], ['📦', 'kiện hàng'], ['💸', 'tiền bay'],
+  ['👏', 'tràng pháo tay'], ['🔥', 'ngọn lửa'], ['🛟', 'phao cứu sinh'],
+]);
+
+const REACTION_LIFETIME_MS = 2400;
+
 export interface ReactionEvent {
-  id: string;
+  id: number;
+  expiresAt: number;
   playerId: string;
   emoji: string;
 }
@@ -45,6 +53,16 @@ export function useSocket() {
     return () => { boardListeners.current.delete(listener); };
   }, []);
 
+  // Replacing the sender's badge never extends another captain's reaction.
+  useEffect(() => {
+    if (!reactions.length) return;
+    const expiry = window.setTimeout(() => {
+      const now = performance.now();
+      setReactions(current => current.filter(reaction => reaction.expiresAt > now));
+    }, Math.max(0, Math.ceil(reactions[0].expiresAt - performance.now())));
+    return () => window.clearTimeout(expiry);
+  }, [reactions]);
+
   // Initialize socket
   useEffect(() => {
     const serverUrl = (import.meta as any).env?.VITE_SERVER_URL || undefined;
@@ -53,6 +71,11 @@ export function useSocket() {
       autoConnect: true,
     });
     socketRef.current = socket;
+    let reactionSequence = 0;
+    const clearHiddenReactions = () => {
+      if (document.hidden) setReactions([]);
+    };
+    document.addEventListener('visibilitychange', clearHiddenReactions);
 
     socket.on('connect', () => {
       setIsConnected(true);
@@ -85,6 +108,7 @@ export function useSocket() {
     });
 
     socket.on('disconnect', () => {
+      setReactions([]);
       setIsConnected(false);
     });
 
@@ -93,6 +117,7 @@ export function useSocket() {
     });
 
     socket.on('game:init', (data: { state: GameState }) => {
+      setReactions([]);
       clearTimeout(rollTimerRef.current);
       rollTimerRef.current = undefined;
       setIsRolling(false);
@@ -119,15 +144,17 @@ export function useSocket() {
     });
 
     socket.on('game:reaction', (data: { playerId: string; emoji: string }) => {
-      const rx: ReactionEvent = {
-        id: Math.random().toString(),
-        playerId: data.playerId,
-        emoji: data.emoji,
-      };
-      setReactions((prev) => [...prev.slice(-10), rx]);
+      if (document.hidden || !data?.playerId || !cabinReactions.has(data.emoji)) return;
+      const now = performance.now();
+      const reaction = { id: ++reactionSequence, playerId: data.playerId, emoji: data.emoji, expiresAt: now + REACTION_LIFETIME_MS };
+      setReactions(current => [
+        ...current.filter(item => item.playerId !== reaction.playerId && item.expiresAt > now).slice(-3),
+        reaction,
+      ]);
     });
 
     return () => {
+      document.removeEventListener('visibilitychange', clearHiddenReactions);
       clearTimeout(rollTimerRef.current);
       socket.disconnect();
     };
@@ -224,8 +251,8 @@ export function useSocket() {
 
   const sendReaction = useCallback(
     (emoji: string) => {
-      if (!socketRef.current || !room || !myPlayerId) return;
-      socketRef.current.emit('game:reaction', {
+      if (!socketRef.current?.connected || !room || !myPlayerId || !cabinReactions.has(emoji)) return;
+      socketRef.current.volatile.emit('game:reaction', {
         roomId: room.id,
         playerId: myPlayerId,
         emoji,

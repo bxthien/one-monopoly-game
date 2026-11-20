@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { GameState } from '@one-monopoly/shared';
 import { Anchor, BriefcaseBusiness, ChevronRight, Gavel, Timer } from 'lucide-react';
+import { cabinReactions, type ReactionEvent } from '../hooks/useSocket.js';
+import './fleet-reactions.css';
 import { FleetPortfolio } from './FleetPortfolio.js';
 import type { RentReceipt } from './useBoardPlayback.js';
 import { TOKEN_CONFIG } from './TokenBadge.js';
@@ -9,6 +11,7 @@ interface Props {
   gameState: GameState;
   myPlayerId: string | null;
   turnTimer: { seconds: number; playerId: string } | null;
+  reactions: ReactionEvent[];
   rentReceipts: Record<number, RentReceipt>;
   pendingRent: Record<number, RentReceipt>;
   onOfferForTile: (tileId: number) => void;
@@ -24,7 +27,7 @@ function playerRent(receipts: Record<number, RentReceipt>, playerId: string): nu
   return total;
 }
 
-export const PlayerSidebar: React.FC<Props> = ({ gameState, myPlayerId, turnTimer, onOfferForTile, rentReceipts, pendingRent }) => {
+export const PlayerSidebar: React.FC<Props> = ({ gameState, myPlayerId, turnTimer, onOfferForTile, rentReceipts, pendingRent, reactions }) => {
   const active = gameState.players[gameState.activePlayerIndex];
   const [portfolioId, setPortfolioId] = useState<string | null>(null);
   const captain = gameState.players.find(player => player.id === portfolioId);
@@ -48,6 +51,7 @@ export const PlayerSidebar: React.FC<Props> = ({ gameState, myPlayerId, turnTime
         <ul className="table-players">
           {gameState.players.map(player => {
             const token = TOKEN_CONFIG[player.token];
+            const reaction = reactions.find(item => item.playerId === player.id);
             const count = properties.filter(property => property.ownerId === player.id).length;
             const delta = playerRent(rentReceipts, player.id);
             const balance = player.balance - playerRent(pendingRent, player.id);
@@ -57,7 +61,11 @@ export const PlayerSidebar: React.FC<Props> = ({ gameState, myPlayerId, turnTime
                 <button type="button" className="fleet-portfolio-open" onClick={() => setPortfolioId(player.id)}
                   aria-haspopup="dialog" aria-label={`Xem tài sản của ${player.name}, ${count} tài sản, ${player.isBankrupt ? 'phá sản' : `số dư $${balance}M`}`}>
                   <span className="chart-token" style={{ borderColor: token.color }} title={token.label} aria-hidden="true">{token.emoji}</span>
-                  <span className="chart-player-name">{player.name}{player.id === myPlayerId && <small>Bạn</small>}</span>
+                  <span className="chart-player-name fleet-captain">
+                    <span className="fleet-captain-label">{player.name}{player.id === myPlayerId && <small>Bạn</small>}</span>
+                    {reaction && <span key={reaction.id} className="fleet-reaction-badge" data-player-id={player.id}
+                      aria-hidden="true">{reaction.emoji}</span>}
+                  </span>
                   <span className="fleet-balance">
                     <strong className="chart-balance">{player.isBankrupt ? 'Phá sản' : `$${balance.toLocaleString('en-US')}M`}</strong>
                     {delta !== 0 && <span key={delta} className={`chart-delta-tag ${delta > 0 ? 'chart-delta-positive' : 'chart-delta-negative'}`}>
@@ -71,6 +79,12 @@ export const PlayerSidebar: React.FC<Props> = ({ gameState, myPlayerId, turnTime
             );
           })}
         </ul>
+        <div className="sr-only" role="log" aria-label="Biểu cảm của đội tàu" aria-relevant="additions">
+          {reactions.map(reaction => {
+            const sender = gameState.players.find(player => player.id === reaction.playerId);
+            return sender && <p key={reaction.id}>{sender.name} gửi {cabinReactions.get(reaction.emoji)}.</p>;
+          })}
+        </div>
       </div>
       {captain && <FleetPortfolio gameState={gameState} captain={captain} myPlayerId={myPlayerId}
         onClose={() => setPortfolioId(null)} onOfferForTile={onOfferForTile} />}

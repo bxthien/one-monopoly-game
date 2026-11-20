@@ -176,10 +176,10 @@ export function setupSocketServer(httpServer: HttpServer): { io: Server; roomMan
     socket.on(
       'game:reaction',
       (data: { roomId: string; playerId: string; emoji: string }) => {
-        io.to(data.roomId).emit('game:reaction', {
-          playerId: data.playerId,
-          emoji: data.emoji,
-        });
+        const room = typeof data?.roomId === 'string' ? roomManager.getRoom(data.roomId) : undefined;
+        const sender = room?.socketToPlayer.get(socket.id);
+        if (!room || !sender || typeof data.emoji !== 'string') return;
+        io.to(room.id).emit('game:reaction', { playerId: sender, emoji: data.emoji });
       }
     );
 

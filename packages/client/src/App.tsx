@@ -285,7 +285,7 @@ export const App: React.FC = () => {
           </section>
           <aside className="table-controls">
             <PlayerSidebar gameState={gameState} myPlayerId={myPlayerId} turnTimer={turnTimer}
-              onOfferForTile={openTrades} rentReceipts={rent.visible} pendingRent={rent.pending} />
+              onOfferForTile={openTrades} rentReceipts={rent.visible} pendingRent={rent.pending} reactions={reactions} />
             <div className="table-actions">
               <ActionControls
                 gameState={gameState}
@@ -301,7 +301,7 @@ export const App: React.FC = () => {
                   onInspectTile={setSelectedTileId} />
               )}
             </div>
-            <ReactionFloatingBar reactions={reactions} onSendReaction={sendReaction} />
+            <ReactionFloatingBar onSendReaction={sendReaction} />
           </aside>
           {tradeDesk && myPlayerId && canOpenTrades && (
             <TradeDesk gameState={gameState} myPlayerId={myPlayerId} initialTileId={tradeDesk.tileId}
