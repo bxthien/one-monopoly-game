@@ -21,6 +21,7 @@ interface Props {
   property?: PropertyState;
   owner?: Player;
   claim?: { playerId: string; tileId: number; price: number };
+  auctioned?: boolean;
   playersOnTile?: Player[];
   currentRent?: number;
   onClick?: () => void;
@@ -35,6 +36,7 @@ export const TileView: React.FC<Props> = ({
   property,
   owner,
   claim,
+  auctioned,
   playersOnTile,
   currentRent,
   onClick,
@@ -135,6 +137,7 @@ export const TileView: React.FC<Props> = ({
       type="button"
       aria-haspopup="dialog"
       data-tile-type={tile.type}
+      data-auction={auctioned || undefined}
       data-claim-edge={isFreshClaim ? orientation : undefined}
       onClick={onClick}
       className={`board-tile relative w-full h-full flex flex-col justify-between border focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-700 transition cursor-pointer select-none overflow-hidden ${
@@ -146,7 +149,7 @@ export const TileView: React.FC<Props> = ({
         transformStyle: is3D ? 'preserve-3d' : undefined,
       } as React.CSSProperties}
     >
-      <span className="sr-only">Xem chi tiết ô {tile.name}. {owner && `Chủ sở hữu: ${owner.name}. `}</span>
+      <span className="sr-only">Xem chi tiết ô {tile.name}. {auctioned && 'Đang đấu giá. '}{owner && `Chủ sở hữu: ${owner.name}. `}</span>
       {/* KHUNG NỘI DUNG XOAY ĐỒNG BỘ: Vạch màu nằm INSIDE để luôn ở phía trên của mã cảng và song song với chữ */}
       <span
         className={`tile-content flex-1 flex flex-col items-center justify-between p-0.5 w-full h-full text-center ${is3D && (orientation === 'left' || orientation === 'right') ? 'rotate-90' : ''}`}

@@ -1,7 +1,7 @@
 import { Server as HttpServer } from 'node:http';
 import { Server, Socket } from 'socket.io';
 import { GameAction, VesselToken } from '@one-monopoly/shared';
-import { Room, RoomManager } from './roomManager.js';
+import { getTimerPlayerId, Room, RoomManager } from './roomManager.js';
 
 export function setupSocketServer(httpServer: HttpServer): { io: Server; roomManager: RoomManager } {
   const io = new Server(httpServer, {
@@ -106,7 +106,7 @@ export function setupSocketServer(httpServer: HttpServer): { io: Server; roomMan
           if (result.room.timer && !state.winnerId) {
             socket.emit('game:timer', {
               remainingSeconds: result.room.timer.getRemainingSeconds(),
-              playerId: state.players[state.activePlayerIndex].id,
+              playerId: getTimerPlayerId(state),
             });
           }
         }

@@ -114,7 +114,7 @@ for (const phase of ['AWAITING_BUY_DECISION', 'AWAITING_SLOT_CHARTER_RESPONSE', 
       assert.equal(room.gameState.players[0].isBankrupt, true);
       assert.equal(room.gameState.winnerId, ownerId);
     } else {
-      assert.equal(room.gameState.phase, 'END_OF_TURN');
+      assert.equal(room.gameState.phase, phase === 'AWAITING_BUY_DECISION' ? 'AWAITING_AUCTION' : 'END_OF_TURN');
       assert.equal(room.gameState.pendingSlotCharter, null);
       const rent = phase === 'AWAITING_SLOT_CHARTER_RESPONSE' ? 20 : 0;
       assert.deepEqual(room.gameState.players.map((player) => player.balance), [1500 - rent, 1500 + rent]);

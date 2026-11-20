@@ -1,4 +1,5 @@
 import {
+  AUCTION_BID_SECONDS,
   GameAction,
   GameEvent,
   GameState,
@@ -8,6 +9,13 @@ import {
 } from '@one-monopoly/shared';
 import crypto from 'node:crypto';
 import { TurnTimer } from './turnTimer.js';
+
+const TURN_SECONDS = 45;
+
+export function getTimerPlayerId(state: GameState): string {
+  if (state.phase === 'AWAITING_AUCTION' && state.auction) return state.auction.bidderId;
+  return state.players[state.activePlayerIndex].id;
+}
 
 export interface RoomPlayer {
   id: string;
@@ -228,13 +236,10 @@ export class RoomManager {
     }
 
     room.timer = new TurnTimer(
-      45,
+      TURN_SECONDS,
       (seconds) => {
         if (!room.gameState || room.gameState.winnerId) return;
-        const activePlayer = room.gameState.players[room.gameState.activePlayerIndex];
-        if (this.onTimerTick && activePlayer) {
-          this.onTimerTick(room.id, seconds, activePlayer.id);
-        }
+        this.onTimerTick?.(room.id, seconds, getTimerPlayerId(room.gameState));
       },
       () => {
         this.handleAFKTimeout(room.id);
@@ -266,6 +271,12 @@ export class RoomManager {
     if (!action || typeof action.type !== 'string') return { success: false, error: 'Hành động không hợp lệ.' };
 
     const activePlayer = room.gameState.players[room.gameState.activePlayerIndex];
+    const isAuctionAction = action.type === 'AUCTION_BID' || action.type === 'AUCTION_PASS';
+    const inAuction = room.gameState.phase === 'AWAITING_AUCTION';
+    if (isAuctionAction && (!inAuction || room.gameState.auction?.bidderId !== playerId)) {
+      return { success: false, error: 'Chưa đến lượt đấu giá của bạn.' };
+    }
+    if (inAuction && !isAuctionAction) return { success: false, error: 'Hãy hoàn tất phiên đấu giá trước.' };
 
     // Some actions can only be triggered by the active player
     // Slot Charter response can only be answered by the property owner
@@ -299,24 +310,21 @@ export class RoomManager {
     const prevActiveIndex = room.gameState.activePlayerIndex;
 
     const { state: nextState, events } = OneMonopolyEngine.dispatch(room.gameState, action);
+    if (isAuctionAction && nextState.phase === prevPhase && nextState.auction?.revision === room.gameState.auction?.revision) {
+      return { success: false, error: 'Lượt đấu giá đã thay đổi hoặc giá đặt không hợp lệ.' };
+    }
     if ((prevPhase === 'AWAITING_STORM_DECISION' || action.type === 'RESOLVE_STORM') &&
         !events.some((event) => event.type === 'STORM_RESOLVED')) {
       return { success: false, error: 'Không thể thực hiện lựa chọn ứng phó bão này.' };
     }
     room.gameState = nextState;
 
-    // Reset turn timer when turn changes or phase changes
-    if (
-      nextState.activePlayerIndex !== prevActiveIndex ||
-      nextState.phase !== prevPhase
-    ) {
-      if (room.timer && !nextState.winnerId) {
-        room.timer.reset();
-      }
-    }
-
-    if (nextState.winnerId && room.timer) {
-      room.timer.stop();
+    // A doubles roll can open and close an auction in one dispatch when nobody can bid.
+    const auctionEnded = events.some((event) => event.type === 'AUCTION_ENDED');
+    if (nextState.winnerId) {
+      room.timer?.stop();
+    } else if (isAuctionAction || auctionEnded || nextState.phase !== prevPhase || nextState.activePlayerIndex !== prevActiveIndex) {
+      room.timer?.reset(nextState.phase === 'AWAITING_AUCTION' ? AUCTION_BID_SECONDS : TURN_SECONDS);
     }
 
     if (this.onBroadcastUpdate) {
@@ -340,6 +348,15 @@ export class RoomManager {
       case 'AWAITING_BUY_DECISION':
         this.dispatchAction(roomId, activePlayer.id, { type: 'SKIP_BUY' });
         break;
+      case 'AWAITING_AUCTION': {
+        const auction = room.gameState.auction;
+        if (auction) {
+          this.dispatchAction(roomId, auction.bidderId, {
+            type: 'AUCTION_PASS', auctionId: auction.id, revision: auction.revision,
+          });
+        }
+        break;
+      }
       case 'AWAITING_STORM_DECISION':
         this.dispatchAction(roomId, activePlayer.id, { type: 'RESOLVE_STORM', choice: 'DRIFT' });
         break;

@@ -35,7 +35,6 @@ export function useSocket() {
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
   const [turnTimer, setTurnTimer] = useState<{ seconds: number; playerId: string } | null>(null);
-  const [latestEvents, setLatestEvents] = useState<GameEvent[]>([]);
   const [reactions, setReactions] = useState<ReactionEvent[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isRolling, setIsRolling] = useState(false);
@@ -97,7 +96,6 @@ export function useSocket() {
       clearTimeout(rollTimerRef.current);
       rollTimerRef.current = undefined;
       setIsRolling(false);
-      setLatestEvents([]);
       setGameState(data.state);
       boardListeners.current.forEach((listener) => listener(data.state, null));
     });
@@ -114,9 +112,6 @@ export function useSocket() {
       }
       setGameState(data.state);
       boardListeners.current.forEach((listener) => listener(data.state, data.events ?? []));
-      if (data.events && data.events.length > 0) {
-        setLatestEvents(data.events);
-      }
     });
 
     socket.on('game:timer', (data: { remainingSeconds: number; playerId: string }) => {
@@ -205,16 +200,21 @@ export function useSocket() {
   }, [room, myPlayerId]);
 
   const sendAction = useCallback(
-    (action: GameAction) => {
-      if (!socketRef.current || !room || !myPlayerId) return;
+    (action: GameAction, onFailure?: () => void) => {
+      if (!socketRef.current?.connected || !room || !myPlayerId) {
+        onFailure?.();
+        setErrorMsg('Chưa kết nối với phòng chơi.');
+        return;
+      }
       if (action.type === 'ROLL_DICE') setIsRolling(true);
-      socketRef.current.emit(
+      socketRef.current.timeout(5000).emit(
         'game:action',
         { roomId: room.id, playerId: myPlayerId, action },
-        (res: any) => {
-          if (!res?.success) {
+        (timeout: Error | null, res?: { success: boolean; error?: string }) => {
+          if (timeout || !res?.success) {
             if (action.type === 'ROLL_DICE' && !rollTimerRef.current) setIsRolling(false);
-            setErrorMsg(res?.error || 'Thao tác không thành công');
+            onFailure?.();
+            setErrorMsg(timeout ? 'Chưa nhận được xác nhận từ phòng chơi.' : res?.error || 'Thao tác không thành công');
           }
         }
       );
@@ -250,7 +250,6 @@ export function useSocket() {
     gameState,
     myPlayerId,
     turnTimer,
-    latestEvents,
     reactions,
     errorMsg,
     isRolling,

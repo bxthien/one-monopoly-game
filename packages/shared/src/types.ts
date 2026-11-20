@@ -115,6 +115,7 @@ export interface GameCard {
 export type TurnPhase =
   | 'WAIT_FOR_ROLL'
   | 'AWAITING_BUY_DECISION'
+  | 'AWAITING_AUCTION'
   | 'AWAITING_STORM_DECISION'
   | 'AWAITING_SLOT_CHARTER_RESPONSE'
   | 'AWAITING_DEBT_RESOLUTION'
@@ -140,6 +141,16 @@ export interface PendingSlotCharter {
   discountedRent: number;
 }
 
+export interface PropertyAuction {
+  id: number;
+  revision: number;
+  tileId: number;
+  bidderId: string;
+  leaderId: string | null;
+  highestBid: number;
+  passedIds: string[];
+}
+
 export interface GameState {
   roomId: string;
   players: Player[];
@@ -152,6 +163,8 @@ export interface GameState {
   marketDeck: string[]; // Card IDs
   opsDeck: string[]; // Card IDs
   stormActive?: boolean; // OPS-02 visual for the current turn. Absent in older snapshots.
+  auction?: PropertyAuction | null;
+  auctionSequence?: number;
   pendingDebt: DebtInfo | null;
   pendingSlotCharter: PendingSlotCharter | null;
   winnerId: string | null;
@@ -162,6 +175,8 @@ export interface GameState {
 export type StormChoice = 'TUG' | 'DRIFT';
 
 export type GameAction =
+  | { type: 'AUCTION_BID'; auctionId: number; revision: number; amount: number }
+  | { type: 'AUCTION_PASS'; auctionId: number; revision: number }
   | { type: 'RESOLVE_STORM'; choice: StormChoice }
   | { type: 'ROLL_DICE'; forcedDice?: [number, number] }
   | { type: 'BUY_PROPERTY' }
@@ -181,6 +196,8 @@ export type GameAction =
   | { type: 'END_TURN' };
 
 export type GameEvent =
+  | { type: 'AUCTION_STARTED'; tileId: number }
+  | { type: 'AUCTION_ENDED'; tileId: number; winnerId: string | null; price: number }
   | { type: 'STORM_RESOLVED'; playerId: string; choice: StormChoice }
   | { type: 'DICE_ROLLED'; playerId: string; dice: [number, number]; isDouble: boolean }
   | { type: 'SHIP_STEPPED'; playerId: string; from: number; to: number }

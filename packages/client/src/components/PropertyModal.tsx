@@ -187,7 +187,7 @@ export const PropertyModal: React.FC<Props> = ({
         )}
 
         {/* Owner Management Buttons */}
-        {isMine && prop && (
+        {isMine && prop && gameState.phase !== 'AWAITING_AUCTION' && (
           <div className="chart-manifest-actions">
             {tile.type === 'PORT' && (
               <>

@@ -27,9 +27,9 @@ describe('OPS-02 storm', () => {
     assert.equal(drift.state.players[0].balance, 1500);
     assert.equal(drift.state.phase, 'AWAITING_BUY_DECISION');
 
-    const skip = OneMonopolyEngine.dispatch(drift.state, { type: 'SKIP_BUY' });
-    assert.equal(skip.state.phase, 'WAIT_FOR_ROLL');
-    const extraRoll = OneMonopolyEngine.dispatch(skip.state, { type: 'ROLL_DICE', forcedDice: [1, 2] });
+    const buy = OneMonopolyEngine.dispatch(drift.state, { type: 'BUY_PROPERTY' });
+    assert.equal(buy.state.phase, 'WAIT_FOR_ROLL');
+    const extraRoll = OneMonopolyEngine.dispatch(buy.state, { type: 'ROLL_DICE', forcedDice: [1, 2] });
     assert.equal(extraRoll.state.stormActive, true);
     assert.equal(extraRoll.state.players[0].position, 16); // OPS-01 moves the ship to free anchorage.
     const next = OneMonopolyEngine.dispatch(extraRoll.state, { type: 'END_TURN' });

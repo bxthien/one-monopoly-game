@@ -120,7 +120,8 @@
 .chart-view-picker button:focus-visible { outline: 2px solid #ec65a1; outline-offset: -3px; }
 .chart-position { gap: 8px; min-height: 36px; padding: 6px 18px; border-top: 1px solid var(--chart-rule); background: #faf8eeed; }
 .chart-position span { color: var(--chart-muted); }
-.chart-position strong { font-size: 12px; }
+.chart-position strong { min-width: 0; overflow-wrap: anywhere; font-size: 12px; }
+.chart-position svg { flex: none; }
 
 .table-scoreboard { min-width: 0; }
 .chart-turn { padding: 15px 18px; color: #fffaee; background: var(--chart-ink); border-left: 4px solid #e33d88; }

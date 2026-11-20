@@ -292,6 +292,7 @@ export const Board: React.FC<Props> = ({
                     tile={tile}
                     property={prop}
                     claim={claims[tile.id]}
+                    auctioned={gameState.auction?.tileId === tile.id}
                     owner={owner}
                     currentRent={currentRent}
                     orientation={getTileOrientation(tile.id)}

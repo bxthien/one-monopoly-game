@@ -8,7 +8,7 @@ import { PlayerSidebar } from './components/PlayerSidebar.js';
 import { ActionControls } from './components/ActionControls.js';
 import { ReactionFloatingBar } from './components/ReactionFloatingBar.js';
 import { GameOverModal } from './components/GameOverModal.js';
-import { AlertCircle, BookOpen, Box, Compass, LogOut, Map, MapPin, Radio, X } from 'lucide-react';
+import { AlertCircle, BookOpen, Box, Compass, Gavel, LogOut, Map, MapPin, Radio, X } from 'lucide-react';
 
 export const App: React.FC = () => {
   const {
@@ -18,7 +18,6 @@ export const App: React.FC = () => {
     gameState,
     myPlayerId,
     turnTimer,
-    latestEvents,
     reactions,
     errorMsg,
     isRolling,
@@ -36,6 +35,7 @@ export const App: React.FC = () => {
   const [isPawnMoving, setIsPawnMoving] = useState(false);
   const pendingCardRef = React.useRef<GameCard | null>(null);
   const [eventLogs, setEventLogs] = useState<string[]>([]);
+  const [auctionResult, setAuctionResult] = useState('');
   const [is3D, setIs3D] = useState(true);
 
   // Khi xúc xắc đã dừng và nhân vật đã lướt tới bến đích -> Mới hiển thị thẻ bài (Chance/Chest)
@@ -43,6 +43,7 @@ export const App: React.FC = () => {
     if (!isRolling && !isPawnMoving && pendingCardRef.current) {
       const card = pendingCardRef.current;
       const timer = setTimeout(() => {
+        if (pendingCardRef.current !== card) return;
         pendingCardRef.current = null;
         setActiveCard(card);
       }, 300);
@@ -50,11 +51,21 @@ export const App: React.FC = () => {
     }
   }, [isRolling, isPawnMoving]);
 
-  // Listen to new events and process animation & log
-  useEffect(() => {
-    if (latestEvents.length === 0) return;
-
-    for (const evt of latestEvents) {
+  // Pair each event with the exact board snapshot that produced it.
+  useEffect(() => subscribeBoard((state, events) => {
+    if (!events) {
+      pendingCardRef.current = null;
+      setActiveCard(null);
+      setAuctionResult('');
+      return;
+    }
+    const sale = events.find(event => event.type === 'AUCTION_ENDED');
+    for (const evt of events) {
+      if (evt.type === 'AUCTION_STARTED') {
+        pendingCardRef.current = null;
+        setActiveCard(null);
+        setAuctionResult('');
+      }
       if (evt.type === 'CARD_DRAWN') {
         if (evt.card.effect.type === 'STORM_CHOICE') {
           // The action panel is the storm card. Keep its two routes directly accessible.
@@ -68,14 +79,24 @@ export const App: React.FC = () => {
       // Add to event logs
       let logMsg = '';
       if (evt.type === 'DICE_ROLLED') {
+        setAuctionResult('');
         logMsg = `🎲 Đổ được ${evt.dice[0]} + ${evt.dice[1]} = ${evt.dice[0] + evt.dice[1]}`;
+      } else if (evt.type === 'AUCTION_STARTED') {
+        logMsg = `Mở đấu giá ${BOARD_TILES[evt.tileId].name}.`;
+      } else if (evt.type === 'AUCTION_ENDED') {
+        const property = BOARD_TILES[evt.tileId].name;
+        const winner = state.players.find(player => player.id === evt.winnerId);
+        logMsg = winner
+          ? `${winner.name} thắng đấu giá ${property} với giá $${evt.price}M.`
+          : `${property} chưa có người mua.`;
+        setAuctionResult(logMsg);
       } else if (evt.type === 'STORM_RESOLVED') {
         logMsg = evt.choice === 'TUG'
           ? `⚓ Thuê tàu kéo giữ vị trí với phí $${STORM_TUG_FEE}M`
           : `🌊 Tàu trôi lùi ${Math.abs(STORM_DRIFT_STEPS)} ô trong bão`;
       } else if (evt.type === 'PASSED_GO') {
         logMsg = `🏁 Đi qua Singapore Hub nhận $${evt.reward}M`;
-      } else if (evt.type === 'TILE_PURCHASED') {
+      } else if (evt.type === 'TILE_PURCHASED' && sale?.tileId !== evt.tileId) {
         logMsg = `🏗️ Đã mua ô #${evt.tileId} với giá $${evt.price}M`;
       } else if (evt.type === 'DEMURRAGE_PAID') {
         logMsg = `💸 Nộp $${evt.amount}M phí lưu bãi`;
@@ -105,7 +126,7 @@ export const App: React.FC = () => {
         setEventLogs((prev) => [logMsg, ...prev.slice(0, 15)]);
       }
     }
-  }, [latestEvents]);
+  }), [subscribeBoard]);
 
   const activePlayer = gameState?.players[gameState.activePlayerIndex];
   const sky = gameState && getBoardLighting({
@@ -193,7 +214,13 @@ export const App: React.FC = () => {
                 onPawnMovingChange={setIsPawnMoving}
               />
             </div>
-            <div className="chart-position"><MapPin size={14} /><span>Vị trí tàu</span><strong>{BOARD_TILES[activePlayer.position].name}</strong></div>
+            <div className="chart-position" role="status">
+              {auctionResult ? (
+                <><Gavel size={14} aria-hidden="true" /><strong>{auctionResult}</strong></>
+              ) : (
+                <><MapPin size={14} aria-hidden="true" /><span>Vị trí tàu</span><strong>{BOARD_TILES[activePlayer.position].name}</strong></>
+              )}
+            </div>
           </section>
           <aside className="table-controls">
             <PlayerSidebar gameState={gameState} myPlayerId={myPlayerId} turnTimer={turnTimer} />

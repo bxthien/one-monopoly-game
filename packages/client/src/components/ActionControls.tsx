@@ -1,13 +1,14 @@
 import React from 'react';
 import { BOARD_TILES, GameAction, GameState } from '@one-monopoly/shared';
-import { Dices, Check, X, DollarSign, Ticket, AlertTriangle, Handshake, Ship, Flag } from 'lucide-react';
+import { Dices, Check, Gavel, DollarSign, Ticket, AlertTriangle, Handshake, Ship, Flag } from 'lucide-react';
 import { StormDecision } from './StormDecision.js';
+import { PropertyAuctionPanel } from './PropertyAuctionPanel.js';
 import './chart-actions.css';
 
 interface Props {
   gameState: GameState;
   myPlayerId: string | null;
-  onAction: (action: GameAction) => void;
+  onAction: (action: GameAction, onFailure?: () => void) => void;
   isRolling: boolean;
   isPawnMoving?: boolean;
 }
@@ -22,6 +23,13 @@ export const ActionControls: React.FC<Props> = ({
   const activePlayer = gameState.players[gameState.activePlayerIndex];
   const isMyTurn = activePlayer.id === myPlayerId;
   const currentTile = BOARD_TILES[activePlayer.position];
+
+  // Another captain's bid clock can already be running while the landing ship is moving.
+  if (gameState.phase === 'AWAITING_AUCTION' && gameState.auction) {
+    const auction = gameState.auction;
+    return <PropertyAuctionPanel key={`${auction.id}-${auction.revision}`} auction={auction}
+      players={gameState.players} myPlayerId={myPlayerId} onAction={onAction} />;
+  }
 
   if (isRolling) {
     return (
@@ -132,19 +140,22 @@ export const ActionControls: React.FC<Props> = ({
           <div className="chart-action-price">${price}M</div>
         </div>
 
+        <p className="chart-action-copy">Nếu bạn không mua, tài sản sẽ được đưa ra đấu giá.</p>
         <div className="chart-action-row">
           <button
+            type="button"
             onClick={() => onAction({ type: 'BUY_PROPERTY' })}
             disabled={!canAfford}
             className="chart-button chart-button-primary"
           >
-            <Check size={18} aria-hidden="true" /> MUA CẢNG NÀY
+            <Check size={18} aria-hidden="true" /> Mua ngay
           </button>
           <button
+            type="button"
             onClick={() => onAction({ type: 'SKIP_BUY' })}
             className="chart-button"
           >
-            <X size={18} aria-hidden="true" /> BỎ QUA
+            <Gavel size={18} aria-hidden="true" /> Mở đấu giá
           </button>
         </div>
       </section>
