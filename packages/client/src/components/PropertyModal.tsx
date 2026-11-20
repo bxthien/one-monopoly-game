@@ -16,6 +16,7 @@ import { TokenBadge } from './TokenBadge.js';
 import { BoardDialog } from './BoardDialog.js';
 import { PortMiniature } from './ports/PortMiniature.js';
 import { portGuide, type PortGuide } from './ports/portGuide.js';
+import { getPortTender, type PortTenderNotice } from './ports/portTender.js';
 import { X, Building2, TrendingDown, DollarSign, ShieldAlert, Leaf, Handshake, Truck, Container } from 'lucide-react';
 
 function getRentSchedule(tile: BoardTile): [string, string][] {
@@ -63,9 +64,10 @@ function TerminalQueue({ quantity, direction }: { quantity: number; direction: '
   );
 }
 
-function TerminalDetails({ guide, stock, titleId, onClose, onShowPort }: {
+function TerminalDetails({ guide, stock, tender, titleId, onClose, onShowPort }: {
   guide: PortGuide;
   stock?: PortStock;
+  tender: PortTenderNotice | null;
   titleId: string;
   onClose: () => void;
   onShowPort: (port: PortGuide) => void;
@@ -84,6 +86,9 @@ function TerminalDetails({ guide, stock, titleId, onClose, onShowPort }: {
           <h3 id={titleId} className="chart-dialog-title">Cảng {guide.name}</h3>
         </header>
         <PortMiniature code={guide.code} variant="detail" />
+        {tender && <section className="terminal-tender-note" data-phase={tender.phase}>
+          <strong>{tender.label}</strong><p>{tender.detail}</p>
+        </section>}
         {stock && (
           <section className="terminal-activity" aria-label="Điều độ tại bến">
             <h4>Điều độ tại bến</h4>
@@ -137,7 +142,7 @@ export const PropertyModal: React.FC<Props> = ({
   const guide = portGuide[tile.code];
   if (gameState.mode === 'logistics') {
     return guide ? <TerminalDetails key={tileId} guide={guide} stock={gameState.logistics?.ports[tileId]}
-      titleId={titleId} onClose={onClose} onShowPort={onShowPort} /> : null;
+      tender={getPortTender(gameState, tileId)} titleId={titleId} onClose={onClose} onShowPort={onShowPort} /> : null;
   }
   const rentSchedule = getRentSchedule(tile);
   const prop = gameState.properties[tileId];

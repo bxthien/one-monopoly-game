@@ -1,18 +1,10 @@
 import { Server as HttpServer } from 'node:http';
 import { Server, Socket } from 'socket.io';
-import { GameAction, GameState, VesselToken } from '@one-monopoly/shared';
-import { getTimerPlayerId, Room, RoomManager } from './roomManager.js';
+import { GameAction, VesselToken } from '@one-monopoly/shared';
+import { gameStateForPlayer, getTimerPlayerId, publicGameEvents, Room, RoomManager } from './roomManager.js';
 
-export function gameStateForPlayer(state: GameState, viewerId: string | undefined): GameState {
-  return {
-    ...state,
-    players: state.players.map((player) => {
-      if (player.id === viewerId || !player.secretMission || player.secretMission.isCompleted) return player;
-      const { secretMission, ...publicPlayer } = player;
-      return publicPlayer;
-    }),
-  };
-}
+// Kept public here for callers consuming the socket projection directly.
+export { gameStateForPlayer } from './roomManager.js';
 
 export function setupSocketServer(httpServer: HttpServer): { io: Server; roomManager: RoomManager } {
   const io = new Server(httpServer, {
@@ -40,8 +32,9 @@ export function setupSocketServer(httpServer: HttpServer): { io: Server; roomMan
     onBroadcastUpdate: (roomId, state, events) => {
       const room = roomManager.getRoom(roomId);
       if (!room) return;
+      const publicEvents = publicGameEvents(events);
       for (const [socketId, playerId] of room.socketToPlayer) {
-        io.to(socketId).emit('game:update', { state: gameStateForPlayer(state, playerId), events });
+        io.to(socketId).emit('game:update', { state: gameStateForPlayer(state, playerId), events: publicEvents });
       }
     },
     onTimerTick: (roomId, remainingSeconds, playerId) => {
@@ -168,10 +161,7 @@ export function setupSocketServer(httpServer: HttpServer): { io: Server; roomMan
         callback?: (res: any) => void
       ) => {
         const result = roomManager.dispatchSocketAction(socket.id, data);
-        if (callback) {
-          // A successful dispatch has matched data.playerId to this socket's seat.
-          callback(result.state ? { ...result, state: gameStateForPlayer(result.state, data.playerId) } : result);
-        }
+        if (callback) callback(result);
       }
     );
 

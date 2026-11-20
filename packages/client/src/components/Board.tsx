@@ -2,6 +2,7 @@ import React, { useLayoutEffect } from 'react';
 import { BOARD_TILES, GameAction, GameCard, GameState, OneMonopolyEngine, Player } from '@one-monopoly/shared';
 import { LogisticsTile, TileView } from './TileView.js';
 import { TILE_CENTER_PERCENT } from './boardCoordinates.js';
+import { getPortTender } from './ports/portTender.js';
 import { DiceView } from './DiceView.js';
 import { PropertyModal } from './PropertyModal.js';
 import { CardModal } from './CardModal.js';
@@ -283,7 +284,8 @@ export const Board: React.FC<Props> = ({
               if (isLogistics) {
                 return (
                   <LogisticsTile key={tile.id} tile={tile} placement={getTileGridStyle(tile.id)}
-                    stock={gameState.logistics?.ports[tile.id]} is3D={is3D} onClick={() => onSelectTile(tile.id)} />
+                    stock={gameState.logistics?.ports[tile.id]} tender={getPortTender(gameState, tile.id)}
+                    is3D={is3D} onClick={() => onSelectTile(tile.id)} />
                 );
               }
               const prop = gameState.properties[tile.id];
@@ -338,6 +340,8 @@ export const Board: React.FC<Props> = ({
                       <span className="stock-out">↑ Hàng xuất</span>
                       <span className="stock-in">↓ Xe chờ nhập</span>
                       <span className="stock-empty">□ Vỏ rỗng</span>
+                      {gameState.logistics?.market?.tender && <span className="stock-tender">⚑ Mời thầu</span>}
+                      {gameState.logistics?.market?.contract?.status === 'active' && <span className="stock-award">✓ Bến hợp đồng</span>}
                     </div>
                   ) : <div
                     className="w-full h-full flex items-center justify-center select-none z-10"

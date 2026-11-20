@@ -1,7 +1,10 @@
 import { BOARD_TILES } from './boardData.js';
+import {
+  closeTenderRound, createFreightMarket, FREIGHT_TENDER_MAX_BID, FREIGHT_TENDER_MIN_BID, fulfillFreightContract, getTenderBonus,
+} from './freightTender.js';
 import type {
   CargoAction, CargoKind, DestinationChange, EngineResult, FreightQuote, GameAction, GameEvent,
-  GameState, LogisticsState, Player, PortStock, SailAction,
+  DeliveryReceipt, FreightTenderBid, GameState, LogisticsState, Player, PortStock, SailAction,
 } from './types.js';
 
 export const LOGISTICS_DELIVERY_TARGET = 3;
@@ -56,7 +59,7 @@ export function createLogisticsState(players: Player[]): LogisticsState {
       : { supply: [1, 2, 0, 2][(i - 1) % 4], demand: [1, 2, 1, 0][(i - 1) % 4],
           empties: [0, 1, 3, 4][(i - 1) % 4], emptyTarget: 2 };
   });
-  return { ports: stocks, deliveries: score(), emptyDeliveries: score(), earnings: score(), hasSailed: false };
+  return { ports: stocks, market: createFreightMarket(stocks, players), deliveries: score(), emptyDeliveries: score(), earnings: score(), hasSailed: false };
 }
 
 export function isFinalLogisticsRound(state: GameState): boolean {
@@ -81,8 +84,17 @@ function activeCaptain(state: GameState, playerId: string) {
   return player;
 }
 
-function canReceive(stock: PortStock, kind: CargoKind) {
-  return kind === 'laden' ? stock.demand > 0 : getEmptyNeed(stock) > 0;
+function canReceive(state: GameState, playerId: string, tileId: number, kind: CargoKind) {
+  const stock = state.logistics!.ports[tileId];
+  return (kind === 'laden' ? stock.demand > 0 : getEmptyNeed(stock) > 0) || getTenderBonus(state, playerId, tileId, kind) > 0;
+}
+
+export function getTenderBidAction(state: GameState, playerId: string, amount: number): FreightTenderBid | null {
+  const tender = state.logistics?.market?.tender;
+  if (!tender || !activeCaptain(state, playerId) || tender.round !== state.turnCount || isFinalLogisticsRound(state) ||
+      !Number.isInteger(amount) || amount < FREIGHT_TENDER_MIN_BID || amount > FREIGHT_TENDER_MAX_BID ||
+      tender.bids[playerId] === amount) return null;
+  return { type: 'BID_FREIGHT_TENDER', tenderId: tender.id, amount, revision: state.cargoRevision ?? 0 };
 }
 
 type Load = Extract<CargoAction, { type: 'LOAD_CARGO' }>;
@@ -96,7 +108,7 @@ export function getCargoBookings(state: GameState, playerId: string, kind: Cargo
   if (!from || (kind === 'laden' ? from.supply <= 0 : from.empties <= from.emptyTarget)) return [];
   return ports.flatMap(({ id }) => {
     const quote = getFreightQuote(player.position, id, kind);
-    return quote && canReceive(stocks[id], kind) ? [{ tileId: id, quote, action: {
+    return quote && canReceive(state, playerId, id, kind) ? [{ tileId: id, quote, action: {
       type: 'LOAD_CARGO' as const, tileId: player.position, kind, destinationTileId: id, revision: state.cargoRevision ?? 0,
     } }] : [];
   });
@@ -107,7 +119,7 @@ export function getCargoRedirections(state: GameState, playerId: string): Bookin
   if (!booking) return [];
   return ports.flatMap(({ id }) => {
     const quote = getFreightQuote(booking.originTileId, id, booking.kind);
-    return id !== booking.destinationTileId && quote && canReceive(state.logistics!.ports[id], booking.kind)
+    return id !== booking.destinationTileId && quote && canReceive(state, playerId, id, booking.kind)
       ? [{ tileId: id, quote, action: { type: 'CHANGE_DESTINATION' as const,
           bookingId: booking.bookingId, destinationTileId: id, revision: state.cargoRevision ?? 0 } }]
       : [];
@@ -125,7 +137,7 @@ export function getCargoOpportunity(state: GameState, playerId: string): CargoOp
     return suggested ? { action: suggested.action, quote: null } : null;
   }
   const stock = state.logistics!.ports[player.position];
-  if (!stock || player.position !== booking.destinationTileId || !canReceive(stock, booking.kind)) return null;
+  if (!stock || player.position !== booking.destinationTileId || !canReceive(state, playerId, player.position, booking.kind)) return null;
   const quote = getFreightQuote(booking.originTileId, player.position, booking.kind);
   return quote ? { action: { type: 'UNLOAD_CARGO', tileId: player.position, originTileId: booking.originTileId,
     bookingId: booking.bookingId, revision: state.cargoRevision ?? 0 }, quote } : null;
@@ -143,7 +155,7 @@ export function getLogisticsRoutes(state: GameState, playerId: string): Logistic
     if (!leg) return [];
     const stock = state.logistics!.ports[id];
     const booking = player.cargo;
-    const quote = booking?.destinationTileId === id && canReceive(stock, booking.kind)
+    const quote = booking?.destinationTileId === id && canReceive(state, playerId, id, booking.kind)
       ? getFreightQuote(booking.originTileId, id, booking.kind) : null;
     return [{ tileId: id, supply: stock.supply, demand: stock.demand, distanceNm: leg.distanceNm, quote,
       action: { type: 'SAIL_TO_PORT' as const, tileId: id, revision: state.cargoRevision ?? 0 } }];
@@ -177,6 +189,16 @@ export function dispatchLogistics(state: GameState, action: GameAction, playerId
   };
   const at = player.position;
   switch (action.type) {
+    case 'BID_FREIGHT_TENDER': {
+      const bid = getTenderBidAction(state, playerId, action.amount);
+      if (!bid || bid.tenderId !== action.tenderId) return unchanged;
+      const result = next();
+      const tender = result.logistics!.market!.tender!;
+      if (!tender.bidderIds.includes(playerId)) tender.bidderIds.push(playerId);
+      tender.bidCount = tender.bidderIds.length;
+      tender.bids[playerId] = bid.amount;
+      return { state: result, events: [{ type: 'FREIGHT_TENDER_BID', playerId, tenderId: tender.id }] };
+    }
     case 'LOAD_CARGO': {
       if (at !== action.tileId || !getCargoBookings(state, playerId, action.kind).some(item => item.tileId === action.destinationTileId)) return unchanged;
       const result = next();
@@ -213,30 +235,40 @@ export function dispatchLogistics(state: GameState, action: GameAction, playerId
       const captain = result.players[state.activePlayerIndex];
       const logistics = result.logistics!;
       const stock = logistics.ports[at];
-      const receipt = { ...booking, tileId: at, ...offer.quote };
+      const receipt: DeliveryReceipt = { ...booking, tileId: at, ...offer.quote };
+      const contractEvent = fulfillFreightContract(result, playerId, receipt);
+      const payment = receipt.reward + (receipt.tenderBonus ?? 0);
       delete captain.cargo;
       captain.lastDelivery = receipt;
-      captain.balance += receipt.reward;
+      captain.balance += payment;
       logistics.deliveries[playerId]++;
-      logistics.earnings[playerId] += receipt.reward;
-      if (booking.kind === 'laden') stock.demand--; else logistics.emptyDeliveries[playerId]++;
+      logistics.earnings[playerId] += payment;
+      if (booking.kind === 'laden') stock.demand = Math.max(0, stock.demand - 1); else logistics.emptyDeliveries[playerId]++;
       stock.empties = Math.min(LOGISTICS_PORT_CAPACITY, stock.empties + 1);
-      const events: GameEvent[] = [{ type: 'CARGO_UNLOADED', playerId, ...receipt },
-        { type: 'BALANCE_CHANGED', playerId, newBalance: captain.balance, delta: receipt.reward, reason: 'Cước giao container' }];
+      const events: GameEvent[] = [{ type: 'CARGO_UNLOADED', playerId, ...receipt }];
+      if (contractEvent) events.push(contractEvent);
+      events.push({ type: 'BALANCE_CHANGED', playerId, newBalance: captain.balance, delta: payment,
+        reason: contractEvent ? 'Cước giao container và thưởng hợp đồng' : 'Cước giao container' });
+      if (logistics.market && isFinalLogisticsRound(result)) logistics.market.tender = null;
       return { state: result, events };
     }
     case 'END_TURN': {
       const result = next();
-      const ended: GameEvent = { type: 'LOGISTICS_TURN_ENDED', playerId, sailed: state.logistics!.hasSailed };
+      const events: GameEvent[] = [{ type: 'LOGISTICS_TURN_ENDED', playerId, sailed: state.logistics!.hasSailed }];
       if (state.activePlayerIndex === state.players.length - 1 && isFinalLogisticsRound(state)) {
+        closeTenderRound(result, events, 'finished');
         result.winnerId = getLogisticsStandings(result)[0].playerId;
-        return { state: result, events: [ended, { type: 'GAME_OVER', winnerId: result.winnerId }] };
+        events.push({ type: 'GAME_OVER', winnerId: result.winnerId });
+        return { state: result, events };
       }
       result.activePlayerIndex = (state.activePlayerIndex + 1) % state.players.length;
-      if (result.activePlayerIndex === 0) replenish(result.logistics!, ++result.turnCount);
+      if (result.activePlayerIndex === 0) {
+        replenish(result.logistics!, ++result.turnCount);
+        closeTenderRound(result, events, isFinalLogisticsRound(result) ? 'final' : 'normal');
+      }
       result.phase = 'AWAITING_SAIL';
       result.logistics!.hasSailed = false;
-      return { state: result, events: [ended] };
+      return { state: result, events };
     }
     default: return unchanged;
   }

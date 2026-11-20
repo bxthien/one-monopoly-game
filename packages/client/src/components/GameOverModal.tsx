@@ -58,11 +58,12 @@ export const GameOverModal: React.FC<Props> = ({ gameState, onRestart }) => {
               <tbody>
                 {standings.map((row, index) => {
                   const captain = gameState.players.find(player => player.id === row.playerId)!;
+                  const bonus = gameState.logistics?.market?.bonusEarnings[row.playerId] ?? 0;
                   return (
                     <tr key={row.playerId}>
                       <th scope="row"><span className="freight-place">{index + 1}.</span> {captain.name}</th>
                       <td><strong>{row.deliveries}</strong><small>{row.deliveries - row.emptyDeliveries} hàng · {row.emptyDeliveries} rỗng</small></td>
-                      <td>${row.earnings.toLocaleString('en-US')}M</td>
+                      <td>${row.earnings.toLocaleString('en-US')}M{bonus > 0 && <small>gồm ${bonus}M thưởng thầu</small>}</td>
                     </tr>
                   );
                 })}

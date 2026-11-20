@@ -1,11 +1,12 @@
 import { useId, useRef, useState } from 'react';
 import {
   BOARD_TILES, LOGISTICS_DELIVERY_TARGET, getCargoBookings, getCargoOpportunity, getCargoRedirections,
-  getEmptyNeed, getFreightQuote, getLogisticsRoutes, isFinalLogisticsRound, type CargoKind, type GameAction, type GameState, type Player,
+  getEmptyNeed, getFreightQuote, getLogisticsRoutes, getTenderBonus, isFinalLogisticsRound, type CargoKind, type GameAction, type GameState, type Player,
 } from '@one-monopoly/shared';
 import { ArrowRight, Check, Container, Flag, MapPin, Route, Ship, Truck } from 'lucide-react';
 import { portGuide } from './ports/portGuide.js';
 import './cargo-manifest.css';
+import { TenderDesk } from './TenderDesk.js';
 
 interface DeskProps {
   gameState: GameState;
@@ -57,8 +58,19 @@ function PortSelect({ label, value, options, onChange, purpose }: {
   );
 }
 
-function receiving(stock: PortStock, kind: CargoKind) {
-  return kind === 'empty' ? `Cần ${getEmptyNeed(stock)} vỏ rỗng` : `${stock.demand} xe chờ nhận`;
+function receiving(state: GameState, playerId: string, tileId: number, kind: CargoKind) {
+  const stock = state.logistics!.ports[tileId];
+  const capacity = kind === 'empty' ? getEmptyNeed(stock) : stock.demand;
+  const bonus = getTenderBonus(state, playerId, tileId, kind);
+  const label = capacity === 0 && bonus > 0 ? 'Chỗ nhận riêng của chủ hàng'
+    : kind === 'empty' ? `Cần ${capacity} vỏ rỗng` : `${capacity} xe chờ nhận`;
+  return bonus > 0 ? `${label} · hợp đồng +$${bonus}M` : label;
+}
+
+function ContractRate({ amount }: { amount: number }) {
+  return amount > 0 ? <span className="freight-contract-rate" data-contract-bonus={amount}>
+    Phụ phí hợp đồng <strong>+${amount}M</strong>
+  </span> : null;
 }
 
 function Quote({ nm, reward }: { nm: number; reward?: number }) {
@@ -69,10 +81,12 @@ function Quote({ nm, reward }: { nm: number; reward?: number }) {
 
 function CargoBooking({ state, player, busy, submit }: { state: GameState; player: Player; busy: boolean; submit: Submit }) {
   const radioName = useId();
-  const [kind, setKind] = useState<CargoKind>('laden');
+  const contract = state.logistics?.market?.contract;
+  const [kind, setKind] = useState<CargoKind>(() => contract && getTenderBonus(state, player.id, contract.destinationTileId, contract.kind)
+    ? contract.kind : 'laden');
   const [targetId, setTargetId] = useState<number | undefined>();
   const bookings = getCargoBookings(state, player.id, kind);
-  const choice = bookings.find(b => b.tileId === targetId) ?? bookings[0];
+  const choice = bookings.find(b => b.tileId === targetId) ?? bookings.find(b => getTenderBonus(state, player.id, b.tileId, kind)) ?? bookings[0];
   const stocks = state.logistics!.ports;
   const local = stocks[player.position];
   return (
@@ -88,9 +102,10 @@ function CargoBooking({ state, player, busy, submit }: { state: GameState; playe
       </fieldset>
       {choice ? <>
         <PortSelect label="Cảng đích của lô hàng" value={choice.tileId} purpose="booking" onChange={setTargetId}
-          options={bookings.map(b => ({ tileId: b.tileId, description: receiving(stocks[b.tileId], kind) }))} />
+          options={bookings.map(b => ({ tileId: b.tileId, description: receiving(state, player.id, b.tileId, kind) }))} />
         <div className="freight-terms"><span>Cước dự kiến</span>
           <Quote nm={choice.quote.distanceNm} reward={choice.quote.reward} /></div>
+        <ContractRate amount={getTenderBonus(state, player.id, choice.tileId, kind)} />
         <button type="button" className="chart-button freight-handling" disabled={busy} data-cargo-action="LOAD_CARGO"
           onClick={() => submit(choice.action)}><Container aria-hidden="true" />Xếp {kind === 'empty' ? 'container rỗng' : 'container hàng xuất'}</button>
       </> : <p className="freight-note">{kind === 'laden'
@@ -106,7 +121,10 @@ function ChangeDestination({ choices, booked, state, busy, submit }: {
   const [open, setOpen] = useState(false);
   const [chosen, setChosen] = useState<number | undefined>();
   const fieldId = useId();
-  const choice = choices.find(b => b.tileId === chosen) ?? choices[0];
+  const playerId = state.players[state.activePlayerIndex].id;
+  const choice = choices.find(b => b.tileId === chosen) ?? choices.find(b => getTenderBonus(state, playerId, b.tileId, booked.kind)) ?? choices[0];
+  const nextBonus = choice ? getTenderBonus(state, playerId, choice.tileId, booked.kind) : 0;
+  const oldBonus = getTenderBonus(state, playerId, booked.destinationTileId, booked.kind);
   return (
     <div className="freight-amend">
       <button type="button" className="freight-link" aria-expanded={open} aria-controls={fieldId}
@@ -116,9 +134,11 @@ function ChangeDestination({ choices, booked, state, busy, submit }: {
         <span className="freight-note">Đích hiện tại của lô hàng <strong>{port(booked.destinationTileId).name}</strong></span>
         {choice ? <>
           <PortSelect label="Cảng đích mới của lô hàng" value={choice.tileId} onChange={setChosen} purpose="redirect"
-            options={choices.map(b => ({ tileId: b.tileId, description: receiving(state.logistics!.ports[b.tileId], booked.kind) }))} />
+            options={choices.map(b => ({ tileId: b.tileId, description: receiving(state, playerId, b.tileId, booked.kind) }))} />
           <div className="freight-terms"><span>{port(booked.destinationTileId).name} → {port(choice.tileId).name}</span>
             <Quote nm={choice.quote.distanceNm} reward={choice.quote.reward} /></div>
+          <ContractRate amount={nextBonus} />
+          {oldBonus > 0 && !nextBonus && <p className="freight-note">Đích mới không có phụ phí hợp đồng ${oldBonus}M.</p>}
           <button type="button" className="chart-button freight-handling" disabled={busy} data-cargo-action="CHANGE_DESTINATION"
             onClick={() => submit(choice.action, () => setOpen(false))}><Check aria-hidden="true" />Xác nhận đổi cảng đích</button>
         </> : <p className="freight-note">Chưa có bến khác nhận được lô hàng này.</p>}
@@ -138,14 +158,18 @@ function Sailing({ state, player, busy, routes, submit }: {
   });
   const choice = routes.find(r => r.tileId === chosen) ?? routes.find(r => r.tileId === preferred) ?? stocked ?? routes[0];
   if (!choice) return null;
+  const bonus = player.cargo && choice.tileId === preferred ? getTenderBonus(state, player.id, choice.tileId, player.cargo.kind) : 0;
+  const reserved = bonus > 0 && player.cargo && (player.cargo.kind === 'empty'
+    ? getEmptyNeed(state.logistics!.ports[choice.tileId]) : choice.demand) === 0;
   const contents = <>
     <PortSelect label="Cảng ghé tiếp theo của tàu" value={choice.tileId} purpose="destination" onChange={setChosen}
       options={routes.map(r => ({ tileId: r.tileId, description: `${r.supply} xe xuất · ${r.demand} xe nhận` }))} />
     <div className="freight-terms">
-      <span>{player.cargo ? choice.tileId === preferred ? choice.quote ? 'Đến cảng đã đặt' : 'Bến đích đã hết chỗ nhận' : 'Ghé bến, giữ hàng trên tàu'
+      <span>{player.cargo ? choice.tileId === preferred ? choice.quote ? reserved ? 'Chỗ nhận riêng của chủ hàng' : 'Đến cảng đã đặt' : 'Bến đích đã hết chỗ nhận' : 'Ghé bến, giữ hàng trên tàu'
         : `${state.logistics!.ports[choice.tileId].empties} vỏ rỗng tại bến`}</span>
-      <Quote nm={choice.distanceNm} />
+      <Quote nm={choice.distanceNm} reward={choice.quote?.reward} />
     </div>
+    <ContractRate amount={bonus} />
     <button type="button" className="chart-button freight-sail" disabled={busy} data-cargo-action="SAIL_TO_PORT"
       onClick={() => submit(choice.action)}><Ship aria-hidden="true" />Khởi hành đến {port(choice.tileId).name}</button>
   </>;
@@ -157,7 +181,7 @@ function Sailing({ state, player, busy, routes, submit }: {
   return <div className="freight-sailing">{contents}</div>;
 }
 
-function CargoTicket({ player }: { player: Player }) {
+function CargoTicket({ state, player }: { state: GameState; player: Player }) {
   const cargo = player.cargo!;
   const quote = getFreightQuote(cargo.originTileId, cargo.destinationTileId, cargo.kind);
   return <div className="freight-ticket" data-booked-port={cargo.destinationTileId} data-cargo-kind={cargo.kind}>
@@ -165,6 +189,7 @@ function CargoTicket({ player }: { player: Player }) {
     <div className="freight-ticket-route"><strong>{port(cargo.originTileId).name}</strong><ArrowRight aria-label="đến" />
       <strong>{port(cargo.destinationTileId).name}</strong></div>
     {quote && <Quote nm={quote.distanceNm} reward={quote.reward} />}
+    <ContractRate amount={getTenderBonus(state, player.id, cargo.destinationTileId, cargo.kind)} />
   </div>;
 }
 
@@ -180,6 +205,8 @@ function CaptainDesk({ gameState, myPlayerId, onAction, player }: DeskProps & { 
   const receipt = player.lastDelivery;
   const opportunity = canAct ? getCargoOpportunity(gameState, player.id) : null;
   const unload = opportunity?.action.type === 'UNLOAD_CARGO' ? opportunity : null;
+  const dischargeBonus = unload && cargo ? getTenderBonus(gameState, player.id, player.position, cargo.kind) : 0;
+  const reservedReceiver = dischargeBonus > 0 && cargo && (cargo.kind === 'empty' ? getEmptyNeed(stock) : stock.demand) === 0;
   const routes = canAct ? getLogisticsRoutes(gameState, player.id) : [];
   const delivered = logistics.deliveries[player.id] ?? 0;
   const finalRound = isFinalLogisticsRound(gameState);
@@ -199,13 +226,17 @@ function CaptainDesk({ gameState, myPlayerId, onAction, player }: DeskProps & { 
       <span className="freight-progress"><Container aria-hidden="true" /><span className="sr-only">Đã giao </span>
         {delivered > LOGISTICS_DELIVERY_TARGET ? `${delivered} lô` : `${delivered}/${LOGISTICS_DELIVERY_TARGET}`}</span>
     </header>
+    <TenderDesk state={gameState} viewerId={myPlayerId} canAct={canAct} busy={busy} submit={submit} />
     <div className="freight-berth"><MapPin aria-hidden="true" /><span>Bến hiện tại <strong>{location.name}</strong></span>
       <span className="freight-port-code">{location.code}</span></div>
     {stock && <Stock stock={stock} />}
-    {cargo ? <CargoTicket player={player} /> : <p className="freight-empty"><Container aria-hidden="true" />Khoang tàu trống</p>}
+    {cargo ? <CargoTicket state={gameState} player={player} /> : <p className="freight-empty"><Container aria-hidden="true" />Khoang tàu trống</p>}
     {canAct && (cargo ? <>
       {unload && <button type="button" className="chart-button freight-handling" data-cargo-action="UNLOAD_CARGO" disabled={busy}
         onClick={() => submit(unload.action)}><Truck aria-hidden="true" />Dỡ {cargo.kind === 'empty' ? 'container rỗng' : 'hàng lên xe'}{unload.quote && <strong>+${unload.quote.reward}M</strong>}</button>}
+      {dischargeBonus > 0 && (
+        <p className="freight-note freight-discharge-bonus">{reservedReceiver && 'Chủ hàng có chỗ nhận riêng. '}Dỡ tại đây nhận thêm ${dischargeBonus}M theo hợp đồng.</p>
+      )}
       {target && !unload && <p className="freight-note">{cargo.kind === 'empty' ? 'Bến đã đủ vỏ rỗng.' : 'Bến đã hết xe chờ nhận hàng.'} Bạn có thể đổi cảng đích.</p>}
       <ChangeDestination key={cargo.bookingId} choices={getCargoRedirections(gameState, player.id)} booked={cargo}
         state={gameState} busy={busy} submit={submit} />
@@ -215,7 +246,9 @@ function CaptainDesk({ gameState, myPlayerId, onAction, player }: DeskProps & { 
     {canAct && (gameState.phase === 'AWAITING_SAIL' || gameState.phase === 'END_OF_TURN') && <button type="button" className={`chart-button freight-end${gameState.phase === 'AWAITING_SAIL' ? ' freight-pass' : ''}`}
       data-cargo-action="END_TURN" disabled={busy} onClick={() => submit({ type: 'END_TURN' })}><Flag aria-hidden="true" />{gameState.phase === 'AWAITING_SAIL' ? 'Không đi chuyến này · Kết thúc lượt' : 'Kết thúc lượt'}</button>}
     {!mine && !gameState.winnerId && <p className="freight-wait" role="status">Đang chờ {player.name} điều độ tàu.</p>}
-    {receipt && <p className="freight-receipt"><Check aria-hidden="true" /><span>Đã giao {typeName(receipt.kind).toLocaleLowerCase('vi')} · {port(receipt.originTileId).name} → {port(receipt.tileId).name}</span><strong>+${receipt.reward}M</strong></p>}
+    {receipt && <div className="freight-receipt-wrap"><p className="freight-receipt"><Check aria-hidden="true" /><span>Đã giao {typeName(receipt.kind).toLocaleLowerCase('vi')} · {port(receipt.originTileId).name} → {port(receipt.tileId).name}</span><strong>{receipt.tenderBonus ? 'Cước ' : ''}+${receipt.reward}M</strong></p>
+      {!!receipt.tenderBonus && <span className="freight-contract-paid" data-paid-contract-bonus={receipt.tenderBonus}>Đã nhận phụ phí hợp đồng <strong>+${receipt.tenderBonus}M</strong></span>}
+    </div>}
     {me?.cargo && <p className="freight-own-cargo">Hàng của bạn <strong>{port(me.cargo.originTileId).name} → {port(me.cargo.destinationTileId).name}</strong></p>}
   </section>;
 }

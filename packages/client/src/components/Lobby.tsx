@@ -74,7 +74,7 @@ export const Lobby: React.FC<Props> = ({
         <section className="chart-lobby-panel" aria-labelledby="lobby-panel-title">
           <h2 id="lobby-panel-title">{room ? 'Phòng chờ' : 'Phòng chơi'}</h2>
           <p className="chart-lobby-freight-intro">
-            Nhận đơn đặt chỗ, chuyển container giữa xe tải và tàu biển để giao hàng hoặc điều chuyển vỏ rỗng.
+            Chở hàng xuất hoặc điều chuyển vỏ rỗng. Mỗi vòng, các đội có thể chào giá kín để giành thêm tiền cước cho chuyến sau.
             Các đội chơi hết vòng có người giao đủ {LOGISTICS_DELIVERY_TARGET} chuyến, tối đa {LOGISTICS_ROUND_LIMIT} vòng.
             Xếp hạng theo số chuyến, rồi đến tiền cước.
           </p>

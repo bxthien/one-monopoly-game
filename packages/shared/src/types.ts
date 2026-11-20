@@ -76,9 +76,41 @@ export interface CargoBooking {
   destinationTileId: number;
 }
 export interface FreightQuote { distanceNm: number; reward: number }
-export interface DeliveryReceipt extends CargoBooking, FreightQuote { tileId: number }
+export interface DeliveryReceipt extends CargoBooking, FreightQuote {
+  tileId: number;
+  tenderId?: number;
+  tenderBonus?: number;
+}
+export interface FreightTender {
+  id: number;
+  round: number;
+  kind: CargoKind;
+  destinationTileId: number;
+  priorityPlayerId: string;
+  bidderIds: string[];
+  bidCount: number;
+  // The room stores every quote. Client projections include only the viewer's entry.
+  bids: Record<string, number>;
+}
+export interface FreightAward {
+  tenderId: number;
+  deliveryRound: number;
+  playerId: string;
+  kind: CargoKind;
+  destinationTileId: number;
+  amount: number;
+}
+export interface FreightContract extends FreightAward { status: 'active' | 'fulfilled' | 'expired' }
+export interface FreightMarket {
+  tender: FreightTender | null;
+  contract: FreightContract | null;
+  history: FreightContract[];
+  bonusEarnings: Record<string, number>;
+}
+export interface FreightTenderBid { type: 'BID_FREIGHT_TENDER'; tenderId: number; amount: number; revision: number }
 export interface PortStock { supply: number; demand: number; empties: number; emptyTarget: number }
 export interface LogisticsState {
+  market?: FreightMarket; // Logistics saves created before tenders have no market.
   ports: Record<number, PortStock>;
   deliveries: Record<string, number>;
   emptyDeliveries: Record<string, number>;
@@ -217,7 +249,7 @@ export type DestinationChange = { type: 'CHANGE_DESTINATION'; bookingId: number;
 export type SailAction = { type: 'SAIL_TO_PORT'; tileId: number; revision: number };
 
 export type GameAction =
-  | CargoAction | DestinationChange | SailAction
+  | CargoAction | DestinationChange | SailAction | FreightTenderBid
   | { type: 'OFFER_TRADE'; tileId: number; sellerId: string; price: number }
   | { type: 'RESPOND_TRADE'; offerId: number; accept: boolean }
   | { type: 'CANCEL_TRADE'; offerId: number }
@@ -242,6 +274,10 @@ export type GameAction =
   | { type: 'END_TURN' };
 
 export type GameEvent =
+  | { type: 'FREIGHT_TENDER_BID'; tenderId: number; playerId: string }
+  | ({ type: 'FREIGHT_TENDER_AWARDED' } & FreightAward)
+  | ({ type: 'FREIGHT_CONTRACT_EXPIRED' } & FreightAward)
+  | ({ type: 'FREIGHT_CONTRACT_FULFILLED'; bookingId: number } & FreightAward)
   | { type: 'LOGISTICS_TURN_ENDED'; playerId: string; sailed: boolean }
   | ({ type: 'CARGO_LOADED'; playerId: string; tileId: number } & CargoBooking)
   | ({ type: 'CARGO_UNLOADED'; playerId: string } & DeliveryReceipt)

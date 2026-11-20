@@ -8,7 +8,8 @@ export { getDebtRecovery } from './debtRecovery.js';
 export type { DebtRecovery, DebtRecoveryOption } from './debtRecovery.js';
 export {
   PORT_COORDINATES, LOGISTICS_DELIVERY_TARGET, LOGISTICS_ROUND_LIMIT, LOGISTICS_PORT_CAPACITY,
-  getCargoOpportunity, getCargoBookings, getCargoRedirections, getEmptyNeed, getFreightQuote,
+  getCargoOpportunity, getCargoBookings, getCargoRedirections, getEmptyNeed, getFreightQuote, getTenderBidAction,
   getLogisticsRoutes, getLogisticsStandings, isFinalLogisticsRound,
 } from './cargo.js';
 export type { CargoOpportunity, LogisticsRoute } from './cargo.js';
+export { FREIGHT_TENDER_MIN_BID, FREIGHT_TENDER_MAX_BID, getTenderBonus } from './freightTender.js';

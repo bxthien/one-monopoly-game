@@ -103,7 +103,17 @@ export const App: React.FC = () => {
 
       // Add to event logs
       let logMsg = '';
-      if (evt.type === 'CARGO_LOADED' || evt.type === 'CARGO_UNLOADED' || evt.type === 'CARGO_DESTINATION_CHANGED') {
+      if (evt.type === 'FREIGHT_TENDER_BID') {
+        const who = state.players.find(player => player.id === evt.playerId)?.name ?? 'Một đội tàu';
+        logMsg = `${who} đã gửi chào giá kín cho chủ hàng.`;
+      } else if (evt.type === 'FREIGHT_TENDER_AWARDED' || evt.type === 'FREIGHT_CONTRACT_FULFILLED' || evt.type === 'FREIGHT_CONTRACT_EXPIRED') {
+        const who = state.players.find(player => player.id === evt.playerId)?.name ?? 'Đội tàu';
+        const port = portGuide[BOARD_TILES[evt.destinationTileId].code].name;
+        if (evt.type === 'FREIGHT_TENDER_AWARDED') logMsg = `${who} trúng thầu giao tại ${port} trong vòng ${evt.deliveryRound}, thưởng $${evt.amount}M nếu đúng hạn.`;
+        else if (evt.type === 'FREIGHT_CONTRACT_FULFILLED') logMsg = `${who} đã giao đúng hạn tại ${port} và nhận thêm $${evt.amount}M tiền thưởng hợp đồng.`;
+        else logMsg = `Hợp đồng giao tại ${port} của ${who} đã hết hạn.`;
+        setBoardNotice({ type: 'freight', text: logMsg });
+      } else if (evt.type === 'CARGO_LOADED' || evt.type === 'CARGO_UNLOADED' || evt.type === 'CARGO_DESTINATION_CHANGED') {
         const who = state.players.find(p => p.id === evt.playerId)?.name ?? 'Thuyền trưởng';
         const to = portGuide[BOARD_TILES[evt.destinationTileId].code].name;
         const box = evt.kind === 'empty' ? 'container rỗng' : 'container hàng';

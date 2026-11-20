@@ -19,6 +19,38 @@ import { getFreightBotAction } from './freightBot.js';
 const TURN_SECONDS = 45;
 const BOT_PURCHASE_RESERVE = 80;
 
+export function gameStateForPlayer(state: GameState, viewerId: string | undefined): GameState {
+  const logistics = state.logistics;
+  const market = logistics?.market;
+  const tender = market?.tender;
+  const view: GameState = {
+    ...state,
+    players: state.players.map(player => {
+      if (player.id === viewerId || !player.secretMission || player.secretMission.isCompleted) return player;
+      const { secretMission, ...publicPlayer } = player;
+      return publicPlayer;
+    }),
+  };
+  if (logistics && market && tender) {
+    const bids = viewerId !== undefined && Object.hasOwn(tender.bids, viewerId)
+      ? { [viewerId]: tender.bids[viewerId] }
+      : {};
+    const { id, round, kind, destinationTileId, priorityPlayerId, bidderIds, bidCount } = tender;
+    view.logistics = {
+      ...logistics,
+      market: { ...market, tender: { id, round, kind, destinationTileId, priorityPlayerId, bidderIds, bidCount, bids } },
+    };
+  }
+  return view;
+}
+
+export function publicGameEvents(events: GameEvent[]): GameEvent[] {
+  // The offer amount belongs only in the bidder's snapshot, including on their own acknowledgement.
+  return events.map(event => event.type === 'FREIGHT_TENDER_BID'
+    ? { type: event.type, tenderId: event.tenderId, playerId: event.playerId }
+    : event);
+}
+
 export function getTimerPlayerId(state: GameState): string {
   if (state.phase === 'AWAITING_AUCTION' && state.auction) return state.auction.bidderId;
   return state.players[state.activePlayerIndex].id;
@@ -271,7 +303,9 @@ export class RoomManager {
     if (!actorId || actorId !== data.playerId) {
       return { success: false, error: 'Kết nối này không đại diện cho người chơi trong phòng.' };
     }
-    return this.dispatchAction(data.roomId, actorId, data.action);
+    const result = this.dispatchAction(data.roomId, actorId, data.action);
+    if (!result.state) return result;
+    return { ...result, state: gameStateForPlayer(result.state, actorId), events: publicGameEvents(result.events ?? []) };
   }
 
   public dispatchAction(
@@ -333,7 +367,7 @@ export class RoomManager {
 
     const { state: nextState, events } = OneMonopolyEngine.dispatch(room.gameState, action, playerId);
     const freightCommand = action.type === 'LOAD_CARGO' || action.type === 'UNLOAD_CARGO' ||
-      action.type === 'CHANGE_DESTINATION' || action.type === 'SAIL_TO_PORT';
+      action.type === 'CHANGE_DESTINATION' || action.type === 'SAIL_TO_PORT' || action.type === 'BID_FREIGHT_TENDER';
     if (nextState === room.gameState && (room.gameState.mode === 'logistics' || freightCommand)) {
       return { success: false, error: 'Lệnh điều độ không còn hợp lệ. Hãy kiểm tra lại vận đơn và tình trạng bến.' };
     }
@@ -428,7 +462,7 @@ export class RoomManager {
         room.botTimer = setTimeout(() => {
           room.botTimer = null;
           if (room.gameState !== state) return;
-          this.dispatchAction(room.id, captain.id, getFreightBotAction(state));
+          this.dispatchAction(room.id, captain.id, getFreightBotAction(gameStateForPlayer(state, captain.id)));
         }, delay);
       }
       return;

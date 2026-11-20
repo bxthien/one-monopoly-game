@@ -3,7 +3,8 @@ import { BoardTile, LOOP_GROUPS_CONFIG, Player, type PortStock, PropertyState } 
 import { TOKEN_CONFIG } from './TokenBadge.js';
 import { PortMiniature } from './ports/PortMiniature.js';
 import { portGuide } from './ports/portGuide.js';
-import { Anchor, ArrowUpRight, Boxes, Coins, FileText, Flag, Handshake, Leaf, Compass, LifeBuoy, Navigation, RadioTower, Sailboat, Ship, Siren, Stamp, Waves, Wind } from 'lucide-react';
+import type { PortTenderNotice } from './ports/portTender.js';
+import { Anchor, ArrowUpRight, Boxes, Check, Coins, FileText, Flag, Handshake, Leaf, Compass, LifeBuoy, Navigation, RadioTower, Sailboat, Ship, Siren, Stamp, Waves, Wind } from 'lucide-react';
 import type { RentReceipt } from './useBoardPlayback.js';
 import './tile-claim.css';
 import './tile-rent.css';
@@ -42,12 +43,13 @@ const seamarks = [Compass, Wind, Waves, LifeBuoy, Navigation, Anchor, Sailboat];
 interface LogisticsTileProps {
   tile: BoardTile;
   stock?: PortStock;
+  tender: PortTenderNotice | null;
   placement: React.CSSProperties;
   is3D: boolean;
   onClick: () => void;
 }
 
-export function LogisticsTile({ tile, stock, placement, is3D, onClick }: LogisticsTileProps) {
+export function LogisticsTile({ tile, stock, tender, placement, is3D, onClick }: LogisticsTileProps) {
   const port = portGuide[tile.code];
   if (!port) {
     const Mark = seamarks[tile.id % seamarks.length];
@@ -60,10 +62,13 @@ export function LogisticsTile({ tile, stock, placement, is3D, onClick }: Logisti
   }
   return (
     <button type="button" className="board-tile logistics-port" style={placement} data-port-tile={tile.code}
-      data-terminal-tile={tile.id} aria-haspopup="dialog" onClick={onClick}
-      aria-label={`Xem cảng ${port.name}${stock ? `. ${stock.supply} xe chở hàng xuất, ${stock.demand} xe chờ hàng nhập, ${stock.empties} vỏ rỗng.` : ''}`}>
+      data-terminal-tile={tile.id} data-port-tender={tender?.phase} aria-haspopup="dialog" onClick={onClick}
+      aria-label={`Xem cảng ${port.name}. ${tender ? tender.label + '. ' : ''}${stock ? `${stock.supply} xe chở hàng xuất, ${stock.demand} xe chờ hàng nhập, ${stock.empties} vỏ rỗng.` : ''}`}>
       <TileWeather id={tile.id} />
       <PortMiniature code={tile.code} variant="tile" is3D={is3D} />
+      {tender && <span className="port-tender-flag" title={tender.label} aria-hidden="true">
+        {tender.phase === 'open' ? <Flag /> : <Check />}
+      </span>}
       <strong className="logistics-code">{tile.code}</strong>
       {stock && (
         <span className="logistics-stock" aria-hidden="true">
