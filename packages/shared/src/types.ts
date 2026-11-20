@@ -196,7 +196,7 @@ export type GameAction =
   | { type: 'BUY_PROPERTY' }
   | { type: 'SKIP_BUY' }
   | { type: 'BUILD_CONTAINER'; tileId: number }
-  | { type: 'SELL_CONTAINER'; tileId: number }
+  | { type: 'SELL_CONTAINER'; tileId: number; expectedLevel?: number }
   | { type: 'UPGRADE_GREEN_FLEET'; tileId: number }
   | { type: 'PROPOSE_SLOT_CHARTER'; tileId: number }
   | { type: 'RESPOND_SLOT_CHARTER'; accept: boolean }

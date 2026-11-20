@@ -11,7 +11,9 @@ import { SecretMissionCardView } from './components/SecretMissionCardView.js';
 import { ReactionFloatingBar } from './components/ReactionFloatingBar.js';
 import type { RentReceipt } from './components/useBoardPlayback.js';
 import { GameOverModal } from './components/GameOverModal.js';
-import { AlertCircle, BookOpen, Box, Compass, Gavel, Handshake, LogOut, Map, MapPin, Radio, X } from 'lucide-react';
+import { AlertCircle, BookOpen, Box, Compass, Gavel, Handshake, LifeBuoy, LogOut, Map, MapPin, Radio, X } from 'lucide-react';
+
+const noticeIcons = { auction: Gavel, trade: Handshake, debt: LifeBuoy };
 
 export const App: React.FC = () => {
   const {
@@ -45,7 +47,7 @@ export const App: React.FC = () => {
   }, []);
   const pendingCardRef = React.useRef<GameCard | null>(null);
   const [eventLogs, setEventLogs] = useState<string[]>([]);
-  const [boardNotice, setBoardNotice] = useState<{ type: 'auction' | 'trade'; text: string } | null>(null);
+  const [boardNotice, setBoardNotice] = useState<{ type: keyof typeof noticeIcons; text: string } | null>(null);
   const [tradeDesk, setTradeDesk] = useState<{ tileId: number | null } | null>(null);
   const [selectedTileId, setSelectedTileId] = useState<number | null>(null);
   const [showMissionTargets, setShowMissionTargets] = useState(false);
@@ -131,6 +133,12 @@ export const App: React.FC = () => {
         logMsg = `🏗️ Đã mua ô #${evt.tileId} với giá $${evt.price}M`;
       } else if (evt.type === 'DEMURRAGE_PAID') {
         logMsg = `💸 Nộp $${evt.amount}M phí lưu bãi`;
+      } else if (evt.type === 'DEBT_SETTLED') {
+        const debtor = state.players.find(player => player.id === evt.debtorId);
+        logMsg = `${debtor?.name ?? 'Thuyền trưởng'} đã thanh toán khoản nợ $${evt.amount}M.`;
+        setBoardNotice({ type: 'debt', text: logMsg });
+      } else if (evt.type === 'TILE_MORTGAGED') {
+        logMsg = `⚓ Thế chấp ${BOARD_TILES[evt.tileId].name}, nhận $${evt.amount}M.`;
       } else if (evt.type === 'SENT_TO_HOLD') {
         logMsg = `⚓ Bị giữ tàu kiểm hóa: ${evt.reason}`;
       } else if (evt.type === 'RELEASED_FROM_HOLD') {
@@ -161,6 +169,7 @@ export const App: React.FC = () => {
   }), [subscribeBoard, myPlayerId]);
 
   const activePlayer = gameState?.players[gameState.activePlayerIndex];
+  const NoticeIcon = boardNotice ? noticeIcons[boardNotice.type] : MapPin;
   const captain = gameState?.players.find(player => player.id === myPlayerId);
   const canOpenTrades = captain && !captain.isBankrupt && !gameState?.winnerId;
   const mission = React.useMemo(() => gameState && myPlayerId ? getMissionProgress(gameState, myPlayerId) : null,
@@ -268,7 +277,7 @@ export const App: React.FC = () => {
             </div>
             <div className="chart-position" role="status">
               {boardNotice ? (
-                <>{boardNotice.type === 'trade' ? <Handshake size={14} aria-hidden="true" /> : <Gavel size={14} aria-hidden="true" />}<strong>{boardNotice.text}</strong></>
+                <><NoticeIcon size={14} aria-hidden="true" /><strong>{boardNotice.text}</strong></>
               ) : (
                 <><MapPin size={14} aria-hidden="true" /><span>Vị trí tàu</span><strong>{BOARD_TILES[activePlayer.position].name}</strong></>
               )}

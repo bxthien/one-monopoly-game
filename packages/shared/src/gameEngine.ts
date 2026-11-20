@@ -36,6 +36,7 @@ import {
 } from './boardData.js';
 import { dispatchTrade, expireTradeOffers } from './trade.js';
 import { getMissionProgress } from './missionProgress.js';
+import { getMortgageValue, getPropertyCashOption } from './debtRecovery.js';
 
 function shuffle<T>(array: T[]): T[] {
   const result = [...array];
@@ -130,6 +131,10 @@ export class OneMonopolyEngine {
   }
 
   private static dispatchTurnAction(state: GameState, action: GameAction): EngineResult {
+    if ((action.type === 'DECLARE_BANKRUPTCY' || action.type === 'SETTLE_DEBT') &&
+        (state.phase !== 'AWAITING_DEBT_RESOLUTION' || !state.pendingDebt)) {
+      return { state, events: [] };
+    }
     if ((state.phase === 'AWAITING_STORM_DECISION' && action.type !== 'RESOLVE_STORM') ||
         (state.phase === 'AWAITING_BUY_DECISION' && action.type === 'END_TURN')) {
       return { state, events: [] };
@@ -186,7 +191,7 @@ export class OneMonopolyEngine {
         break;
 
       case 'SELL_CONTAINER':
-        OneMonopolyEngine.handleSellContainer(nextState, events, activePlayer, action.tileId);
+        OneMonopolyEngine.handleSellContainer(nextState, events, activePlayer, action.tileId, action.expectedLevel);
         break;
 
       case 'UPGRADE_GREEN_FLEET':
@@ -1078,18 +1083,15 @@ export class OneMonopolyEngine {
     state: GameState,
     events: GameEvent[],
     player: Player,
-    tileId: number
+    tileId: number,
+    expectedLevel?: number
   ): void {
-    const tile = BOARD_TILES[tileId];
+    const option = getPropertyCashOption(state, player.id, tileId);
+    if (option?.action.type !== 'SELL_CONTAINER') return;
     const prop = state.properties[tileId];
-    if (!tile || !prop || prop.ownerId !== player.id || tile.type !== 'PORT') return;
-    if (prop.containerLevel <= 0) return;
-
-    const groupConfig = LOOP_GROUPS_CONFIG[tile.group!];
-    if (!groupConfig) return;
-
-    const cost = tile.buildCost || groupConfig.buildCost;
-    const refund = Math.floor(cost * 0.5);
+    if (expectedLevel !== undefined && prop.containerLevel !== expectedLevel) return;
+    const tile = BOARD_TILES[tileId];
+    const refund = option.proceeds;
 
     prop.containerLevel--;
     // If downgraded from level 5, also remove green fleet
@@ -1233,16 +1235,11 @@ export class OneMonopolyEngine {
     player: Player,
     tileId: number
   ): void {
+    const option = getPropertyCashOption(state, player.id, tileId);
+    if (option?.action.type !== 'MORTGAGE_TILE') return;
     const tile = BOARD_TILES[tileId];
     const prop = state.properties[tileId];
-    if (!tile || !prop || prop.ownerId !== player.id || prop.isMortgaged) return;
-
-    // Cannot mortgage if this tile still has containers
-    if (tile.type === 'PORT' && (prop.containerLevel || 0) > 0) {
-      return;
-    }
-
-    const mortgageValue = tile.mortgageValue || Math.floor((tile.price || 0) * 0.5);
+    const mortgageValue = option.proceeds;
     prop.isMortgaged = true;
     if (player.position === tileId) {
       state.canUpgradeCurrentPort = false;
@@ -1274,7 +1271,7 @@ export class OneMonopolyEngine {
     const prop = state.properties[tileId];
     if (!tile || !prop || prop.ownerId !== player.id || !prop.isMortgaged) return;
 
-    const mortgageValue = tile.mortgageValue || Math.floor((tile.price || 0) * 0.5);
+    const mortgageValue = getMortgageValue(tile);
     const unmortgageCost = Math.ceil(mortgageValue * 1.1); // 10% interest
 
     if (player.balance < unmortgageCost) return;

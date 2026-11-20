@@ -5,6 +5,7 @@ import {
   GameAction,
   GameEvent,
   GameState,
+  getDebtRecovery,
   LOOP_GROUPS_CONFIG,
   OneMonopolyEngine,
   VesselToken,
@@ -301,6 +302,9 @@ export class RoomManager {
       action.type === 'BUY_PROPERTY' ||
       action.type === 'SKIP_BUY' ||
       action.type === 'BUILD_CONTAINER' ||
+      action.type === 'SELL_CONTAINER' ||
+      action.type === 'MORTGAGE_TILE' ||
+      action.type === 'UNMORTGAGE_TILE' ||
       action.type === 'UPGRADE_GREEN_FLEET' ||
       action.type === 'PAY_HOLD_FINE' ||
       action.type === 'USE_CLEARANCE_PASS' ||
@@ -315,7 +319,7 @@ export class RoomManager {
 
     // Debt resolution actions can only be by the debtor
     if (action.type === 'SETTLE_DEBT' || action.type === 'DECLARE_BANKRUPTCY') {
-      if (activePlayer.id !== playerId) {
+      if (activePlayer.id !== playerId || room.gameState.phase !== 'AWAITING_DEBT_RESOLUTION' || !room.gameState.pendingDebt) {
         return { success: false, error: 'Chỉ người đang nợ mới được xử lý nợ!' };
       }
     }
@@ -324,6 +328,11 @@ export class RoomManager {
     const prevActiveIndex = room.gameState.activePlayerIndex;
 
     const { state: nextState, events } = OneMonopolyEngine.dispatch(room.gameState, action, playerId);
+    if ((action.type === 'SELL_CONTAINER' && !events.some(e => e.type === 'CONTAINER_SOLD')) ||
+        (action.type === 'MORTGAGE_TILE' && !events.some(e => e.type === 'TILE_MORTGAGED')) ||
+        (action.type === 'SETTLE_DEBT' && !events.some(e => e.type === 'DEBT_SETTLED'))) {
+      return { success: false, error: 'Không thể thực hiện thao tác này với số dư và tài sản hiện tại.' };
+    }
     if (isTradeAction && nextState === room.gameState) {
       return { success: false, error: 'Đề nghị giao dịch đã thay đổi hoặc thao tác không hợp lệ.' };
     }
@@ -497,12 +506,12 @@ export class RoomManager {
       case 'AWAITING_DEBT_RESOLUTION': {
         room.botTimer = setTimeout(() => {
           room.botTimer = null;
-          const debtAmount = state.pendingDebt?.amount || 0;
-          if (activePlayer.balance >= debtAmount) {
-            this.dispatchAction(room.id, activePlayer.id, { type: 'SETTLE_DEBT' });
-          } else {
-            this.dispatchAction(room.id, activePlayer.id, { type: 'DECLARE_BANKRUPTCY' });
-          }
+          const recovery = room.gameState && getDebtRecovery(room.gameState);
+          if (!recovery) return;
+          const action: GameAction = recovery.shortfall === 0
+            ? { type: 'SETTLE_DEBT' }
+            : recovery.recommended?.action ?? { type: 'DECLARE_BANKRUPTCY' };
+          this.dispatchAction(room.id, activePlayer.id, action);
         }, 1000);
         break;
       }
@@ -573,7 +582,11 @@ export class RoomManager {
         break;
       }
       case 'AWAITING_DEBT_RESOLUTION':
-        this.dispatchAction(roomId, activePlayer.id, { type: 'DECLARE_BANKRUPTCY' });
+        if (room.gameState.pendingDebt && activePlayer.balance >= room.gameState.pendingDebt.amount) {
+          this.dispatchAction(roomId, activePlayer.id, { type: 'SETTLE_DEBT' });
+        } else {
+          this.dispatchAction(roomId, activePlayer.id, { type: 'DECLARE_BANKRUPTCY' });
+        }
         break;
       case 'END_OF_TURN':
         this.dispatchAction(roomId, activePlayer.id, { type: 'END_TURN' });
