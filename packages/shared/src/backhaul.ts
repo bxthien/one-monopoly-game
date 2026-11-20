@@ -26,16 +26,22 @@ function closeJob(player: Player, job: BackhaulJob, paid: boolean): GameEvent {
   return { type: paid ? 'BACKHAUL_FULFILLED' : 'BACKHAUL_EXPIRED', playerId: player.id, job: settled };
 }
 
+export function getBackhaulBonus(state: GameState, player: Player, receipt: Pick<DeliveryReceipt, 'bookingId' | 'originTileId' | 'tileId'>, round: number) {
+  const job = player.backhaul;
+  return state.logistics?.backhaulEnabled && job?.status === 'active' &&
+    round <= job.deadlineRound && player.lastBackhaulPaidRound !== round && receipt.bookingId !== job.bookingId &&
+    receipt.originTileId === job.originTileId && receipt.tileId === job.destinationTileId ? BACKHAUL_BONUS : 0;
+}
+
 export function settleBackhaul(state: GameState, player: Player, receipt: DeliveryReceipt): GameEvent | null {
   const job = player.backhaul;
   if (!state.logistics?.backhaulEnabled || job?.status !== 'active') return null;
-  const paid = state.turnCount <= job.deadlineRound && player.lastBackhaulPaidRound !== state.turnCount &&
-    receipt.bookingId !== job.bookingId && receipt.originTileId === job.originTileId && receipt.tileId === job.destinationTileId;
-  if (paid) {
-    receipt.backhaulBonus = BACKHAUL_BONUS;
+  const bonus = getBackhaulBonus(state, player, receipt, state.turnCount);
+  if (bonus) {
+    receipt.backhaulBonus = bonus;
     player.lastBackhaulPaidRound = state.turnCount;
   }
-  return closeJob(player, job, paid);
+  return closeJob(player, job, bonus > 0);
 }
 
 export function closeBackhaulTurn(state: GameState, events: GameEvent[], finalRound: boolean) {

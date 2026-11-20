@@ -90,7 +90,7 @@ export function getLogisticsStandings(state: GameState) {
     .sort((a, b) => b.deliveries - a.deliveries || b.earnings - a.earnings);
 }
 
-function activeCaptain(state: GameState, playerId: string) {
+export function activeCaptain(state: GameState, playerId: string) {
   const player = state.players[state.activePlayerIndex];
   if (state.mode !== 'logistics' || !state.logistics || !state.gameStarted || state.winnerId !== null ||
       (state.phase !== 'AWAITING_SAIL' && state.phase !== 'END_OF_TURN') || state.pendingDebt || state.pendingSlotCharter ||
@@ -98,9 +98,13 @@ function activeCaptain(state: GameState, playerId: string) {
   return player;
 }
 
+export function getPublicReceivingSlots(stock: PortStock, kind: CargoKind): number {
+  return kind === 'laden' ? stock.demand : getEmptyNeed(stock);
+}
+
 function canReceive(state: GameState, playerId: string, tileId: number, kind: CargoKind) {
   const stock = state.logistics!.ports[tileId];
-  return (kind === 'laden' ? stock.demand > 0 : getEmptyNeed(stock) > 0) || getTenderBonus(state, playerId, tileId, kind) > 0;
+  return getPublicReceivingSlots(stock, kind) > 0 || getTenderBonus(state, playerId, tileId, kind) > 0;
 }
 
 export function getTenderBidAction(state: GameState, playerId: string, amount: number): FreightTenderBid | null {
@@ -214,15 +218,22 @@ export function getFeederRoutes(state: GameState, playerId: string): FeederRoute
 
 // The rotating truck schedule adds individual import orders and packs available empty
 // equipment into new export loads. Existing cargo and unfilled orders stay in the yard.
+function replenishPort(stock: PortStock, index: number, round: number) {
+  if ((index + round) % 3 === 0 && stock.supply < LOGISTICS_PORT_CAPACITY && stock.empties > 0) {
+    stock.supply++;
+    stock.empties--;
+  }
+  if (index % 3 === round % 3 && stock.demand < LOGISTICS_PORT_CAPACITY) stock.demand++;
+}
+
+export function getNextRoundReceivingSlots(state: GameState, tileId: number, kind: CargoKind): number {
+  const projected = { ...state.logistics!.ports[tileId] };
+  replenishPort(projected, ports.findIndex(port => port.id === tileId), state.turnCount + 1);
+  return getPublicReceivingSlots(projected, kind);
+}
+
 function replenish(logistics: LogisticsState, round: number) {
-  ports.forEach((port, index) => {
-    const stock = logistics.ports[port.id];
-    if ((index + round) % 3 === 0 && stock.supply < LOGISTICS_PORT_CAPACITY && stock.empties > 0) {
-      stock.supply++;
-      stock.empties--;
-    }
-    if (index % 3 === round % 3 && stock.demand < LOGISTICS_PORT_CAPACITY) stock.demand++;
-  });
+  ports.forEach((port, index) => replenishPort(logistics.ports[port.id], index, round));
 }
 
 export function dispatchLogistics(state: GameState, action: GameAction, playerId: string): EngineResult {

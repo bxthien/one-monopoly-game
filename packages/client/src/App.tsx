@@ -8,7 +8,7 @@ import { PlayerSidebar } from './components/PlayerSidebar.js';
 import { TradeDesk } from './components/TradeDesk.js';
 import { ActionControls } from './components/ActionControls.js';
 import { FreightDesk } from './components/CargoManifest.js';
-import { FreightMarketBoard } from './components/FreightMarketBoard.js';
+import { DiversionReceipt, type DiversionEvent } from './components/DiversionReceipt.js';
 import { VoyageLog } from './components/VoyageLog.js';
 import { portGuide } from './components/ports/portGuide.js';
 import { SecretMissionCardView } from './components/SecretMissionCardView.js';
@@ -18,6 +18,8 @@ import { GameOverModal } from './components/GameOverModal.js';
 import { AlertCircle, BookOpen, Box, CloudLightning, CloudRain, Compass, Gavel, Handshake, LifeBuoy, LogOut, Map, MapPin, Moon, Radio, Route, Store, Sun, Truck, X } from 'lucide-react';
 
 const noticeIcons = { auction: Gavel, trade: Handshake, debt: LifeBuoy, freight: Truck };
+type BoardNotice = { type: keyof typeof noticeIcons; text: string }
+  | { type: 'diversion'; change: DiversionEvent; captain: string; revision: number };
 const weatherReadouts = {
   sun: { Icon: Sun, label: 'Nắng' },
   moon: { Icon: Moon, label: 'Trời quang' },
@@ -57,7 +59,7 @@ export const App: React.FC = () => {
   }, []);
   const pendingCardRef = React.useRef<GameCard | null>(null);
   const [eventLogs, setEventLogs] = useState<string[]>([]);
-  const [boardNotice, setBoardNotice] = useState<{ type: keyof typeof noticeIcons; text: string } | null>(null);
+  const [boardNotice, setBoardNotice] = useState<BoardNotice | null>(null);
   const [tradeDesk, setTradeDesk] = useState<{ tileId: number | null } | null>(null);
   const [freightTool, setFreightTool] = useState<'market' | 'voyages' | null>(null);
   useEffect(() => { setFreightTool(null); }, [room?.id]);
@@ -133,7 +135,9 @@ export const App: React.FC = () => {
           logMsg = `${who} giao ${box} cho xe tại ${to}, nhận $${getVoyagePayment(evt)}M.`;
         }
         else logMsg = `${who} đổi cảng đích của ${box} từ ${portGuide[BOARD_TILES[evt.previousDestinationTileId].code].name} sang ${to}.`;
-        setBoardNotice({ type: 'freight', text: logMsg });
+        setBoardNotice(evt.type === 'CARGO_DESTINATION_CHANGED'
+          ? { type: 'diversion', change: evt, captain: who, revision: state.cargoRevision ?? 0 }
+          : { type: 'freight', text: logMsg });
       } else if (state.mode === 'logistics' && evt.type === 'SHIP_STEPPED') {
         const who = state.players.find(p => p.id === evt.playerId)?.name ?? 'Thuyền trưởng';
         logMsg = evt.feeder
@@ -216,7 +220,7 @@ export const App: React.FC = () => {
   }), [subscribeBoard, myPlayerId]);
 
   const activePlayer = gameState?.players[gameState.activePlayerIndex];
-  const NoticeIcon = boardNotice ? noticeIcons[boardNotice.type] : MapPin;
+  const NoticeIcon = boardNotice && boardNotice.type !== 'diversion' ? noticeIcons[boardNotice.type] : MapPin;
   const captain = gameState?.players.find(player => player.id === myPlayerId);
   const freightGame = gameState?.mode === 'logistics';
   const canOpenTrades = !freightGame && captain && !captain.isBankrupt && !gameState?.winnerId;
@@ -333,7 +337,9 @@ export const App: React.FC = () => {
               />
             </div>
             <div className="chart-position" role="status">
-              {boardNotice ? (
+              {boardNotice?.type === 'diversion' ? (
+                <DiversionReceipt key={boardNotice.revision} change={boardNotice.change} captain={boardNotice.captain} />
+              ) : boardNotice ? (
                 <><NoticeIcon size={14} aria-hidden="true" /><strong>{boardNotice.text}</strong></>
               ) : (
                 <><MapPin size={14} aria-hidden="true" /><span>Vị trí tàu</span><strong>{BOARD_TILES[activePlayer.position].name}</strong></>
@@ -344,7 +350,9 @@ export const App: React.FC = () => {
             <PlayerSidebar gameState={gameState} myPlayerId={myPlayerId} turnTimer={turnTimer}
               onOfferForTile={openTrades} rentReceipts={rent.visible} pendingRent={rent.pending} reactions={reactions} />
             <div className="table-actions">
-              {freightGame ? <FreightDesk gameState={gameState} myPlayerId={myPlayerId} onAction={sendAction} /> : <ActionControls
+              {freightGame ? <FreightDesk gameState={gameState} myPlayerId={myPlayerId} onAction={sendAction}
+                marketOpen={freightTool === 'market'} onOpenMarket={() => setFreightTool('market')}
+                onCloseMarket={() => setFreightTool(null)} onInspectPort={setSelectedTileId} /> : <ActionControls
                 gameState={gameState}
                 myPlayerId={myPlayerId}
                 onAction={sendAction}
@@ -364,9 +372,6 @@ export const App: React.FC = () => {
             <TradeDesk gameState={gameState} myPlayerId={myPlayerId} initialTileId={tradeDesk.tileId}
               onAction={sendAction} onClose={() => setTradeDesk(null)} />
           )}
-          {freightGame && !gameState.winnerId && freightTool === 'market' &&
-            <FreightMarketBoard gameState={gameState} myPlayerId={myPlayerId} onClose={() => setFreightTool(null)}
-              onSelectPort={setSelectedTileId} />}
           {freightGame && !gameState.winnerId && freightTool === 'voyages' &&
             <VoyageLog gameState={gameState} myPlayerId={myPlayerId} onClose={() => setFreightTool(null)} />}
           <GameOverModal gameState={gameState} myPlayerId={myPlayerId} onRestart={leaveRoom} />

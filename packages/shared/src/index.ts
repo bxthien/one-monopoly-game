@@ -12,6 +12,8 @@ export {
   FEEDER_RANGE_NM, getFeederDistanceNm, getFeederRoutes, getLogisticsRoutes, getLogisticsStandings, isFinalLogisticsRound,
 } from './cargo.js';
 export type { CargoOpportunity, FeederRoute, LogisticsRoute } from './cargo.js';
+export { getCargoDestinationEstimate } from './cargoDestination.js';
+export type { CargoDestinationEstimate } from './cargoDestination.js';
 export { FREIGHT_TENDER_MIN_BID, FREIGHT_TENDER_MAX_BID, getTenderBonus } from './freightTender.js';
 export { REEFER_ON_TIME_BONUS, getReeferBonus, hasReeferSlot, isReeferPort } from './reefer.js';
 export { getVoyagePayment } from './voyageLog.js';

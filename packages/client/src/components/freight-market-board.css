@@ -80,3 +80,44 @@
   .market-activity { grid-column: 1 / -1; max-width: none; }
   .market-activity[data-empty] { display: none; }
 }
+
+.market-board-context .market-plan-context {
+  flex-basis: 100%;
+  color: #3e615a;
+}
+.market-plan-cell { text-align: right; }
+.market-plan-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-height: 32px;
+  padding: 4px 7px;
+  border: 1px solid #779789;
+  border-radius: 3px;
+  background: #edf3e7;
+  color: #234e48;
+  font-size: 11px;
+  line-height: 1.15;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.market-plan-button:hover { background: #dce9da; border-color: #4c7765; }
+.market-plan-button strong { font: 700 12px/1.2 var(--chart-mono, monospace); }
+@media (max-width: 650px) {
+  .market-board-list tr:has(.market-plan-button) .market-port-cell {
+    grid-column: 1 / 4;
+    flex-wrap: wrap;
+    gap: 1px 5px;
+  }
+  .market-board-list .market-plan-cell {
+    grid-row: 1;
+    grid-column: 4 / -1;
+    justify-self: end;
+    align-self: center;
+  }
+  .market-board-list .market-plan-cell[data-empty] { display: none; }
+}
+@media (pointer: coarse) {
+  .market-plan-button { min-height: 44px; }
+}
