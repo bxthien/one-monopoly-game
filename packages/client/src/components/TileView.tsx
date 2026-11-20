@@ -2,7 +2,9 @@ import React from 'react';
 import { BoardTile, LOOP_GROUPS_CONFIG, Player, PropertyState } from '@one-monopoly/shared';
 import { TOKEN_CONFIG } from './TokenBadge.js';
 import { Anchor, ArrowUpRight, Boxes, Coins, FileText, Flag, Handshake, Leaf, RadioTower, Ship, Siren, Stamp, Waves } from 'lucide-react';
+import type { RentReceipt } from './useBoardPlayback.js';
 import './tile-claim.css';
+import './tile-rent.css';
 
 const tileSymbols: Partial<Record<BoardTile['type'], typeof Anchor>> = {
   GO: ArrowUpRight,
@@ -21,6 +23,7 @@ interface Props {
   property?: PropertyState;
   owner?: Player;
   claim?: { playerId: string; tileId: number; price: number };
+  receipt?: RentReceipt;
   playersOnTile?: Player[];
   currentRent?: number;
   onClick?: () => void;
@@ -35,6 +38,7 @@ export const TileView: React.FC<Props> = ({
   property,
   owner,
   claim,
+  receipt,
   playersOnTile,
   currentRent,
   onClick,
@@ -136,6 +140,7 @@ export const TileView: React.FC<Props> = ({
       aria-haspopup="dialog"
       data-tile-type={tile.type}
       data-claim-edge={isFreshClaim ? orientation : undefined}
+      data-has-rent={receipt ? 'true' : undefined}
       onClick={onClick}
       className={`board-tile relative w-full h-full flex flex-col justify-between border focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-700 transition cursor-pointer select-none overflow-hidden ${
         isCorner ? 'p-1.5' : 'p-0.5'

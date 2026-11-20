@@ -81,37 +81,36 @@ export const PropertyModal: React.FC<Props> = ({
   const mortgageValue = tile.mortgageValue || Math.floor((tile.price || 0) * 0.5);
   const unmortgageCost = Math.ceil(mortgageValue * 1.1);
 
-  // Check if can build (owns all in group and even building)
+  const activePlayer = gameState.players[gameState.activePlayerIndex];
+  const isMyTurn = activePlayer?.id === myPlayerId;
+  const isShipDockedHere = isMyTurn && activePlayer?.position === tileId;
+  const canUpgradeThisVisit = isShipDockedHere && Boolean(gameState.canUpgradeCurrentPort);
+
+  // Check if can build (must revisit this port and at most 1 upgrade per visit)
   let canBuild = false;
   let canSell = false;
   let canUpgradeGreen = false;
 
-  if (isMine && tile.type === 'PORT' && groupConfig && !prop.isMortgaged) {
-    const ownsAllAndNotMortgaged = groupConfig.tileIds.every((id) => {
-      const p = gameState.properties[id];
-      return p && p.ownerId === myPlayerId && !p.isMortgaged;
-    });
-    const minLevel = Math.min(
-      ...groupConfig.tileIds.map((id) => gameState.properties[id]!.containerLevel)
-    );
-    canBuild = ownsAllAndNotMortgaged && prop.containerLevel < 5 && prop.containerLevel <= minLevel;
+  if (isMine && tile.type === 'PORT' && !prop.isMortgaged) {
+    canBuild =
+      canUpgradeThisVisit &&
+      prop.containerLevel < 5 &&
+      (activePlayer?.balance || 0) >= buildCost;
 
-    const maxLevel = Math.max(
-      ...groupConfig.tileIds.map((id) => gameState.properties[id]!.containerLevel)
-    );
-    canSell = prop.containerLevel > 0 && prop.containerLevel >= maxLevel;
+    canSell = isMyTurn && prop.containerLevel > 0;
 
-    canUpgradeGreen = prop.containerLevel === 5 && !prop.hasGreenFleet;
+    canUpgradeGreen =
+      canUpgradeThisVisit &&
+      prop.containerLevel === 5 &&
+      !prop.hasGreenFleet &&
+      (activePlayer?.balance || 0) >= GREEN_FLEET_COST;
   }
 
-  // Check can mortgage (no containers in group)
+  // Check can mortgage (no containers on this tile)
   let canMortgage = false;
-  if (isMine && !prop.isMortgaged) {
-    if (tile.type === 'PORT' && groupConfig) {
-      const hasContainers = groupConfig.tileIds.some(
-        (id) => (gameState.properties[id]?.containerLevel || 0) > 0
-      );
-      canMortgage = !hasContainers;
+  if (isMine && isMyTurn && !prop.isMortgaged) {
+    if (tile.type === 'PORT') {
+      canMortgage = (prop.containerLevel || 0) === 0;
     } else {
       canMortgage = true;
     }
@@ -216,10 +215,19 @@ export const PropertyModal: React.FC<Props> = ({
                 {prop.containerLevel === 5 && !prop.hasGreenFleet && (
                   <button
                     onClick={() => onAction({ type: 'UPGRADE_GREEN_FLEET', tileId })}
+                    disabled={!canUpgradeGreen}
                     className="chart-button chart-button-primary"
                   >
                     <Leaf aria-hidden="true" /> Gắn Huy Hiệu Xanh (+${GREEN_FLEET_COST}M)
                   </button>
+                )}
+
+                {!prop.isMortgaged && !canUpgradeThisVisit && (prop.containerLevel < 5 || !prop.hasGreenFleet) && (
+                  <p className="chart-action-copy">
+                    {isShipDockedHere
+                      ? 'Lần đầu ghé chỉ được mua cảng; mỗi lần ghé sau chỉ được nâng cấp tối đa 1 lần.'
+                      : 'Chỉ có thể nâng cấp (tối đa 1 lần) khi tàu của bạn ghé lại cảng này.'}
+                  </p>
                 )}
               </>
             )}

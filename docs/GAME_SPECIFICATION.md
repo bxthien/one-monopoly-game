@@ -77,13 +77,13 @@ Bàn cờ hình vuông kích thước 11x11 ô, đánh số từ `0` đến `39`
 
 ## 4. Luật Xây Dựng & Thế Chấp
 
-- **Mở khóa nâng cấp:** Người chơi phải sở hữu toàn bộ các cảng trong cùng 1 `LoopGroup` và không có cảng nào trong nhóm đang bị thế chấp.
-- **Quy tắc xây đều (Even Building Rule):**
-  - Không được xây cấp $k+1$ ở một cảng nếu trong cùng nhóm còn có cảng ở cấp $k-1$. Mức chênh lệch container giữa các cảng trong cùng nhóm không được vượt quá 1.
-  - Cấp 5 là **Mega Terminal** (thay thế 4 container bằng 1 siêu bến bãi container).
-- **Hạ cấp / Bán container:** Khi cần tiền trả nợ, người chơi có thể bán container với giá bằng **50% chi phí xây dựng** (`buildCost * 0.5`), cũng phải tuân thủ quy tắc hạ đều.
+- **Mở khóa nâng cấp khi tàu ghé lại cảng (Revisit Upgrade):** Người chơi không cần gom đủ bộ màu `LoopGroup`. Lần đầu ghé chỉ được mua cảng. Những lần ghé sau (đáp lại vào cảng thuộc sở hữu của mình), người chơi được nâng cấp tối đa 1 lần trong lần ghé đó (`BUILD_CONTAINER` hoặc `UPGRADE_GREEN_FLEET`), không được nâng cấp nhiều lần trong một lần ghé. Cảng không được đang bị thế chấp.
+- **Các cấp độ nâng cấp:**
+  - Cấp 1 – 4 là các Lô Container Magenta trên từng cảng độc lập (không bắt buộc xây đều giữa các cảng trong nhóm).
+  - Cấp 5 là **Siêu tàu ONE Innovation / Mega Terminal** (thay thế 4 container bằng 1 siêu tàu 24.000 TEU).
+- **Hạ cấp / Bán container:** Khi cần tiền trả nợ, người chơi có thể bán container ở bất kỳ cảng nào của mình từ xa với giá bằng **50% chi phí xây dựng** (`buildCost * 0.5`).
 - **Thế chấp tài sản (`MORTGAGE`):**
-  - Chỉ được thế chấp khi cảng đó đã bán hết toàn bộ container trong nhóm.
+  - Chỉ được thế chấp khi chính cảng đó đã bán hết container (`containerLevel === 0`).
   - Nhận ngay: `mortgageValue = 50% purchasePrice`.
 - **Chuộc tài sản (`UNMORTGAGE`):**
   - Trả phí: $\lceil \text{mortgageValue} \times 1.1 \rceil$ (gốc + 10% lãi suất ngân hàng).

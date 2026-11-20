@@ -97,6 +97,7 @@ export class OneMonopolyEngine {
       marketDeck: marketCardIds,
       opsDeck: opsCardIds,
       stormActive: false,
+      canUpgradeCurrentPort: false,
       pendingDebt: null,
       pendingSlotCharter: null,
       winnerId: null,
@@ -359,6 +360,7 @@ export class OneMonopolyEngine {
     player: Player,
     tileId: number
   ): void {
+    state.canUpgradeCurrentPort = false;
     const tile = BOARD_TILES[tileId];
 
     switch (tile.type) {
@@ -436,6 +438,14 @@ export class OneMonopolyEngine {
 
         const owner = state.players.find((p) => p.id === prop.ownerId);
         if (prop.isMortgaged || !owner || owner.isBankrupt || owner.id === player.id) {
+          if (
+            tile.type === 'PORT' &&
+            owner?.id === player.id &&
+            !prop.isMortgaged &&
+            (prop.containerLevel < 5 || !prop.hasGreenFleet)
+          ) {
+            state.canUpgradeCurrentPort = true;
+          }
           OneMonopolyEngine.finishStepPhase(state);
           return;
         }
@@ -846,6 +856,7 @@ export class OneMonopolyEngine {
     player.inHold = true;
     player.holdTurns = 0;
     state.consecutiveDoubles = 0;
+    state.canUpgradeCurrentPort = false;
     events.push({
       type: 'SENT_TO_HOLD',
       playerId: player.id,
@@ -932,28 +943,17 @@ export class OneMonopolyEngine {
     if (!tile || !prop || prop.ownerId !== player.id || tile.type !== 'PORT') return;
     if (prop.isMortgaged) return;
     if (prop.containerLevel >= 5) return;
+    if (player.position !== tileId || !state.canUpgradeCurrentPort) return;
 
     const groupConfig = LOOP_GROUPS_CONFIG[tile.group!];
     if (!groupConfig) return;
-
-    // 1. Must own all ports in loop and none mortgaged
-    const ownsAllAndNotMortgaged = groupConfig.tileIds.every((id) => {
-      const p = state.properties[id];
-      return p && p.ownerId === player.id && !p.isMortgaged;
-    });
-    if (!ownsAllAndNotMortgaged) return;
-
-    // 2. Even Building Rule: current tile cannot be built if any tile in group has lower level
-    const minLevelInGroup = Math.min(
-      ...groupConfig.tileIds.map((id) => state.properties[id]!.containerLevel)
-    );
-    if (prop.containerLevel > minLevelInGroup) return;
 
     const cost = tile.buildCost || groupConfig.buildCost;
     if (player.balance < cost) return;
 
     player.balance -= cost;
     prop.containerLevel++;
+    state.canUpgradeCurrentPort = false;
 
     events.push({
       type: 'CONTAINER_BUILT',
@@ -987,12 +987,6 @@ export class OneMonopolyEngine {
 
     const groupConfig = LOOP_GROUPS_CONFIG[tile.group!];
     if (!groupConfig) return;
-
-    // Even Selling Rule: cannot sell from a tile if any tile in group has higher level
-    const maxLevelInGroup = Math.max(
-      ...groupConfig.tileIds.map((id) => state.properties[id]!.containerLevel)
-    );
-    if (prop.containerLevel < maxLevelInGroup) return;
 
     const cost = tile.buildCost || groupConfig.buildCost;
     const refund = Math.floor(cost * 0.5);
@@ -1030,12 +1024,14 @@ export class OneMonopolyEngine {
     const tile = BOARD_TILES[tileId];
     const prop = state.properties[tileId];
     if (!tile || !prop || prop.ownerId !== player.id || prop.isMortgaged) return;
+    if (player.position !== tileId || !state.canUpgradeCurrentPort) return;
     if (prop.containerLevel !== 5) return; // Chỉ áp dụng cho Siêu tàu ONE Innovation (Mức 5)
     if (prop.hasGreenFleet) return; // Đã nâng cấp rồi
     if (player.balance < GREEN_FLEET_COST) return;
 
     player.balance -= GREEN_FLEET_COST;
     prop.hasGreenFleet = true;
+    state.canUpgradeCurrentPort = false;
 
     events.push({
       type: 'GREEN_FLEET_UPGRADED',
@@ -1186,17 +1182,16 @@ export class OneMonopolyEngine {
     const prop = state.properties[tileId];
     if (!tile || !prop || prop.ownerId !== player.id || prop.isMortgaged) return;
 
-    // Cannot mortgage if any tile in the group still has containers
-    if (tile.type === 'PORT') {
-      const groupConfig = LOOP_GROUPS_CONFIG[tile.group!];
-      const hasAnyContainers = groupConfig.tileIds.some(
-        (id) => (state.properties[id]?.containerLevel || 0) > 0
-      );
-      if (hasAnyContainers) return;
+    // Cannot mortgage if this tile still has containers
+    if (tile.type === 'PORT' && (prop.containerLevel || 0) > 0) {
+      return;
     }
 
     const mortgageValue = tile.mortgageValue || Math.floor((tile.price || 0) * 0.5);
     prop.isMortgaged = true;
+    if (player.position === tileId) {
+      state.canUpgradeCurrentPort = false;
+    }
     player.balance += mortgageValue;
 
     events.push({
@@ -1414,6 +1409,7 @@ export class OneMonopolyEngine {
 
     state.activePlayerIndex = nextIndex;
     state.stormActive = false;
+    state.canUpgradeCurrentPort = false;
     state.hasRolled = false;
     state.consecutiveDoubles = 0;
     state.phase = 'WAIT_FOR_ROLL';

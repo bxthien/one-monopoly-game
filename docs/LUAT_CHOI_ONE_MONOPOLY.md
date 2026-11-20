@@ -83,8 +83,8 @@ Gồm 2 ô: **ONE QUOTE (Ô 10)** và **ONE Eco Calculator (Ô 22)**. Giá mua *
 ## 4. QUY TẮC NÂNG CẤP HẠ TẦNG CẢNG BIỂN
 
 > [!IMPORTANT]
-> **Quy Tắc Xây Dựng Đồng Đều (Even Building Rule):**  
-> Bạn chỉ được nâng cấp cảng khi đã sở hữu đủ tất cả cảng trong cùng nhóm màu. Khi nâng cấp, số lượng Lô Container giữa các cảng trong nhóm không được chênh lệch nhau quá 1 lô (Ví dụ: Không được lên 2 lô ở Cát Lái nếu Cái Mép vẫn đang ở mức 0).
+> **Quy Tắc Nâng Cấp Khi Tàu Ghé Lại Cảng (Revisit Dockside Upgrade Rule):**  
+> Bạn không cần phải gom đủ bộ màu mới được xây dựng container. Lần đầu tiên cập cảng bạn chỉ được phép **MUA CẢNG**. Những lần ghé sau (đáp lại vào cảng thuộc sở hữu của mình), bạn được phép **nâng cấp tối đa 1 lần** trong lần ghé đó (đặt thêm 1 Lô Container, lên Siêu tàu ONE Innovation hoặc gắn Huy hiệu Tàu Nhiên Liệu Xanh), không được nâng cấp nhiều lần trong một lần ghé.
 
 - **Mức 1 – 4 (Lô Container Magenta):** Đặt từ 1 đến 4 lô container lên cảng để nâng mức thu phí cước bốc dỡ theo bảng biểu.
 - **Mức 5 (Cực đại - Siêu tàu ONE Innovation 24.000 TEU):** Khi cảng đã có 4 lô container, trả thêm chi phí nâng cấp để đổi lấy biểu tượng Siêu Tàu Megaship. Cước phí đạt mức khủng khiếp nhất game!

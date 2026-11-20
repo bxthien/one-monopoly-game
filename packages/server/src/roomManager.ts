@@ -1,7 +1,9 @@
 import {
+  BOARD_TILES,
   GameAction,
   GameEvent,
   GameState,
+  LOOP_GROUPS_CONFIG,
   OneMonopolyEngine,
   VesselToken,
   VESSEL_TOKENS,
@@ -25,6 +27,7 @@ export interface Room {
   gameState: GameState | null;
   isGameStarted: boolean;
   timer: TurnTimer | null;
+  botTimer: NodeJS.Timeout | null;
   socketToPlayer: Map<string, string>; // socketId -> playerId
   playerToSocket: Map<string, string>; // playerId -> socketId
 }
@@ -76,6 +79,7 @@ export class RoomManager {
       gameState: null,
       isGameStarted: false,
       timer: null,
+      botTimer: null,
       socketToPlayer: new Map([[socketId, playerId]]),
       playerToSocket: new Map([[playerId, socketId]]),
     };
@@ -188,9 +192,8 @@ export class RoomManager {
     if (room.isGameStarted) return { success: false, error: 'Trò chơi đã bắt đầu!' };
 
     // Tự động bổ sung AI Bot nếu chỉ có 1 người chơi
-    const playersToStart = [...room.players];
-    if (playersToStart.length === 1) {
-      playersToStart.push({
+    if (room.players.length === 1) {
+      room.players.push({
         id: 'ai-mate-1',
         name: 'AI Thuyền Phó (Bot)',
         token: room.players[0].token === 'ONE_APUS' ? 'PILOT_BOAT' : 'ONE_APUS',
@@ -202,7 +205,7 @@ export class RoomManager {
 
     const gameState = OneMonopolyEngine.createGame(
       room.id,
-      playersToStart.map((p) => ({
+      room.players.map((p) => ({
         id: p.id,
         name: p.name,
         token: p.token,
@@ -219,6 +222,8 @@ export class RoomManager {
       this.onBroadcastUpdate(room.id, room.gameState, []);
     }
 
+    this.triggerBotIfNeeded(room);
+
     return { success: true };
   }
 
@@ -226,6 +231,7 @@ export class RoomManager {
     if (room.timer) {
       room.timer.stop();
     }
+    this.clearBotTimer(room);
 
     room.timer = new TurnTimer(
       45,
@@ -277,6 +283,8 @@ export class RoomManager {
       action.type === 'ROLL_DICE' ||
       action.type === 'BUY_PROPERTY' ||
       action.type === 'SKIP_BUY' ||
+      action.type === 'BUILD_CONTAINER' ||
+      action.type === 'UPGRADE_GREEN_FLEET' ||
       action.type === 'PAY_HOLD_FINE' ||
       action.type === 'USE_CLEARANCE_PASS' ||
       action.type === 'RESOLVE_STORM' ||
@@ -315,15 +323,157 @@ export class RoomManager {
       }
     }
 
-    if (nextState.winnerId && room.timer) {
-      room.timer.stop();
+    if (nextState.winnerId) {
+      if (room.timer) room.timer.stop();
+      this.clearBotTimer(room);
     }
 
     if (this.onBroadcastUpdate) {
       this.onBroadcastUpdate(room.id, nextState, events);
     }
 
+    this.triggerBotIfNeeded(room, action.type);
+
     return { success: true, state: nextState, events };
+  }
+
+  public isBot(room: Room, playerId: string): boolean {
+    const player = room.players.find((p) => p.id === playerId);
+    return Boolean(player?.sessionToken?.startsWith('bot-') || playerId.startsWith('ai-'));
+  }
+
+  public clearBotTimer(room: Room): void {
+    if (room.botTimer) {
+      clearTimeout(room.botTimer);
+      room.botTimer = null;
+    }
+  }
+
+  public triggerBotIfNeeded(room: Room, lastActionType?: string): void {
+    if (!room.isGameStarted || !room.gameState || room.gameState.winnerId) {
+      this.clearBotTimer(room);
+      return;
+    }
+
+    this.clearBotTimer(room);
+
+    const state = room.gameState;
+
+    // Case 1: Slot charter proposal pending response from port owner
+    if (state.phase === 'AWAITING_SLOT_CHARTER_RESPONSE' && state.pendingSlotCharter) {
+      const ownerId = state.pendingSlotCharter.ownerId;
+      if (this.isBot(room, ownerId)) {
+        room.botTimer = setTimeout(() => {
+          room.botTimer = null;
+          this.dispatchAction(room.id, ownerId, {
+            type: 'RESPOND_SLOT_CHARTER',
+            accept: true,
+          });
+        }, 800);
+        return;
+      }
+    }
+
+    // Case 2: Active player turn
+    const activePlayer = state.players[state.activePlayerIndex];
+    if (!activePlayer || !this.isBot(room, activePlayer.id)) {
+      return;
+    }
+
+    const computeTravelDelay = () => {
+      const steps = (state.dice[0] || 1) + (state.dice[1] || 1);
+      return Math.max(1600, 950 + steps * 240 + 600);
+    };
+
+    switch (state.phase) {
+      case 'WAIT_FOR_ROLL': {
+        const delay = lastActionType === 'ROLL_DICE' ? computeTravelDelay() : 1000;
+        room.botTimer = setTimeout(() => {
+          room.botTimer = null;
+          if (activePlayer.inHold && activePlayer.balance >= 150) {
+            this.dispatchAction(room.id, activePlayer.id, { type: 'PAY_HOLD_FINE' });
+          } else {
+            this.dispatchAction(room.id, activePlayer.id, { type: 'ROLL_DICE' });
+          }
+        }, delay);
+        break;
+      }
+
+      case 'AWAITING_BUY_DECISION': {
+        const delay = lastActionType === 'ROLL_DICE' ? computeTravelDelay() : 700;
+        room.botTimer = setTimeout(() => {
+          room.botTimer = null;
+          const tile = BOARD_TILES[activePlayer.position];
+          const price = tile?.price || 0;
+          if (activePlayer.balance >= price + 80) {
+            this.dispatchAction(room.id, activePlayer.id, { type: 'BUY_PROPERTY' });
+          } else {
+            this.dispatchAction(room.id, activePlayer.id, { type: 'SKIP_BUY' });
+          }
+        }, delay);
+        break;
+      }
+
+      case 'AWAITING_STORM_DECISION': {
+        const delay = lastActionType === 'ROLL_DICE' ? computeTravelDelay() : 700;
+        room.botTimer = setTimeout(() => {
+          room.botTimer = null;
+          if (activePlayer.balance >= 100) {
+            this.dispatchAction(room.id, activePlayer.id, {
+              type: 'RESOLVE_STORM',
+              choice: 'TUG',
+            });
+          } else {
+            this.dispatchAction(room.id, activePlayer.id, {
+              type: 'RESOLVE_STORM',
+              choice: 'DRIFT',
+            });
+          }
+        }, delay);
+        break;
+      }
+
+      case 'AWAITING_DEBT_RESOLUTION': {
+        room.botTimer = setTimeout(() => {
+          room.botTimer = null;
+          const debtAmount = state.pendingDebt?.amount || 0;
+          if (activePlayer.balance >= debtAmount) {
+            this.dispatchAction(room.id, activePlayer.id, { type: 'SETTLE_DEBT' });
+          } else {
+            this.dispatchAction(room.id, activePlayer.id, { type: 'DECLARE_BANKRUPTCY' });
+          }
+        }, 1000);
+        break;
+      }
+
+      case 'END_OF_TURN': {
+        const delay = lastActionType === 'ROLL_DICE' ? computeTravelDelay() : 700;
+        room.botTimer = setTimeout(() => {
+          room.botTimer = null;
+          const tile = BOARD_TILES[activePlayer.position];
+          const prop = state.properties[activePlayer.position];
+          if (
+            state.canUpgradeCurrentPort &&
+            tile?.type === 'PORT' &&
+            prop?.ownerId === activePlayer.id &&
+            !prop.isMortgaged &&
+            prop.containerLevel < 5
+          ) {
+            const groupConfig = tile.group ? LOOP_GROUPS_CONFIG[tile.group] : null;
+            const cost = tile.buildCost || groupConfig?.buildCost || 100;
+            if (activePlayer.balance >= cost + 150) {
+              this.dispatchAction(room.id, activePlayer.id, {
+                type: 'BUILD_CONTAINER',
+                tileId: activePlayer.position,
+              });
+              return;
+            }
+          }
+          this.dispatchAction(room.id, activePlayer.id, { type: 'END_TURN' });
+        }, delay);
+        break;
+      }
+    }
   }
 
   public handleAFKTimeout(roomId: string): void {

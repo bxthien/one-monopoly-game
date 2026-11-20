@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { VESSEL_TOKENS, type VesselToken } from '@one-monopoly/shared';
-import { ArrowRight, Check, Compass, Copy, KeyRound, Plus, Users, Wifi } from 'lucide-react';
+import { ArrowRight, Check, Compass, Copy, KeyRound, Plus, Users } from 'lucide-react';
 import { RoomState } from '../hooks/useSocket.js';
 import { TOKEN_CONFIG } from './TokenBadge.js';
 import { useIdleMotion } from '../hooks/useIdleMotion.js';
@@ -25,17 +25,8 @@ export const Lobby: React.FC<Props> = ({
   const [playerName, setPlayerName] = useState('Thuyền Trưởng ONE');
   const [roomCode, setRoomCode] = useState('');
   const [selectedToken, setSelectedToken] = useState<VesselToken>('ONE_APUS');
-  const [copied, setCopied] = useState<'invite' | 'lan' | null>(null);
-  const [manualLink, setManualLink] = useState('');
-  const [lanUrl, setLanUrl] = useState('');
-
-  useEffect(() => {
-    const serverUrl = (import.meta as any).env?.VITE_SERVER_URL || '';
-    fetch(`${serverUrl}/api/network-info`)
-      .then((res) => res.json())
-      .then((data) => { if (data?.lanUrl) setLanUrl(data.lanUrl); })
-      .catch(() => {});
-  }, []);
+  const [copied, setCopied] = useState<boolean>(false);
+  const [manualCode, setManualCode] = useState('');
 
   useEffect(() => {
     const code = new URLSearchParams(window.location.search).get('room');
@@ -47,26 +38,23 @@ export const Lobby: React.FC<Props> = ({
 
   useEffect(() => {
     if (!copied) return;
-    const timeout = window.setTimeout(() => setCopied(null), 2000);
+    const timeout = window.setTimeout(() => setCopied(false), 2000);
     return () => window.clearTimeout(timeout);
   }, [copied]);
 
-  const localAddress = lanUrl || `${window.location.protocol}//${window.location.hostname}:3000`;
   const isHost = room?.hostId === myPlayerId;
   const myPlayer = room?.players.find((player) => player.id === myPlayerId);
   const creating = tab === 'create';
   const selectedConfig = TOKEN_CONFIG[selectedToken];
 
-  async function copyLink(kind: 'invite' | 'lan') {
-    const link = kind === 'invite' && room
-      ? `${lanUrl || window.location.origin}?room=${encodeURIComponent(room.id)}`
-      : localAddress;
+  async function copyRoomCode() {
+    if (!room) return;
     try {
-      await navigator.clipboard.writeText(link);
-      setManualLink('');
-      setCopied(kind);
+      await navigator.clipboard.writeText(room.id);
+      setManualCode('');
+      setCopied(true);
     } catch {
-      setManualLink(link);
+      setManualCode(room.id);
     }
   }
 
@@ -89,9 +77,9 @@ export const Lobby: React.FC<Props> = ({
               <h2 id="lobby-panel-title">Phòng chờ</h2>
               <div className="chart-room-invite">
                 <div><span className="chart-field-label">Mã phòng</span><strong>{room.id}</strong></div>
-                <button type="button" className="chart-link-button" onClick={() => copyLink('invite')}>
-                  {copied === 'invite' ? <Check /> : <Copy />}
-                  {copied === 'invite' ? 'Đã chép link mời!' : 'Sao chép link mời'}
+                <button type="button" className="chart-link-button" onClick={copyRoomCode}>
+                  {copied ? <Check /> : <Copy />}
+                  {copied ? 'Đã sao chép mã!' : 'Sao chép mã phòng'}
                 </button>
               </div>
               <div className="chart-crew-heading"><Users size={17} /><h3>Thuyền trưởng</h3><span>{room.players.length}/4</span></div>
@@ -173,19 +161,12 @@ export const Lobby: React.FC<Props> = ({
                   {creating ? 'Khởi tạo phòng chơi' : 'Vào phòng ngay'}<ArrowRight />
                 </button>
               </form>
-              <div className="chart-lobby-network">
-                <Wifi aria-hidden="true" />
-                <div><strong>Chơi qua Wi-Fi / LAN</strong><code>{localAddress}</code></div>
-                <button className="chart-link-button" type="button" onClick={() => copyLink('lan')}>
-                  {copied === 'lan' ? <Check /> : <Copy />}{copied === 'lan' ? 'Đã sao chép!' : 'Chép link LAN'}
-                </button>
-              </div>
             </>
           )}
-          {manualLink && (
+          {manualCode && (
             <label className="chart-lobby-field chart-manual-link">
-              <span>Sao chép liên kết này</span>
-              <input readOnly value={manualLink} onFocus={(event) => event.target.select()} />
+              <span>Sao chép mã phòng này</span>
+              <input readOnly value={manualCode} onFocus={(event) => event.target.select()} />
             </label>
           )}
         </section>

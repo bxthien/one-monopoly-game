@@ -7,6 +7,7 @@ import { getBoardLighting } from './components/boardLighting.js';
 import { PlayerSidebar } from './components/PlayerSidebar.js';
 import { ActionControls } from './components/ActionControls.js';
 import { ReactionFloatingBar } from './components/ReactionFloatingBar.js';
+import type { RentReceipt } from './components/useBoardPlayback.js';
 import { GameOverModal } from './components/GameOverModal.js';
 import { AlertCircle, BookOpen, Box, Compass, LogOut, Map, MapPin, Radio, X } from 'lucide-react';
 
@@ -34,6 +35,7 @@ export const App: React.FC = () => {
 
   const [activeCard, setActiveCard] = useState<GameCard | null>(null);
   const [isPawnMoving, setIsPawnMoving] = useState(false);
+  const [rentReceipts, setRentReceipts] = useState<Record<number, RentReceipt>>({});
   const pendingCardRef = React.useRef<GameCard | null>(null);
   const [eventLogs, setEventLogs] = useState<string[]>([]);
   const [is3D, setIs3D] = useState(true);
@@ -191,12 +193,19 @@ export const App: React.FC = () => {
                 onCloseCard={() => setActiveCard(null)}
                 is3D={is3D}
                 onPawnMovingChange={setIsPawnMoving}
+                onRentReceiptsChange={setRentReceipts}
               />
             </div>
             <div className="chart-position"><MapPin size={14} /><span>Vị trí tàu</span><strong>{BOARD_TILES[activePlayer.position].name}</strong></div>
           </section>
           <aside className="table-controls">
-            <PlayerSidebar gameState={gameState} myPlayerId={myPlayerId} turnTimer={turnTimer} />
+            <PlayerSidebar
+              gameState={gameState}
+              myPlayerId={myPlayerId}
+              turnTimer={turnTimer}
+              latestEvents={latestEvents}
+              rentReceipts={rentReceipts}
+            />
             <div className="table-actions">
               <ActionControls
                 gameState={gameState}

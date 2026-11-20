@@ -152,6 +152,7 @@ export interface GameState {
   marketDeck: string[]; // Card IDs
   opsDeck: string[]; // Card IDs
   stormActive?: boolean; // OPS-02 visual for the current turn. Absent in older snapshots.
+  canUpgradeCurrentPort?: boolean; // True when landing on an already-owned port (allows at most 1 upgrade on this visit)
   pendingDebt: DebtInfo | null;
   pendingSlotCharter: PendingSlotCharter | null;
   winnerId: string | null;
