@@ -200,7 +200,7 @@ export function useSocket() {
   }, [room, myPlayerId]);
 
   const sendAction = useCallback(
-    (action: GameAction, onFailure?: () => void) => {
+    (action: GameAction, onFailure?: () => void, onSuccess?: () => void) => {
       if (!socketRef.current?.connected || !room || !myPlayerId) {
         onFailure?.();
         setErrorMsg('Chưa kết nối với phòng chơi.');
@@ -215,7 +215,7 @@ export function useSocket() {
             if (action.type === 'ROLL_DICE' && !rollTimerRef.current) setIsRolling(false);
             onFailure?.();
             setErrorMsg(timeout ? 'Chưa nhận được xác nhận từ phòng chơi.' : res?.error || 'Thao tác không thành công');
-          }
+          } else onSuccess?.();
         }
       );
     },

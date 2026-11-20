@@ -19,6 +19,7 @@ interface Props {
   subscribeBoard: SubscribeBoard;
   myPlayerId: string | null;
   onAction: (action: GameAction) => void;
+  onOfferForTile: (tileId: number) => void;
   isRolling: boolean;
   activeCard: GameCard | null;
   onCloseCard: () => void;
@@ -169,6 +170,7 @@ export const Board: React.FC<Props> = ({
   subscribeBoard,
   myPlayerId,
   onAction,
+  onOfferForTile,
   isRolling,
   activeCard,
   onCloseCard,
@@ -378,6 +380,10 @@ export const Board: React.FC<Props> = ({
         gameState={gameState}
         myPlayerId={myPlayerId}
         onClose={() => setSelectedTileId(null)}
+        onOfferForTile={(id) => {
+          setSelectedTileId(null);
+          onOfferForTile(id);
+        }}
         onAction={(action) => {
           onAction(action);
           setSelectedTileId(null);

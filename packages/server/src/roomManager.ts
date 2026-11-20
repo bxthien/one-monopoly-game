@@ -272,11 +272,12 @@ export class RoomManager {
 
     const activePlayer = room.gameState.players[room.gameState.activePlayerIndex];
     const isAuctionAction = action.type === 'AUCTION_BID' || action.type === 'AUCTION_PASS';
+    const isTradeAction = action.type === 'OFFER_TRADE' || action.type === 'RESPOND_TRADE' || action.type === 'CANCEL_TRADE';
     const inAuction = room.gameState.phase === 'AWAITING_AUCTION';
     if (isAuctionAction && (!inAuction || room.gameState.auction?.bidderId !== playerId)) {
       return { success: false, error: 'Chưa đến lượt đấu giá của bạn.' };
     }
-    if (inAuction && !isAuctionAction) return { success: false, error: 'Hãy hoàn tất phiên đấu giá trước.' };
+    if (inAuction && !isAuctionAction && !isTradeAction) return { success: false, error: 'Hãy hoàn tất phiên đấu giá trước.' };
 
     // Some actions can only be triggered by the active player
     // Slot Charter response can only be answered by the property owner
@@ -309,11 +310,14 @@ export class RoomManager {
     const prevPhase = room.gameState.phase;
     const prevActiveIndex = room.gameState.activePlayerIndex;
 
-    const { state: nextState, events } = OneMonopolyEngine.dispatch(room.gameState, action);
+    const { state: nextState, events } = OneMonopolyEngine.dispatch(room.gameState, action, playerId);
+    if (isTradeAction && nextState === room.gameState) {
+      return { success: false, error: 'Đề nghị giao dịch đã thay đổi hoặc thao tác không hợp lệ.' };
+    }
     if (isAuctionAction && nextState.phase === prevPhase && nextState.auction?.revision === room.gameState.auction?.revision) {
       return { success: false, error: 'Lượt đấu giá đã thay đổi hoặc giá đặt không hợp lệ.' };
     }
-    if ((prevPhase === 'AWAITING_STORM_DECISION' || action.type === 'RESOLVE_STORM') &&
+    if (!isTradeAction && (prevPhase === 'AWAITING_STORM_DECISION' || action.type === 'RESOLVE_STORM') &&
         !events.some((event) => event.type === 'STORM_RESOLVED')) {
       return { success: false, error: 'Không thể thực hiện lựa chọn ứng phó bão này.' };
     }

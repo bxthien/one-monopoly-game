@@ -5,10 +5,11 @@ import { Lobby } from './components/Lobby.js';
 import { Board } from './components/Board.js';
 import { getBoardLighting } from './components/boardLighting.js';
 import { PlayerSidebar } from './components/PlayerSidebar.js';
+import { TradeDesk } from './components/TradeDesk.js';
 import { ActionControls } from './components/ActionControls.js';
 import { ReactionFloatingBar } from './components/ReactionFloatingBar.js';
 import { GameOverModal } from './components/GameOverModal.js';
-import { AlertCircle, BookOpen, Box, Compass, Gavel, LogOut, Map, MapPin, Radio, X } from 'lucide-react';
+import { AlertCircle, BookOpen, Box, Compass, Gavel, Handshake, LogOut, Map, MapPin, Radio, X } from 'lucide-react';
 
 export const App: React.FC = () => {
   const {
@@ -35,12 +36,14 @@ export const App: React.FC = () => {
   const [isPawnMoving, setIsPawnMoving] = useState(false);
   const pendingCardRef = React.useRef<GameCard | null>(null);
   const [eventLogs, setEventLogs] = useState<string[]>([]);
-  const [auctionResult, setAuctionResult] = useState('');
+  const [boardNotice, setBoardNotice] = useState<{ type: 'auction' | 'trade'; text: string } | null>(null);
+  const [tradeDesk, setTradeDesk] = useState<{ tileId: number | null } | null>(null);
+  const openTrades = (tileId: number | null = null) => setTradeDesk({ tileId });
   const [is3D, setIs3D] = useState(true);
 
   // Khi xúc xắc đã dừng và nhân vật đã lướt tới bến đích -> Mới hiển thị thẻ bài (Chance/Chest)
   useEffect(() => {
-    if (!isRolling && !isPawnMoving && pendingCardRef.current) {
+    if (!tradeDesk && !isRolling && !isPawnMoving && pendingCardRef.current) {
       const card = pendingCardRef.current;
       const timer = setTimeout(() => {
         if (pendingCardRef.current !== card) return;
@@ -49,22 +52,23 @@ export const App: React.FC = () => {
       }, 300);
       return () => clearTimeout(timer);
     }
-  }, [isRolling, isPawnMoving]);
+  }, [isRolling, isPawnMoving, tradeDesk]);
 
   // Pair each event with the exact board snapshot that produced it.
   useEffect(() => subscribeBoard((state, events) => {
     if (!events) {
       pendingCardRef.current = null;
       setActiveCard(null);
-      setAuctionResult('');
+      setBoardNotice(null);
       return;
     }
     const sale = events.find(event => event.type === 'AUCTION_ENDED');
+    const tradeSettled = events.some(event => event.type === 'TRADE_CLOSED' && event.result === 'ACCEPTED');
     for (const evt of events) {
       if (evt.type === 'AUCTION_STARTED') {
         pendingCardRef.current = null;
         setActiveCard(null);
-        setAuctionResult('');
+        setBoardNotice(null);
       }
       if (evt.type === 'CARD_DRAWN') {
         if (evt.card.effect.type === 'STORM_CHOICE') {
@@ -79,7 +83,7 @@ export const App: React.FC = () => {
       // Add to event logs
       let logMsg = '';
       if (evt.type === 'DICE_ROLLED') {
-        setAuctionResult('');
+        setBoardNotice(null);
         logMsg = `🎲 Đổ được ${evt.dice[0]} + ${evt.dice[1]} = ${evt.dice[0] + evt.dice[1]}`;
       } else if (evt.type === 'AUCTION_STARTED') {
         logMsg = `Mở đấu giá ${BOARD_TILES[evt.tileId].name}.`;
@@ -89,7 +93,23 @@ export const App: React.FC = () => {
         logMsg = winner
           ? `${winner.name} thắng đấu giá ${property} với giá $${evt.price}M.`
           : `${property} chưa có người mua.`;
-        setAuctionResult(logMsg);
+        setBoardNotice({ type: 'auction', text: logMsg });
+      } else if (evt.type === 'TRADE_OFFERED' && evt.offer.sellerId === myPlayerId) {
+        const buyer = state.players.find(player => player.id === evt.offer.buyerId);
+        logMsg = `${buyer?.name ?? 'Một thuyền trưởng'} đề nghị mua ${BOARD_TILES[evt.offer.tileId].name} với giá $${evt.offer.price}M.`;
+        setBoardNotice({ type: 'trade', text: logMsg });
+      } else if (evt.type === 'TRADE_CLOSED') {
+        const { buyerId, sellerId, price, tileId } = evt.offer;
+        const property = BOARD_TILES[tileId].name;
+        if (evt.result === 'ACCEPTED') {
+          const buyer = state.players.find(player => player.id === buyerId);
+          const seller = state.players.find(player => player.id === sellerId);
+          logMsg = `${buyer?.name} mua ${property} từ ${seller?.name} với giá $${price}M.`;
+        } else if (myPlayerId === buyerId || myPlayerId === sellerId) {
+          const status = { DECLINED: 'đã bị từ chối', WITHDRAWN: 'đã được rút lại', EXPIRED: 'đã hết hiệu lực' };
+          logMsg = `Đề nghị mua ${property} với giá $${price}M ${status[evt.result]}.`;
+        }
+        if (logMsg && (evt.result === 'ACCEPTED' || !tradeSettled)) setBoardNotice({ type: 'trade', text: logMsg });
       } else if (evt.type === 'STORM_RESOLVED') {
         logMsg = evt.choice === 'TUG'
           ? `⚓ Thuê tàu kéo giữ vị trí với phí $${STORM_TUG_FEE}M`
@@ -126,9 +146,12 @@ export const App: React.FC = () => {
         setEventLogs((prev) => [logMsg, ...prev.slice(0, 15)]);
       }
     }
-  }), [subscribeBoard]);
+  }), [subscribeBoard, myPlayerId]);
 
   const activePlayer = gameState?.players[gameState.activePlayerIndex];
+  const canOpenTrades = !!myPlayerId && !gameState?.winnerId &&
+    gameState?.players.some(player => player.id === myPlayerId && !player.isBankrupt);
+  const incoming = gameState?.tradeOffers?.filter(offer => offer.sellerId === myPlayerId).length ?? 0;
   const sky = gameState && getBoardLighting({
     turnCount: gameState.turnCount,
     activePlayerIndex: gameState.activePlayerIndex,
@@ -195,6 +218,13 @@ export const App: React.FC = () => {
                   <span className="chart-weather-readout" role="status">{sky.label}{sky.weather === 'storm' && ' · Bão'}</span>
                 </div>
               </div>
+              {canOpenTrades && (
+                <button type="button" className="chart-trade-open" onClick={() => openTrades()} aria-haspopup="dialog"
+                  aria-label={incoming ? `Giao dịch, ${incoming} đề nghị đang chờ` : 'Giao dịch'} aria-expanded={!!tradeDesk}>
+                  <Handshake size={16} aria-hidden="true" /> Giao dịch
+                  {incoming > 0 && <strong className="chart-trade-count">{incoming}</strong>}
+                </button>
+              )}
               <div className="chart-view-picker" role="group" aria-label="Góc nhìn bàn cờ">
                 <button type="button" aria-pressed={!is3D} onClick={() => setIs3D(false)}><Map size={15} />2D</button>
                 <button type="button" aria-pressed={is3D} onClick={() => setIs3D(true)}><Box size={15} />3D</button>
@@ -207,6 +237,7 @@ export const App: React.FC = () => {
                 subscribeBoard={subscribeBoard}
                 myPlayerId={myPlayerId}
                 onAction={sendAction}
+                onOfferForTile={openTrades}
                 isRolling={isRolling}
                 activeCard={activeCard}
                 onCloseCard={() => setActiveCard(null)}
@@ -215,26 +246,31 @@ export const App: React.FC = () => {
               />
             </div>
             <div className="chart-position" role="status">
-              {auctionResult ? (
-                <><Gavel size={14} aria-hidden="true" /><strong>{auctionResult}</strong></>
+              {boardNotice ? (
+                <>{boardNotice.type === 'trade' ? <Handshake size={14} aria-hidden="true" /> : <Gavel size={14} aria-hidden="true" />}<strong>{boardNotice.text}</strong></>
               ) : (
                 <><MapPin size={14} aria-hidden="true" /><span>Vị trí tàu</span><strong>{BOARD_TILES[activePlayer.position].name}</strong></>
               )}
             </div>
           </section>
           <aside className="table-controls">
-            <PlayerSidebar gameState={gameState} myPlayerId={myPlayerId} turnTimer={turnTimer} />
+            <PlayerSidebar gameState={gameState} myPlayerId={myPlayerId} turnTimer={turnTimer} onOfferForTile={openTrades} />
             <div className="table-actions">
               <ActionControls
                 gameState={gameState}
                 myPlayerId={myPlayerId}
                 onAction={sendAction}
+                onOpenTrades={() => openTrades()}
                 isRolling={isRolling}
                 isPawnMoving={isPawnMoving}
               />
             </div>
             <ReactionFloatingBar reactions={reactions} onSendReaction={sendReaction} />
           </aside>
+          {tradeDesk && myPlayerId && canOpenTrades && (
+            <TradeDesk gameState={gameState} myPlayerId={myPlayerId} initialTileId={tradeDesk.tileId}
+              onAction={sendAction} onClose={() => setTradeDesk(null)} />
+          )}
           <GameOverModal gameState={gameState} onRestart={leaveRoom} />
         </main>
       )}

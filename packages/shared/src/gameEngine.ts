@@ -34,6 +34,7 @@ import {
   STORM_DRIFT_STEPS,
   STORM_TUG_FEE,
 } from './boardData.js';
+import { dispatchTrade, expireTradeOffers } from './trade.js';
 
 function shuffle<T>(array: T[]): T[] {
   const result = [...array];
@@ -101,6 +102,8 @@ export class OneMonopolyEngine {
       stormActive: false,
       auction: null,
       auctionSequence: 0,
+      tradeOffers: [],
+      tradeSequence: 0,
       pendingDebt: null,
       pendingSlotCharter: null,
       winnerId: null,
@@ -109,9 +112,17 @@ export class OneMonopolyEngine {
     };
   }
 
-  public static dispatch(state: GameState, action: GameAction): EngineResult {
-    if (!action || state.winnerId !== null ||
-        (state.phase === 'AWAITING_STORM_DECISION' && action.type !== 'RESOLVE_STORM') ||
+  public static dispatch(state: GameState, action: GameAction, actorId?: string): EngineResult {
+    if (!action || state.winnerId !== null) return { state, events: [] };
+    const result = action.type === 'OFFER_TRADE' || action.type === 'RESPOND_TRADE' || action.type === 'CANCEL_TRADE'
+      ? dispatchTrade(state, action, actorId, OneMonopolyEngine.checkMissionCompletion)
+      : OneMonopolyEngine.dispatchTurnAction(state, action);
+    if (result.state !== state) expireTradeOffers(result.state, result.events);
+    return result;
+  }
+
+  private static dispatchTurnAction(state: GameState, action: GameAction): EngineResult {
+    if ((state.phase === 'AWAITING_STORM_DECISION' && action.type !== 'RESOLVE_STORM') ||
         (state.phase === 'AWAITING_BUY_DECISION' && action.type === 'END_TURN')) {
       return { state, events: [] };
     }

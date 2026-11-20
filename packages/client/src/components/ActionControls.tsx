@@ -1,5 +1,5 @@
 import React from 'react';
-import { BOARD_TILES, GameAction, GameState } from '@one-monopoly/shared';
+import { BOARD_TILES, GameAction, GameState, getTradeRestriction } from '@one-monopoly/shared';
 import { Dices, Check, Gavel, DollarSign, Ticket, AlertTriangle, Handshake, Ship, Flag } from 'lucide-react';
 import { StormDecision } from './StormDecision.js';
 import { PropertyAuctionPanel } from './PropertyAuctionPanel.js';
@@ -9,6 +9,7 @@ interface Props {
   gameState: GameState;
   myPlayerId: string | null;
   onAction: (action: GameAction, onFailure?: () => void) => void;
+  onOpenTrades: () => void;
   isRolling: boolean;
   isPawnMoving?: boolean;
 }
@@ -17,6 +18,7 @@ export const ActionControls: React.FC<Props> = ({
   gameState,
   myPlayerId,
   onAction,
+  onOpenTrades,
   isRolling,
   isPawnMoving = false,
 }) => {
@@ -116,10 +118,17 @@ export const ActionControls: React.FC<Props> = ({
   }
 
   if (!isMyTurn) {
+    const offers = gameState.tradeOffers ?? [];
+    const hasOffers = offers.some(offer => offer.sellerId === myPlayerId || offer.buyerId === myPlayerId);
+    const canShop = myPlayerId && BOARD_TILES.some(tile => !getTradeRestriction(gameState, myPlayerId, tile.id));
     return (
-      <div role="status" className="chart-action-panel chart-action-status">
-        <Flag size={18} aria-hidden="true" />
-        <span>Đang chờ <strong>{activePlayer.name}</strong> thực hiện lượt...</span>
+      <div className="chart-action-panel">
+        <p role="status" className="chart-waiting-turn"><Flag size={18} aria-hidden="true" />
+          <span>Đang chờ <strong>{activePlayer.name}</strong> thực hiện lượt...</span></p>
+        {(hasOffers || canShop) &&
+          <button className="chart-button chart-button-navy" type="button" onClick={onOpenTrades}>
+            <Handshake aria-hidden="true" />{hasOffers ? 'Xem đề nghị giao dịch' : 'Tìm tài sản để mua'}
+          </button>}
       </div>
     );
   }

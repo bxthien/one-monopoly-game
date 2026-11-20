@@ -151,6 +151,14 @@ export interface PropertyAuction {
   passedIds: string[];
 }
 
+export interface TradeOffer {
+  id: number;
+  buyerId: string;
+  sellerId: string;
+  tileId: number;
+  price: number;
+}
+
 export interface GameState {
   roomId: string;
   players: Player[];
@@ -165,6 +173,8 @@ export interface GameState {
   stormActive?: boolean; // OPS-02 visual for the current turn. Absent in older snapshots.
   auction?: PropertyAuction | null;
   auctionSequence?: number;
+  tradeOffers?: TradeOffer[];
+  tradeSequence?: number;
   pendingDebt: DebtInfo | null;
   pendingSlotCharter: PendingSlotCharter | null;
   winnerId: string | null;
@@ -175,6 +185,9 @@ export interface GameState {
 export type StormChoice = 'TUG' | 'DRIFT';
 
 export type GameAction =
+  | { type: 'OFFER_TRADE'; tileId: number; sellerId: string; price: number }
+  | { type: 'RESPOND_TRADE'; offerId: number; accept: boolean }
+  | { type: 'CANCEL_TRADE'; offerId: number }
   | { type: 'AUCTION_BID'; auctionId: number; revision: number; amount: number }
   | { type: 'AUCTION_PASS'; auctionId: number; revision: number }
   | { type: 'RESOLVE_STORM'; choice: StormChoice }
@@ -196,6 +209,8 @@ export type GameAction =
   | { type: 'END_TURN' };
 
 export type GameEvent =
+  | { type: 'TRADE_OFFERED'; offer: TradeOffer }
+  | { type: 'TRADE_CLOSED'; offer: TradeOffer; result: 'ACCEPTED' | 'DECLINED' | 'WITHDRAWN' | 'EXPIRED' }
   | { type: 'AUCTION_STARTED'; tileId: number }
   | { type: 'AUCTION_ENDED'; tileId: number; winnerId: string | null; price: number }
   | { type: 'STORM_RESOLVED'; playerId: string; choice: StormChoice }

@@ -8,9 +8,10 @@ interface Props {
   gameState: GameState;
   myPlayerId: string | null;
   turnTimer: { seconds: number; playerId: string } | null;
+  onOfferForTile: (tileId: number) => void;
 }
 
-export const PlayerSidebar: React.FC<Props> = ({ gameState, myPlayerId, turnTimer }) => {
+export const PlayerSidebar: React.FC<Props> = ({ gameState, myPlayerId, turnTimer, onOfferForTile }) => {
   const active = gameState.players[gameState.activePlayerIndex];
   const [portfolioId, setPortfolioId] = useState<string | null>(null);
   const captain = gameState.players.find(player => player.id === portfolioId);
@@ -50,7 +51,8 @@ export const PlayerSidebar: React.FC<Props> = ({ gameState, myPlayerId, turnTime
           })}
         </ul>
       </div>
-      {captain && <FleetPortfolio gameState={gameState} captain={captain} onClose={() => setPortfolioId(null)} />}
+      {captain && <FleetPortfolio gameState={gameState} captain={captain} myPlayerId={myPlayerId}
+        onClose={() => setPortfolioId(null)} onOfferForTile={onOfferForTile} />}
     </section>
   );
 };

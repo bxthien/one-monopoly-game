@@ -6,6 +6,7 @@ import {
   GameState,
   GREEN_FLEET_COST,
   GREEN_FLEET_ESG_BONUS,
+  getTradeRestriction,
   LOOP_GROUPS_CONFIG,
   OneMonopolyEngine,
 } from '@one-monopoly/shared';
@@ -49,6 +50,7 @@ interface Props {
   myPlayerId: string | null;
   onClose: () => void;
   onAction: (action: GameAction) => void;
+  onOfferForTile: (tileId: number) => void;
 }
 
 export const PropertyModal: React.FC<Props> = ({
@@ -57,6 +59,7 @@ export const PropertyModal: React.FC<Props> = ({
   myPlayerId,
   onClose,
   onAction,
+  onOfferForTile,
 }) => {
   const titleId = useId();
 
@@ -186,6 +189,12 @@ export const PropertyModal: React.FC<Props> = ({
           </table>
         )}
 
+        {myPlayerId && owner && !gameState.tradeOffers?.some(offer => offer.buyerId === myPlayerId)
+          && !getTradeRestriction(gameState, myPlayerId, tileId) && (
+            <button type="button" className="chart-button chart-button-primary" onClick={() => onOfferForTile(tileId)}>
+              <Handshake aria-hidden="true" /> Đề nghị mua
+            </button>
+          )}
         {/* Owner Management Buttons */}
         {isMine && prop && gameState.phase !== 'AWAITING_AUCTION' && (
           <div className="chart-manifest-actions">

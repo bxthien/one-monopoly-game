@@ -3,7 +3,7 @@ import type { GameEvent, GameState } from '@one-monopoly/shared';
 import type { SubscribeBoard } from '../hooks/useSocket.js';
 import { buildTravelFrames, restingPose, type Pose, type TravelFrame } from './boardTravel.js';
 
-type Claim = Extract<GameEvent, { type: 'TILE_PURCHASED' }>;
+type Claim = Pick<Extract<GameEvent, { type: 'TILE_PURCHASED' }>, 'tileId' | 'playerId' | 'price'>;
 interface Track {
   settled: Pose;
   frames: TravelFrame[];
@@ -43,16 +43,22 @@ export function useBoardPlayback(initialState: GameState, subscribe: SubscribeBo
       }
 
       for (const event of events) {
-        if (event.type !== 'TILE_PURCHASED') continue;
-        clearTimeout(expiry.get(event.tileId));
-        setClaims((prev) => ({ ...prev, [event.tileId]: event }));
-        expiry.set(event.tileId, setTimeout(() => {
+        let claim: Claim;
+        if (event.type === 'TILE_PURCHASED') claim = event;
+        else if (event.type === 'TRADE_CLOSED' && event.result === 'ACCEPTED') {
+          const { tileId, buyerId, price } = event.offer;
+          claim = { tileId, playerId: buyerId, price };
+        } else continue;
+        const { tileId } = claim;
+        clearTimeout(expiry.get(tileId));
+        setClaims((prev) => ({ ...prev, [tileId]: claim }));
+        expiry.set(tileId, setTimeout(() => {
           setClaims((prev) => {
             const next = { ...prev };
-            delete next[event.tileId];
+            delete next[tileId];
             return next;
           });
-          expiry.delete(event.tileId);
+          expiry.delete(tileId);
         }, 1800));
       }
 

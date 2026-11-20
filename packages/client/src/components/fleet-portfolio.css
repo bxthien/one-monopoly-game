@@ -30,7 +30,7 @@
 }
 .fleet-portfolio-summary dt { color: var(--action-muted); font-size: 12px; }
 .fleet-portfolio-summary dd { margin: 1px 0 0; font: 650 17px/1.35 var(--action-number); }
-.fleet-group-heading, .fleet-group-heading h3, .fleet-property { display: flex; align-items: baseline; }
+.fleet-group-heading, .fleet-group-heading h3 { display: flex; align-items: baseline; }
 .fleet-group-heading {
   justify-content: space-between;
   gap: 8px;
@@ -40,12 +40,40 @@
 .fleet-group-heading h3 { align-items: center; gap: 7px; font-size: 14px; font-weight: 700; }
 .fleet-group-heading i { flex: none; width: 10px; height: 10px; border: 1px solid #18364040; }
 .fleet-group-heading > span { flex: none; color: var(--action-muted); font: 600 10px var(--action-number); }
-.fleet-property { justify-content: space-between; gap: 7px; padding-block: 6px; font-size: 13px; line-height: 1.4; }
+.fleet-property {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) fit-content(46%);
+  align-items: baseline;
+  gap: 3px 7px;
+  padding-block: 6px;
+  font-size: 13px;
+  line-height: 1.4;
+}
 .fleet-property + .fleet-property { border-top: 1px dotted #afb9ab; }
 .fleet-property > span:first-child { min-width: 0; }
 .fleet-property small { display: block; color: #954765; font-size: 11px; }
-.fleet-rent { max-width: 46%; flex: none; font: 650 12px/1.45 var(--action-number); text-align: right; }
+.fleet-rent { font: 650 12px/1.45 var(--action-number); text-align: right; }
 .fleet-rent > span { font: 500 11px var(--action-number); color: var(--action-muted); }
+.fleet-offer-button {
+  grid-column: 1 / -1;
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 4px 8px;
+  border: 1px solid #99aba2;
+  border-radius: 4px;
+  background: #f1f2e6;
+  color: var(--action-ink);
+  font-weight: 650;
+  cursor: pointer;
+}
+.fleet-offer-button:hover { background: #e4eada; }
+.fleet-offer-button:focus-visible { outline: 2px solid #087d89; outline-offset: 2px; }
+@media (pointer: coarse) {
+  .fleet-offer-button { min-height: 44px; }
+}
 
 @media (max-width: 900px) and (orientation: portrait) {
   .fleet-portfolio-open {

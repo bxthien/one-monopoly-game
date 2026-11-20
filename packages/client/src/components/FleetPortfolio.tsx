@@ -1,6 +1,6 @@
 import { useId } from 'react';
-import { X } from 'lucide-react';
-import { BOARD_TILES, INFRA_TILES, LOOP_GROUPS_CONFIG, OneMonopolyEngine, SERVICE_LINES } from '@one-monopoly/shared';
+import { Handshake, X } from 'lucide-react';
+import { BOARD_TILES, getTradeRestriction, INFRA_TILES, LOOP_GROUPS_CONFIG, OneMonopolyEngine, SERVICE_LINES } from '@one-monopoly/shared';
 import type { GameState, Player } from '@one-monopoly/shared';
 import { BoardDialog } from './BoardDialog.js';
 import './fleet-portfolio.css';
@@ -14,16 +14,19 @@ const groups = [
 interface Props {
   gameState: GameState;
   captain: Player;
+  myPlayerId: string | null;
   onClose: () => void;
+  onOfferForTile: (tileId: number) => void;
 }
 
-export function FleetPortfolio({ gameState, captain, onClose }: Props) {
+export function FleetPortfolio({ gameState, captain, myPlayerId, onClose, onOfferForTile }: Props) {
   const titleId = useId();
   const holdings = groups.map(group => ({
     ...group,
     owned: group.tileIds.filter(id => gameState.properties[id]?.ownerId === captain.id),
   })).filter(group => group.owned.length > 0);
   const count = holdings.reduce((total, group) => total + group.owned.length, 0);
+  const hasOutgoingOffer = gameState.tradeOffers?.some(offer => offer.buyerId === myPlayerId);
 
   return (
     <BoardDialog labelledBy={titleId} onClose={onClose}>
@@ -63,6 +66,15 @@ export function FleetPortfolio({ gameState, captain, onClose }: Props) {
                       <span>Cước </span>
                       {awaitingDice ? `${rent / (d1 + d2)} × tổng xúc xắc` : `$${rent}M`}
                     </span>
+                    {myPlayerId && !hasOutgoingOffer && !getTradeRestriction(gameState, myPlayerId, id) && (
+                      <button type="button" className="fleet-offer-button" aria-haspopup="dialog"
+                        aria-label={`Đề nghị mua ${tile.name}`} onClick={() => {
+                          onClose();
+                          onOfferForTile(id);
+                        }}>
+                        <Handshake size={15} aria-hidden="true" /> Đề nghị mua
+                      </button>
+                    )}
                   </li>
                 );
               })}
