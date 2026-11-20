@@ -531,7 +531,7 @@ export const SECRET_MISSIONS: SecretMissionCard[] = [
   },
   {
     id: 'MISSION-2',
-    title: 'Hợp Đồng 2: Di Sản Nhật – Singapore',
+    title: 'Hợp Đồng 2: Di Sản Nhật – Hàn',
     description: 'Sở hữu Tokyo Flagship Hub (JPTYO), Cảng Busan (KRPUS) và 1 Siêu tàu ONE Innovation (Mức 5).',
     reward: 500,
     isCompleted: false,

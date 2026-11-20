@@ -35,6 +35,7 @@ import {
   STORM_TUG_FEE,
 } from './boardData.js';
 import { dispatchTrade, expireTradeOffers } from './trade.js';
+import { getMissionProgress } from './missionProgress.js';
 
 function shuffle<T>(array: T[]): T[] {
   const result = [...array];
@@ -1206,69 +1207,24 @@ export class OneMonopolyEngine {
     if (!player.secretMission || player.secretMission.isCompleted || player.isBankrupt) return;
 
     const mission = player.secretMission;
-    let completed = false;
+    const progress = getMissionProgress(state, player.id);
+    if (!progress || progress.current < progress.target) return;
 
-    switch (mission.id) {
-      case 'MISSION-1':
-        // Cái Mép (3), Los Angeles (23), Tuyến PS3 (28)
-        completed =
-          state.properties[3]?.ownerId === player.id &&
-          state.properties[23]?.ownerId === player.id &&
-          state.properties[28]?.ownerId === player.id;
-        break;
-
-      case 'MISSION-2':
-        // Tokyo (31), Busan (17), and 1 Siêu tàu ONE Innovation (level 5)
-        completed =
-          state.properties[31]?.ownerId === player.id &&
-          state.properties[17]?.ownerId === player.id &&
-          Object.values(state.properties).some(
-            (p) => p.ownerId === player.id && p.containerLevel === 5
-          );
-        break;
-
-      case 'MISSION-3':
-        // ONE QUOTE (10), ONE Eco Calculator (22), and at least 1 Green Fleet
-        completed =
-          state.properties[10]?.ownerId === player.id &&
-          state.properties[22]?.ownerId === player.id &&
-          Object.values(state.properties).some(
-            (p) => p.ownerId === player.id && p.hasGreenFleet
-          );
-        break;
-
-      case 'MISSION-4':
-        // At least 3 of 4 service lines (4, 13, 20, 28)
-        completed =
-          SERVICE_LINES.filter((id) => state.properties[id]?.ownerId === player.id).length >= 3;
-        break;
-
-      case 'MISSION-5':
-        // Intra-Asia (1, 3) and Tuyến VSS (4)
-        completed =
-          state.properties[1]?.ownerId === player.id &&
-          state.properties[3]?.ownerId === player.id &&
-          state.properties[4]?.ownerId === player.id;
-        break;
-    }
-
-    if (completed) {
-      mission.isCompleted = true;
-      player.balance += mission.reward;
-      events.push({
-        type: 'MISSION_COMPLETED',
-        playerId: player.id,
-        mission,
-        reward: mission.reward,
-      });
-      events.push({
-        type: 'BALANCE_CHANGED',
-        playerId: player.id,
-        newBalance: player.balance,
-        delta: mission.reward,
-        reason: `Hoàn thành ${mission.title}`,
-      });
-    }
+    mission.isCompleted = true;
+    player.balance += mission.reward;
+    events.push({
+      type: 'MISSION_COMPLETED',
+      playerId: player.id,
+      mission,
+      reward: mission.reward,
+    });
+    events.push({
+      type: 'BALANCE_CHANGED',
+      playerId: player.id,
+      newBalance: player.balance,
+      delta: mission.reward,
+      reason: `Hoàn thành ${mission.title}`,
+    });
   }
 
   private static handleMortgageTile(
@@ -1454,6 +1410,7 @@ export class OneMonopolyEngine {
             prop.slotCharter = null;
           }
         }
+        OneMonopolyEngine.checkMissionCompletion(state, events, creditor);
       }
     } else {
       // Bank liquidation: reset all properties to unowned

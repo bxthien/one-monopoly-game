@@ -1,4 +1,4 @@
-import React, { useState, useLayoutEffect } from 'react';
+import React, { useLayoutEffect } from 'react';
 import { BOARD_TILES, GameAction, GameCard, GameState, OneMonopolyEngine, Player } from '@one-monopoly/shared';
 import { TileView } from './TileView.js';
 import { DiceView } from './DiceView.js';
@@ -21,6 +21,9 @@ interface Props {
   myPlayerId: string | null;
   onAction: (action: GameAction) => void;
   onOfferForTile: (tileId: number) => void;
+  selectedTileId: number | null;
+  onSelectTile: (tileId: number | null) => void;
+  missionTargetIds?: readonly number[];
   isRolling: boolean;
   activeCard: GameCard | null;
   onCloseCard: () => void;
@@ -173,6 +176,9 @@ export const Board: React.FC<Props> = ({
   myPlayerId,
   onAction,
   onOfferForTile,
+  selectedTileId,
+  onSelectTile,
+  missionTargetIds,
   isRolling,
   activeCard,
   onCloseCard,
@@ -180,8 +186,6 @@ export const Board: React.FC<Props> = ({
   onPawnMovingChange,
   onRentReceiptsChange,
 }) => {
-  const [selectedTileId, setSelectedTileId] = useState<number | null>(null);
-
   const idleMotion = useIdleMotion();
   const allowIdle = idleMotion && selectedTileId === null && !activeCard && !gameState.winnerId;
   const { tracks, claims, rentReceipts, pendingRentReceipts, advance } = useBoardPlayback(gameState, subscribeBoard);
@@ -301,13 +305,14 @@ export const Board: React.FC<Props> = ({
                     property={prop}
                     claim={claims[tile.id]}
                     auctioned={gameState.auction?.tileId === tile.id}
+                    missionTarget={missionTargetIds?.includes(tile.id)}
                     receipt={rentReceipts[tile.id]}
                     owner={owner}
                     currentRent={currentRent}
                     orientation={getTileOrientation(tile.id)}
                     is3D={is3D}
                     myPlayerId={myPlayerId}
-                    onClick={() => setSelectedTileId(tile.id)}
+                    onClick={() => onSelectTile(tile.id)}
                   />
                 </div>
               );
@@ -431,14 +436,14 @@ export const Board: React.FC<Props> = ({
         tileId={selectedTileId}
         gameState={gameState}
         myPlayerId={myPlayerId}
-        onClose={() => setSelectedTileId(null)}
+        onClose={() => onSelectTile(null)}
         onOfferForTile={(id) => {
-          setSelectedTileId(null);
+          onSelectTile(null);
           onOfferForTile(id);
         }}
         onAction={(action) => {
           onAction(action);
-          setSelectedTileId(null);
+          onSelectTile(null);
         }}
       />
 

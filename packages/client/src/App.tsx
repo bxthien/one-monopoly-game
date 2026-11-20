@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BOARD_TILES, GameCard, STORM_DRIFT_STEPS, STORM_TUG_FEE } from '@one-monopoly/shared';
+import { BOARD_TILES, GameCard, getMissionProgress, STORM_DRIFT_STEPS, STORM_TUG_FEE } from '@one-monopoly/shared';
 import { useSocket } from './hooks/useSocket.js';
 import { Lobby } from './components/Lobby.js';
 import { Board } from './components/Board.js';
@@ -7,6 +7,7 @@ import { getBoardLighting } from './components/boardLighting.js';
 import { PlayerSidebar } from './components/PlayerSidebar.js';
 import { TradeDesk } from './components/TradeDesk.js';
 import { ActionControls } from './components/ActionControls.js';
+import { SecretMissionCardView } from './components/SecretMissionCardView.js';
 import { ReactionFloatingBar } from './components/ReactionFloatingBar.js';
 import type { RentReceipt } from './components/useBoardPlayback.js';
 import { GameOverModal } from './components/GameOverModal.js';
@@ -46,12 +47,14 @@ export const App: React.FC = () => {
   const [eventLogs, setEventLogs] = useState<string[]>([]);
   const [boardNotice, setBoardNotice] = useState<{ type: 'auction' | 'trade'; text: string } | null>(null);
   const [tradeDesk, setTradeDesk] = useState<{ tileId: number | null } | null>(null);
+  const [selectedTileId, setSelectedTileId] = useState<number | null>(null);
+  const [showMissionTargets, setShowMissionTargets] = useState(false);
   const openTrades = (tileId: number | null = null) => setTradeDesk({ tileId });
   const [is3D, setIs3D] = useState(true);
 
   // Khi xúc xắc đã dừng và nhân vật đã lướt tới bến đích -> Mới hiển thị thẻ bài (Chance/Chest)
   useEffect(() => {
-    if (!tradeDesk && !isRolling && !isPawnMoving && pendingCardRef.current) {
+    if (!tradeDesk && selectedTileId === null && !isRolling && !isPawnMoving && pendingCardRef.current) {
       const card = pendingCardRef.current;
       const timer = setTimeout(() => {
         if (pendingCardRef.current !== card) return;
@@ -60,7 +63,7 @@ export const App: React.FC = () => {
       }, 300);
       return () => clearTimeout(timer);
     }
-  }, [isRolling, isPawnMoving, tradeDesk]);
+  }, [isRolling, isPawnMoving, tradeDesk, selectedTileId]);
 
   // Pair each event with the exact board snapshot that produced it.
   useEffect(() => subscribeBoard((state, events) => {
@@ -143,7 +146,8 @@ export const App: React.FC = () => {
       } else if (evt.type === 'SLOT_CHARTER_RENT_SPLIT') {
         logMsg = `⚓ Chủ cảng nhận $${evt.ownerAmount ?? evt.splitAmount}M, đối tác nhận $${evt.splitAmount}M`;
       } else if (evt.type === 'MISSION_COMPLETED') {
-        logMsg = `🎯 Hoàn thành ${evt.mission.title} (+${evt.reward}M)!`;
+        const captain = state.players.find(player => player.id === evt.playerId);
+        logMsg = `🎯 ${captain?.name ?? 'Thuyền trưởng'} hoàn thành ${evt.mission.title} (+$${evt.reward}M)!`;
       } else if (evt.type === 'CARBON_TAX_EXEMPTED') {
         logMsg = `🌱 Miễn 100% Thuế Carbon nhờ Tàu Nhiên Liệu Xanh`;
       } else if (evt.type === 'PLAYER_BANKRUPT') {
@@ -157,8 +161,13 @@ export const App: React.FC = () => {
   }), [subscribeBoard, myPlayerId]);
 
   const activePlayer = gameState?.players[gameState.activePlayerIndex];
-  const canOpenTrades = !!myPlayerId && !gameState?.winnerId &&
-    gameState?.players.some(player => player.id === myPlayerId && !player.isBankrupt);
+  const captain = gameState?.players.find(player => player.id === myPlayerId);
+  const canOpenTrades = captain && !captain.isBankrupt && !gameState?.winnerId;
+  const mission = React.useMemo(() => gameState && myPlayerId ? getMissionProgress(gameState, myPlayerId) : null,
+    [gameState, myPlayerId]);
+  const missionTargetIds = showMissionTargets && mission && !captain?.secretMission?.isCompleted && !captain?.isBankrupt
+    ? mission.objectives.flatMap(objective => !objective.achieved && objective.tileId !== undefined ? [objective.tileId] : [])
+    : [];
   const incoming = gameState?.tradeOffers?.filter(offer => offer.sellerId === myPlayerId).length ?? 0;
   const sky = gameState && getBoardLighting({
     turnCount: gameState.turnCount,
@@ -244,6 +253,9 @@ export const App: React.FC = () => {
                 sky={sky}
                 subscribeBoard={subscribeBoard}
                 myPlayerId={myPlayerId}
+                selectedTileId={selectedTileId}
+                onSelectTile={setSelectedTileId}
+                missionTargetIds={missionTargetIds}
                 onAction={sendAction}
                 onOfferForTile={openTrades}
                 isRolling={isRolling}
@@ -274,6 +286,11 @@ export const App: React.FC = () => {
                 isRolling={isRolling}
                 isPawnMoving={isPawnMoving}
               />
+              {captain && mission && (!captain.isBankrupt || captain.secretMission?.isCompleted) && (
+                <SecretMissionCardView gameState={gameState} player={captain} progress={mission}
+                  showTargets={showMissionTargets} onToggleTargets={() => setShowMissionTargets(value => !value)}
+                  onInspectTile={setSelectedTileId} />
+              )}
             </div>
             <ReactionFloatingBar reactions={reactions} onSendReaction={sendReaction} />
           </aside>

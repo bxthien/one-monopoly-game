@@ -1,7 +1,18 @@
 import { Server as HttpServer } from 'node:http';
 import { Server, Socket } from 'socket.io';
-import { GameAction, VesselToken } from '@one-monopoly/shared';
+import { GameAction, GameState, VesselToken } from '@one-monopoly/shared';
 import { getTimerPlayerId, Room, RoomManager } from './roomManager.js';
+
+export function gameStateForPlayer(state: GameState, viewerId: string | undefined): GameState {
+  return {
+    ...state,
+    players: state.players.map((player) => {
+      if (player.id === viewerId || !player.secretMission || player.secretMission.isCompleted) return player;
+      const { secretMission, ...publicPlayer } = player;
+      return publicPlayer;
+    }),
+  };
+}
 
 export function setupSocketServer(httpServer: HttpServer): { io: Server; roomManager: RoomManager } {
   const io = new Server(httpServer, {
@@ -27,7 +38,11 @@ export function setupSocketServer(httpServer: HttpServer): { io: Server; roomMan
 
   const roomManager = new RoomManager({
     onBroadcastUpdate: (roomId, state, events) => {
-      io.to(roomId).emit('game:update', { state, events });
+      const room = roomManager.getRoom(roomId);
+      if (!room) return;
+      for (const [socketId, playerId] of room.socketToPlayer) {
+        io.to(socketId).emit('game:update', { state: gameStateForPlayer(state, playerId), events });
+      }
     },
     onTimerTick: (roomId, remainingSeconds, playerId) => {
       io.to(roomId).emit('game:timer', { remainingSeconds, playerId });
@@ -98,8 +113,8 @@ export function setupSocketServer(httpServer: HttpServer): { io: Server; roomMan
         io.to(result.room.id).emit('room:state', serialized);
 
         // If reconnecting to an ongoing game, send latest GameState
-        if (result.isReconnect && result.room.gameState) {
-          const state = result.room.gameState;
+        const state = result.room.gameState && gameStateForPlayer(result.room.gameState, result.playerId);
+        if (result.isReconnect && state) {
           socket.emit('game:init', {
             state,
           });
@@ -119,7 +134,7 @@ export function setupSocketServer(httpServer: HttpServer): { io: Server; roomMan
             sessionToken: result.sessionToken,
             room: serialized,
             isReconnect: result.isReconnect,
-            gameState: result.room.gameState,
+            gameState: state,
           });
         }
       }
@@ -150,7 +165,10 @@ export function setupSocketServer(httpServer: HttpServer): { io: Server; roomMan
         callback?: (res: any) => void
       ) => {
         const result = roomManager.dispatchSocketAction(socket.id, data);
-        if (callback) callback(result);
+        if (callback) {
+          // A successful dispatch has matched data.playerId to this socket's seat.
+          callback(result.state ? { ...result, state: gameStateForPlayer(result.state, data.playerId) } : result);
+        }
       }
     );
 

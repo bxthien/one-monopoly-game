@@ -110,7 +110,7 @@ Mô phỏng chân thực nghiệp vụ liên minh hàng hải thực tế:
 ### 5.3. Thẻ Hợp Đồng Chiến Lược Premier Alliance (Secret Missions)
 Đầu ván đấu, mỗi thuyền trưởng được bốc bí mật **1 Hợp Đồng Chiến Lược**. Hoàn thành điều kiện sẽ mở khóa tiền mặt thưởng ngay lập tức:
 - **Hợp Đồng 1: Cầu Nối Việt Nam – Mỹ:** Sở hữu đồng thời Cảng Cái Mép (VNVUT), Los Angeles (USLAX) và Tuyến PS3 $\rightarrow$ **Thưởng ngay $400M**.
-- **Hợp Đồng 2: Di Sản Nhật – Singapore:** Sở hữu Tokyo Hub (JPTYO), Busan (KRPUS) và 1 Siêu tàu ONE Innovation (Mức 5) $\rightarrow$ **Thưởng ngay $500M**.
+- **Hợp Đồng 2: Di Sản Nhật – Hàn:** Sở hữu Tokyo Hub (JPTYO), Busan (KRPUS) và 1 Siêu tàu ONE Innovation (Mức 5) $\rightarrow$ **Thưởng ngay $500M**.
 - **Hợp Đồng 3: Tiên Phong Số & Xanh:** Sở hữu cả ONE QUOTE, ONE Eco Calculator và có ít nhất 1 Huy hiệu Tàu Nhiên Liệu Xanh $\rightarrow$ **Thưởng ngay $350M**.
 - **Hợp Đồng 4: Vua Tuyến Huyết Mạch:** Sở hữu ít nhất 3 trong 4 Tuyến Dịch Vụ (VSS, MD2, FE2, PS3) $\rightarrow$ **Thưởng ngay $450M**.
 - **Hợp Đồng 5: Trục Vận Tải Châu Á Thần Tốc:** Sở hữu trọn bộ Tuyến Intra-Asia (Cát Lái, Cái Mép) và Tuyến VSS $\rightarrow$ **Thưởng ngay $350M**.

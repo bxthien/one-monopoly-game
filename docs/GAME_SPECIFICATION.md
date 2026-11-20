@@ -143,7 +143,7 @@ Khi đang ở `CUSTOMS_HOLD`, người chơi có 3 cách để thoát:
 - Đầu ván, mỗi thuyền trưởng được hệ thống phát ngẫu nhiên **1 thẻ nhiệm vụ bí mật** (giữ kín với đối thủ cho đến khi hoàn thành).
 - Giúp định hướng mục tiêu sớm và tạo bất ngờ lớn:
   - **Hợp đồng 1 – Cầu Nối Việt Nam – Mỹ:** Sở hữu đồng thời Cảng Cái Mép (`VNVUT`), Cảng Los Angeles (`USLAX`) và Tuyến `PS3` $\rightarrow$ Thưởng ngay **$400M**.
-  - **Hợp đồng 2 – Di Sản Nhật – Singapore:** Sở hữu Cụm cảng Tokyo Hub (`JPTYO`), Cảng Busan (`KRPUS`) và 1 Siêu tàu ONE Innovation $\rightarrow$ Thưởng ngay **$500M**.
+  - **Hợp đồng 2 – Di Sản Nhật – Hàn:** Sở hữu Cụm cảng Tokyo Hub (`JPTYO`), Cảng Busan (`KRPUS`) và 1 Siêu tàu ONE Innovation $\rightarrow$ Thưởng ngay **$500M**.
   - **Hợp đồng 3 – Tiên Phong Số & Xanh:** Sở hữu cả 2 nền tảng `ONE QUOTE`, `ONE Eco Calculator` và có ít nhất 1 Huy hiệu Tàu Nhiên Liệu Xanh $\rightarrow$ Thưởng ngay **$350M**.
   - **Hợp đồng 4 – Vua Tuyến Dịch Vụ Huyết Mạch:** Sở hữu ít nhất 3 trong 4 Tuyến Dịch Vụ Toàn Cầu (`VSS`, `MD2`, `FE2`, `PS3`) $\rightarrow$ Thưởng ngay **$450M**.
   - **Hợp đồng 5 – Trục Vận Tải Châu Á Thần Tốc:** Sở hữu trọn bộ Tuyến Intra-Asia (`VNSGN`, `VNVUT`) và Cảng Port Klang (`MYPKG`) $\rightarrow$ Thưởng ngay **$350M**.

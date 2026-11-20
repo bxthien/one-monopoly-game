@@ -5,6 +5,7 @@ import { Anchor, ArrowUpRight, Boxes, Coins, FileText, Flag, Handshake, Leaf, Ra
 import type { RentReceipt } from './useBoardPlayback.js';
 import './tile-claim.css';
 import './tile-rent.css';
+import './tile-mission.css';
 
 const tileSymbols: Partial<Record<BoardTile['type'], typeof Anchor>> = {
   GO: ArrowUpRight,
@@ -24,6 +25,7 @@ interface Props {
   owner?: Player;
   claim?: { playerId: string; tileId: number; price: number };
   auctioned?: boolean;
+  missionTarget?: boolean;
   receipt?: RentReceipt;
   playersOnTile?: Player[];
   currentRent?: number;
@@ -40,6 +42,7 @@ export const TileView: React.FC<Props> = ({
   owner,
   claim,
   auctioned,
+  missionTarget,
   receipt,
   playersOnTile,
   currentRent,
@@ -142,6 +145,7 @@ export const TileView: React.FC<Props> = ({
       aria-haspopup="dialog"
       data-tile-type={tile.type}
       data-auction={auctioned || undefined}
+      data-mission-target={missionTarget || undefined}
       data-claim-edge={isFreshClaim ? orientation : undefined}
       data-has-rent={receipt ? 'true' : undefined}
       onClick={onClick}
@@ -154,7 +158,7 @@ export const TileView: React.FC<Props> = ({
         transformStyle: is3D ? 'preserve-3d' : undefined,
       } as React.CSSProperties}
     >
-      <span className="sr-only">Xem chi tiết ô {tile.name}. {auctioned && 'Đang đấu giá. '}{owner && `Chủ sở hữu: ${owner.name}. `}</span>
+      <span className="sr-only">Xem chi tiết ô {tile.name}. {missionTarget && 'Mục tiêu nhiệm vụ của bạn. '}{auctioned && 'Đang đấu giá. '}{owner && `Chủ sở hữu: ${owner.name}. `}</span>
       {/* KHUNG NỘI DUNG XOAY ĐỒNG BỘ: Vạch màu nằm INSIDE để luôn ở phía trên của mã cảng và song song với chữ */}
       <span
         className={`tile-content flex-1 flex flex-col items-center justify-between p-0.5 w-full h-full text-center ${is3D && (orientation === 'left' || orientation === 'right') ? 'rotate-90' : ''}`}
@@ -197,6 +201,13 @@ export const TileView: React.FC<Props> = ({
         </span>
       </span>
 
+      {missionTarget && (
+        <svg className="tile-mission-mark" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <circle cx="12" cy="12" r="10.7" fill="#124d50" stroke="#fff3ca" strokeWidth="1.8" />
+          <path d="M12 3.6l2.1 6.3 6.3 2.1-6.3 2.1-2.1 6.3-2.1-6.3L3.6 12l6.3-2.1z" fill="#ffdb79" />
+          <path d="M12 3.6v8.4L9.9 9.9zM20.4 12H12l2.1-2.1zM12 20.4V12l2.1 2.1zM3.6 12H12l-2.1 2.1z" fill="#fff9e5" />
+        </svg>
+      )}
       {owner && (
         <span className="tile-owner-pennant" title={`Chủ sở hữu: ${owner.name}`} aria-hidden="true">
           <Flag />
