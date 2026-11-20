@@ -86,7 +86,7 @@ export const PlayerSidebar: React.FC<Props> = ({ gameState, myPlayerId, turnTime
                     <div className="freight-manifest">
                       {cargo ? (
                         <>
-                          <strong>{cargo.kind === 'laden' ? 'Container hàng' : 'Điều chuyển vỏ rỗng'}</strong>
+                          <strong>{cargo.reeferDueRound !== undefined ? '❄ Container lạnh' : cargo.kind === 'laden' ? 'Container hàng' : 'Điều chuyển vỏ rỗng'}</strong>
                           <p>{harborName(cargo.originTileId)} <span aria-hidden="true">→</span><span className="sr-only">đến </span> {harborName(cargo.destinationTileId)}</p>
                           <small>Mã đặt chỗ {cargo.bookingId}</small>
                         </>

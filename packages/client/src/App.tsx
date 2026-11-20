@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BOARD_TILES, GameCard, getMissionProgress, STORM_DRIFT_STEPS, STORM_TUG_FEE } from '@one-monopoly/shared';
+import { BOARD_TILES, GameCard, getMissionProgress, getVoyagePayment, STORM_DRIFT_STEPS, STORM_TUG_FEE } from '@one-monopoly/shared';
 import { useSocket } from './hooks/useSocket.js';
 import { Lobby } from './components/Lobby.js';
 import { Board } from './components/Board.js';
@@ -8,12 +8,14 @@ import { PlayerSidebar } from './components/PlayerSidebar.js';
 import { TradeDesk } from './components/TradeDesk.js';
 import { ActionControls } from './components/ActionControls.js';
 import { FreightDesk } from './components/CargoManifest.js';
+import { FreightMarketBoard } from './components/FreightMarketBoard.js';
+import { VoyageLog } from './components/VoyageLog.js';
 import { portGuide } from './components/ports/portGuide.js';
 import { SecretMissionCardView } from './components/SecretMissionCardView.js';
 import { ReactionFloatingBar } from './components/ReactionFloatingBar.js';
 import type { RentReceipt } from './components/useBoardPlayback.js';
 import { GameOverModal } from './components/GameOverModal.js';
-import { AlertCircle, BookOpen, Box, CloudLightning, CloudRain, Compass, Gavel, Handshake, LifeBuoy, LogOut, Map, MapPin, Moon, Radio, Sun, Truck, X } from 'lucide-react';
+import { AlertCircle, BookOpen, Box, CloudLightning, CloudRain, Compass, Gavel, Handshake, LifeBuoy, LogOut, Map, MapPin, Moon, Radio, Route, Store, Sun, Truck, X } from 'lucide-react';
 
 const noticeIcons = { auction: Gavel, trade: Handshake, debt: LifeBuoy, freight: Truck };
 const weatherReadouts = {
@@ -57,6 +59,8 @@ export const App: React.FC = () => {
   const [eventLogs, setEventLogs] = useState<string[]>([]);
   const [boardNotice, setBoardNotice] = useState<{ type: keyof typeof noticeIcons; text: string } | null>(null);
   const [tradeDesk, setTradeDesk] = useState<{ tileId: number | null } | null>(null);
+  const [freightTool, setFreightTool] = useState<'market' | 'voyages' | null>(null);
+  useEffect(() => { setFreightTool(null); }, [room?.id]);
   const [selectedTileId, setSelectedTileId] = useState<number | null>(null);
   const [showMissionTargets, setShowMissionTargets] = useState(false);
   const openTrades = (tileId: number | null = null) => setTradeDesk({ tileId });
@@ -103,7 +107,14 @@ export const App: React.FC = () => {
 
       // Add to event logs
       let logMsg = '';
-      if (evt.type === 'FREIGHT_TENDER_BID') {
+      if (evt.type === 'BACKHAUL_ACCEPTED' || evt.type === 'BACKHAUL_EXPIRED' || evt.type === 'BACKHAUL_FULFILLED') {
+        const who = state.players.find(player => player.id === evt.playerId)?.name ?? 'Đội tàu';
+        const port = portGuide[BOARD_TILES[evt.job.destinationTileId].code].name;
+        if (evt.type === 'BACKHAUL_ACCEPTED') logMsg = `${who} nhận chuyến về ${port}, hạn vòng ${evt.job.deadlineRound}.`;
+        else if (evt.type === 'BACKHAUL_FULFILLED') logMsg = `${who} hoàn thành chuyến về ${port}.`;
+        else logMsg = `Chuyến về ${port} của ${who} đã hết hiệu lực.`;
+        setBoardNotice({ type: 'freight', text: logMsg });
+      } else if (evt.type === 'FREIGHT_TENDER_BID') {
         const who = state.players.find(player => player.id === evt.playerId)?.name ?? 'Một đội tàu';
         logMsg = `${who} đã gửi chào giá kín cho chủ hàng.`;
       } else if (evt.type === 'FREIGHT_TENDER_AWARDED' || evt.type === 'FREIGHT_CONTRACT_FULFILLED' || evt.type === 'FREIGHT_CONTRACT_EXPIRED') {
@@ -116,14 +127,18 @@ export const App: React.FC = () => {
       } else if (evt.type === 'CARGO_LOADED' || evt.type === 'CARGO_UNLOADED' || evt.type === 'CARGO_DESTINATION_CHANGED') {
         const who = state.players.find(p => p.id === evt.playerId)?.name ?? 'Thuyền trưởng';
         const to = portGuide[BOARD_TILES[evt.destinationTileId].code].name;
-        const box = evt.kind === 'empty' ? 'container rỗng' : 'container hàng';
+        const box = evt.reeferDueRound !== undefined ? 'container lạnh' : evt.kind === 'empty' ? 'container rỗng' : 'container hàng';
         if (evt.type === 'CARGO_LOADED') logMsg = `${who} đã xếp ${box} lên tàu đi ${to}.`;
-        else if (evt.type === 'CARGO_UNLOADED') logMsg = `${who} giao ${box} cho xe tại ${to}, nhận $${evt.reward}M.`;
+        else if (evt.type === 'CARGO_UNLOADED') {
+          logMsg = `${who} giao ${box} cho xe tại ${to}, nhận $${getVoyagePayment(evt)}M.`;
+        }
         else logMsg = `${who} đổi cảng đích của ${box} từ ${portGuide[BOARD_TILES[evt.previousDestinationTileId].code].name} sang ${to}.`;
         setBoardNotice({ type: 'freight', text: logMsg });
       } else if (state.mode === 'logistics' && evt.type === 'SHIP_STEPPED') {
         const who = state.players.find(p => p.id === evt.playerId)?.name ?? 'Thuyền trưởng';
-        logMsg = `${who} cập cảng ${portGuide[BOARD_TILES[evt.to].code].name}.`;
+        logMsg = evt.feeder
+          ? `${who} dùng chuyến trung chuyển để cập cảng ${portGuide[BOARD_TILES[evt.to].code].name}.`
+          : `${who} cập cảng ${portGuide[BOARD_TILES[evt.to].code].name}.`;
         setBoardNotice(null);
       } else if (evt.type === 'LOGISTICS_TURN_ENDED') {
         setBoardNotice(null);
@@ -278,6 +293,14 @@ export const App: React.FC = () => {
                   <span className="chart-weather-readout" role="status"><conditions.Icon size={13} aria-hidden="true" />{sky.label} · {conditions.label}</span>
                 </div>
               </div>
+              {freightGame && <div className="freight-chart-tools" role="group" aria-label="Công cụ vận tải">
+                <button type="button" data-freight-tool="market" aria-haspopup="dialog" onClick={() => setFreightTool('market')}>
+                  <Store size={15} aria-hidden="true" />Thị trường cảng
+                </button>
+                <button type="button" data-freight-tool="voyages" aria-haspopup="dialog" onClick={() => setFreightTool('voyages')}>
+                  <Route size={15} aria-hidden="true" />Sổ chuyến
+                </button>
+              </div>}
               {canOpenTrades && (
                 <button type="button" className="chart-trade-open" onClick={() => openTrades()} aria-haspopup="dialog"
                   aria-label={incoming ? `Giao dịch, ${incoming} đề nghị đang chờ` : 'Giao dịch'} aria-expanded={!!tradeDesk}>
@@ -341,7 +364,12 @@ export const App: React.FC = () => {
             <TradeDesk gameState={gameState} myPlayerId={myPlayerId} initialTileId={tradeDesk.tileId}
               onAction={sendAction} onClose={() => setTradeDesk(null)} />
           )}
-          <GameOverModal gameState={gameState} onRestart={leaveRoom} />
+          {freightGame && !gameState.winnerId && freightTool === 'market' &&
+            <FreightMarketBoard gameState={gameState} myPlayerId={myPlayerId} onClose={() => setFreightTool(null)}
+              onSelectPort={setSelectedTileId} />}
+          {freightGame && !gameState.winnerId && freightTool === 'voyages' &&
+            <VoyageLog gameState={gameState} myPlayerId={myPlayerId} onClose={() => setFreightTool(null)} />}
+          <GameOverModal gameState={gameState} myPlayerId={myPlayerId} onRestart={leaveRoom} />
         </main>
       )}
     </div>

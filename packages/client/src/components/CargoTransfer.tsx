@@ -7,7 +7,7 @@ interface Transfer {
   tileId: number;
   revision: number;
   operation: 'load' | 'unload';
-  kind: 'laden' | 'empty';
+  kind: 'laden' | 'empty' | 'reefer';
 }
 
 export function useCargoTransfer(subscribe: SubscribeBoard) {
@@ -26,7 +26,8 @@ export function useCargoTransfer(subscribe: SubscribeBoard) {
       if (handling && lastRevision.current !== revision) {
         lastRevision.current = revision;
         setTransfer({
-          playerId: handling.playerId, tileId: handling.tileId, kind: handling.kind, revision,
+          playerId: handling.playerId, tileId: handling.tileId, revision,
+          kind: handling.reeferDueRound !== undefined ? 'reefer' : handling.kind,
           operation: handling.type === 'CARGO_LOADED' ? 'load' : 'unload',
         });
       } else {

@@ -70,6 +70,7 @@ export interface SecretMissionCard {
 export type GameMode = 'classic' | 'logistics';
 export type CargoKind = 'laden' | 'empty';
 export interface CargoBooking {
+  reeferDueRound?: number;
   bookingId: number;
   kind: CargoKind;
   originTileId: number;
@@ -77,9 +78,33 @@ export interface CargoBooking {
 }
 export interface FreightQuote { distanceNm: number; reward: number }
 export interface DeliveryReceipt extends CargoBooking, FreightQuote {
+  backhaulBonus?: number;
+  reeferBonus?: number;
   tileId: number;
   tenderId?: number;
   tenderBonus?: number;
+}
+export interface BackhaulJob {
+  bookingId: number;
+  originTileId: number;
+  destinationTileId: number;
+  offeredRound: number;
+  deadlineRound: number;
+  status: 'offered' | 'active' | 'fulfilled' | 'expired';
+}
+export interface BackhaulAccept { type: 'ACCEPT_BACKHAUL'; bookingId: number; revision: number }
+export interface VoyageLogEntry {
+  bookingId: number;
+  playerId: string;
+  round: number;
+  originTileId: number;
+  destinationTileId: number;
+  kind: CargoKind;
+  distanceNm: number;
+  baseFreight: number;
+  reeferBonus?: number;
+  tenderBonus?: number;
+  backhaulBonus?: number;
 }
 export interface FreightTender {
   id: number;
@@ -110,6 +135,11 @@ export interface FreightMarket {
 export interface FreightTenderBid { type: 'BID_FREIGHT_TENDER'; tenderId: number; amount: number; revision: number }
 export interface PortStock { supply: number; demand: number; empties: number; emptyTarget: number }
 export interface LogisticsState {
+  voyageLog?: VoyageLogEntry[];
+  /** New freight games grant each captain one short second sail for the whole match. */
+  feederAvailable?: Record<string, boolean>;
+  backhaulEnabled?: true;
+  reeferSlots?: Record<number, number>; // Origin tile to most recent cold-chain pickup round.
   market?: FreightMarket; // Logistics saves created before tenders have no market.
   ports: Record<number, PortStock>;
   deliveries: Record<string, number>;
@@ -133,6 +163,9 @@ export interface Player {
   secretMission?: SecretMissionCard;
   cargo?: CargoBooking;
   lastDelivery?: DeliveryReceipt;
+  backhaul?: BackhaulJob;
+  lastBackhaul?: BackhaulJob;
+  lastBackhaulPaidRound?: number;
 }
 
 export type CardType = 'MARKET' | 'OPS';
@@ -243,13 +276,15 @@ export interface GameState {
 export type StormChoice = 'TUG' | 'DRIFT';
 
 export type CargoAction =
-  | { type: 'LOAD_CARGO'; tileId: number; kind: CargoKind; destinationTileId: number; revision: number }
+  | { type: 'LOAD_CARGO'; tileId: number; kind: CargoKind; reefer?: true; destinationTileId: number; revision: number }
   | { type: 'UNLOAD_CARGO'; tileId: number; originTileId: number; bookingId: number; revision: number };
 export type DestinationChange = { type: 'CHANGE_DESTINATION'; bookingId: number; destinationTileId: number; revision: number };
 export type SailAction = { type: 'SAIL_TO_PORT'; tileId: number; revision: number };
+export type FeederSailAction = { type: 'SAIL_FEEDER'; tileId: number; revision: number };
 
 export type GameAction =
-  | CargoAction | DestinationChange | SailAction | FreightTenderBid
+  | BackhaulAccept
+  | CargoAction | DestinationChange | SailAction | FeederSailAction | FreightTenderBid
   | { type: 'OFFER_TRADE'; tileId: number; sellerId: string; price: number }
   | { type: 'RESPOND_TRADE'; offerId: number; accept: boolean }
   | { type: 'CANCEL_TRADE'; offerId: number }
@@ -274,6 +309,7 @@ export type GameAction =
   | { type: 'END_TURN' };
 
 export type GameEvent =
+  | { type: 'BACKHAUL_ACCEPTED' | 'BACKHAUL_EXPIRED' | 'BACKHAUL_FULFILLED'; playerId: string; job: BackhaulJob }
   | { type: 'FREIGHT_TENDER_BID'; tenderId: number; playerId: string }
   | ({ type: 'FREIGHT_TENDER_AWARDED' } & FreightAward)
   | ({ type: 'FREIGHT_CONTRACT_EXPIRED' } & FreightAward)
@@ -288,7 +324,7 @@ export type GameEvent =
   | { type: 'AUCTION_ENDED'; tileId: number; winnerId: string | null; price: number }
   | { type: 'STORM_RESOLVED'; playerId: string; choice: StormChoice }
   | { type: 'DICE_ROLLED'; playerId: string; dice: [number, number]; isDouble: boolean }
-  | { type: 'SHIP_STEPPED'; playerId: string; from: number; to: number }
+  | { type: 'SHIP_STEPPED'; playerId: string; from: number; to: number; feeder?: true }
   | { type: 'PASSED_GO'; playerId: string; reward: number }
   | { type: 'SENT_TO_HOLD'; playerId: string; reason: string }
   | { type: 'RELEASED_FROM_HOLD'; playerId: string; method: 'DICE_DOUBLE' | 'FINE' | 'PASS' }

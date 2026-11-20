@@ -155,6 +155,19 @@
   transform: skewX(-39deg);
 }
 .cargo-transfer[data-view='tilted'][data-cargo-kind='empty'] .cargo-box::before { background: #d7e8e7; }
+[data-cargo-kind='reefer'] .cargo-box, .cargo-box[data-cargo-kind='reefer'] {
+  --crate-base: #d5e9e9;
+  --crate-light: #fffdf0;
+  border-color: #2c7383;
+  border-top-color: #fff;
+}
+[data-cargo-kind='reefer'] .cargo-box::after, .cargo-box[data-cargo-kind='reefer']::after {
+  width: .46em;
+  height: .42em;
+  border: 1px solid #316978;
+  background: repeating-linear-gradient(0deg, #effaff 0 1px, #4e8593 1px 2px);
+}
+.cargo-transfer[data-view='tilted'][data-cargo-kind='reefer'] .cargo-box::before { background: #eef8fa; }
 .cargo-transfer[data-view='tilted'] .cargo-cab {
   background: linear-gradient(140deg, #e5e7c8 0 17%, transparent 19%),
     linear-gradient(90deg, transparent 62%, #31596261 64%), var(--cab);

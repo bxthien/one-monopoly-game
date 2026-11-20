@@ -1,17 +1,20 @@
-import React, { useEffect, useId, useRef } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import confetti from 'canvas-confetti';
 import { getLogisticsStandings, LOGISTICS_DELIVERY_TARGET, LOGISTICS_ROUND_LIMIT, type GameState } from '@one-monopoly/shared';
 import { Trophy, RotateCcw } from 'lucide-react';
 import { BoardDialog } from './BoardDialog.js';
+import { VoyageLog } from './VoyageLog.js';
 import { TokenBadge } from './TokenBadge.js';
 import './freight-scoreboard.css';
 
 interface Props {
   gameState: GameState;
+  myPlayerId?: string | null;
   onRestart: () => void;
 }
 
-export const GameOverModal: React.FC<Props> = ({ gameState, onRestart }) => {
+export const GameOverModal: React.FC<Props> = ({ gameState, myPlayerId = null, onRestart }) => {
+  const [showVoyages, setShowVoyages] = useState(false);
   const titleId = useId();
   const confettiRef = useRef<HTMLCanvasElement>(null);
   const winner = gameState.players.find((player) => player.id === gameState.winnerId);
@@ -79,6 +82,9 @@ export const GameOverModal: React.FC<Props> = ({ gameState, onRestart }) => {
             </div>
           </div>
         )}
+        {!!gameState.logistics?.voyageLog?.length && <button type="button" className="chart-button chart-button-wide"
+          data-freight-tool="voyages-result" aria-haspopup="dialog" onClick={() => setShowVoyages(true)}>Xem sổ chuyến</button>}
+        {showVoyages && <VoyageLog gameState={gameState} myPlayerId={myPlayerId} onClose={() => setShowVoyages(false)} />}
         <button type="button" onClick={onRestart} className="chart-button chart-button-primary chart-button-wide">
           <RotateCcw size={18} aria-hidden="true" /> CHƠI LẠI VÁN MỚI
         </button>

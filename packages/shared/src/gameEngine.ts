@@ -125,7 +125,8 @@ export class OneMonopolyEngine {
       return dispatchLogistics(state, action, actorId ?? state.players[state.activePlayerIndex]?.id);
     }
     if (action.type === 'LOAD_CARGO' || action.type === 'UNLOAD_CARGO' ||
-        action.type === 'SAIL_TO_PORT' || action.type === 'CHANGE_DESTINATION' || action.type === 'BID_FREIGHT_TENDER') return { state, events: [] };
+        action.type === 'SAIL_TO_PORT' || action.type === 'SAIL_FEEDER' || action.type === 'ACCEPT_BACKHAUL' ||
+        action.type === 'CHANGE_DESTINATION' || action.type === 'BID_FREIGHT_TENDER') return { state, events: [] };
     const result = action.type === 'OFFER_TRADE' || action.type === 'RESPOND_TRADE' || action.type === 'CANCEL_TRADE'
       ? dispatchTrade(state, action, actorId, OneMonopolyEngine.checkMissionCompletion)
       : OneMonopolyEngine.dispatchTurnAction(state, action);

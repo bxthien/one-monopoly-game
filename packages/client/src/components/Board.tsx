@@ -389,7 +389,7 @@ export const Board: React.FC<Props> = ({
                   advance={advance}
                 >
                   {player.cargo && transfer?.playerId !== player.id && (
-                    <span className="cargo-box cargo-manifest-box" data-cargo-kind={player.cargo.kind}
+                    <span className="cargo-box cargo-manifest-box" data-cargo-kind={player.cargo.reeferDueRound !== undefined ? 'reefer' : player.cargo.kind}
                       data-cargo-origin={player.cargo.originTileId} aria-hidden="true" />
                   )}
                   {transfer?.playerId === player.id && transfer.tileId === tile && !frame && (

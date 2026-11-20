@@ -1,13 +1,24 @@
 import {
   FREIGHT_TENDER_MAX_BID, FREIGHT_TENDER_MIN_BID, getCargoBookings, getCargoOpportunity,
-  getCargoRedirections, getEmptyNeed, getLogisticsRoutes, getTenderBidAction,
+  getAcceptBackhaulAction, getCargoRedirections, getEmptyNeed, getFeederRoutes, getLogisticsRoutes,
+  getTenderBidAction, isReeferPort, REEFER_ON_TIME_BONUS,
   type FreightTender, type GameAction, type GameState, type Player, type PortStock,
 } from '@one-monopoly/shared';
+
+function bestBooking(state: GameState, captain: Player, choices: ReturnType<typeof getCargoBookings>) {
+  const best = [...choices].sort((a, b) => b.quote.reward - a.quote.reward)[0];
+  if (!best || state.logistics?.hasSailed || best.action.kind === 'empty') return best?.action;
+  const cold = getCargoBookings(state, captain.id, 'laden', true)
+    .filter(reefer => choices.some(choice => choice.tileId === reefer.tileId && choice.action.kind === 'laden'))
+    .sort((a, b) => b.quote.reward - a.quote.reward)[0];
+  return cold && cold.quote.reward + REEFER_ON_TIME_BONUS >= best.quote.reward ? cold.action : best.action;
+}
 
 function quoteNextRound(captain: Player, stock: PortStock, tender: FreightTender): number | null {
   const job = captain.cargo;
   if (job) {
     if (job.kind !== tender.kind || job.originTileId === tender.destinationTileId) return null;
+    if (job.reeferDueRound !== undefined && !isReeferPort(tender.destinationTileId)) return null;
     return FREIGHT_TENDER_MIN_BID + (job.destinationTileId === tender.destinationTileId ? 1 : 4);
   }
   const available = tender.kind === 'laden' ? stock.supply : stock.empties - stock.emptyTarget;
@@ -23,12 +34,15 @@ export function getFreightBotAction(state: GameState): GameAction {
   const discharge = getCargoOpportunity(state, captain.id);
   const contract = operations.market?.contract;
   const owesDelivery = contract?.status === 'active' && contract.playerId === captain.id && contract.deliveryRound === state.turnCount;
+  const backhaul = captain.backhaul;
+  const feederRoutes = operations.hasSailed ? getFeederRoutes(state, captain.id) : [];
   if (owesDelivery) {
     const target = contract.destinationTileId;
-    if (!job && !operations.hasSailed) {
-      const load = getCargoBookings(state, captain.id, contract.kind).find(choice => choice.tileId === target);
-      if (load) return load.action;
-    } else if (job?.kind === contract.kind && (!operations.hasSailed || captain.position === target)) {
+    if (!job && (!operations.hasSailed || feederRoutes.some(route => route.tileId === target))) {
+      const load = bestBooking(state, captain, getCargoBookings(state, captain.id, contract.kind).filter(choice => choice.tileId === target));
+      if (load) return load;
+    } else if (job?.kind === contract.kind && (!operations.hasSailed || captain.position === target ||
+        (discharge?.action.type !== 'UNLOAD_CARGO' && feederRoutes.some(route => route.tileId === target)))) {
       if (job.destinationTileId !== target) {
         const redirect = getCargoRedirections(state, captain.id).find(choice => choice.tileId === target);
         if (redirect) return redirect.action;
@@ -39,6 +53,13 @@ export function getFreightBotAction(state: GameState): GameAction {
     }
   }
   if (discharge?.action.type === 'UNLOAD_CARGO') return discharge.action;
+  if (job && (job.reeferDueRound === state.turnCount ||
+      (owesDelivery && job.kind === contract.kind && job.destinationTileId === contract.destinationTileId) ||
+      (backhaul?.status === 'active' && backhaul.deadlineRound === state.turnCount &&
+        job.originTileId === backhaul.originTileId && job.destinationTileId === backhaul.destinationTileId))) {
+    const feeder = feederRoutes.find(route => route.tileId === job.destinationTileId && route.quote);
+    if (feeder) return feeder.action;
+  }
 
   // Price the next round from the berth and equipment actually available after this voyage.
   const tender = operations.market?.tender;
@@ -56,6 +77,25 @@ export function getFreightBotAction(state: GameState): GameAction {
     }
   }
 
+  const conflictingBid = tender && tender.bids[captain.id] !== undefined && tender.destinationTileId !== backhaul?.destinationTileId;
+  if (backhaul && !owesDelivery && (backhaul.status === 'active' || !conflictingBid)) {
+    const target = backhaul.destinationTileId;
+    const pickup = !job && captain.position === backhaul.originTileId ? bestBooking(state, captain,
+      [...getCargoBookings(state, captain.id, 'laden'), ...getCargoBookings(state, captain.id, 'empty')]
+        .filter(choice => choice.tileId === target)) : undefined;
+    const carriesReturn = job?.originTileId === backhaul.originTileId;
+    const redirect = carriesReturn && job.destinationTileId !== target
+      ? getCargoRedirections(state, captain.id).find(choice => choice.tileId === target) : undefined;
+    if (backhaul.status === 'offered' && (pickup || redirect || (carriesReturn && job.destinationTileId === target))) {
+      const accept = getAcceptBackhaulAction(state, captain.id);
+      if (accept) return accept;
+    }
+    if (backhaul.status === 'active') {
+      if (pickup) return pickup;
+      if (redirect) return redirect.action;
+    }
+  }
+
   if (!job) {
     const exports = getCargoBookings(state, captain.id, 'laden');
     const equipment = getCargoBookings(state, captain.id, 'empty');
@@ -67,7 +107,7 @@ export function getFreightBotAction(state: GameState): GameAction {
       ? equipment.filter(choice => choice.tileId !== tender.destinationTileId && operations.ports[choice.tileId].supply > 0)
       : [];
     const options = [feeder, preferred, preferEmpty ? exports : equipment].find(choices => choices.length);
-    if (options) return [...options].sort((a, b) => b.quote.reward - a.quote.reward)[0].action;
+    if (options) return bestBooking(state, captain, options);
   } else {
     const receiver = operations.ports[job.destinationTileId];
     const canReceive = receiver && (job.kind === 'empty' ? getEmptyNeed(receiver) > 0 : receiver.demand > 0);

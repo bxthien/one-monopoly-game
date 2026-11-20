@@ -2,10 +2,10 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Crosshair, Dices, Globe2, X } from 'lucide-react';
 import { useReducedMotion } from 'framer-motion';
 import { portGuide, type PortArrival, type PortGuide } from './ports/portGuide.js';
+import { atlasPoint, atlasWidth as worldWidth, unwrapAtlasX } from './ports/atlasGeometry.js';
 import './world-port-atlas.css';
 
 // The coastline asset uses the same equirectangular WGS84 projection.
-const worldWidth = 360;
 const harborScale = 14;
 const ports = Object.values(portGuide);
 const world = { x: 180, y: 90, scale: 1 };
@@ -32,10 +32,6 @@ const countries: readonly Label[] = [
   ['Australia', 134.3, -25.5],
 ];
 
-function location(port: PortGuide) {
-  return { x: port.longitude + 180, y: 90 - port.latitude };
-}
-
 function coordinates(port: PortGuide) {
   const lat = Math.abs(port.latitude).toFixed(2);
   const lon = Math.abs(port.longitude).toFixed(2);
@@ -55,7 +51,7 @@ export function WorldPortAtlas(props: Props) {
 
 function AtlasArrival({ arrival, is3D, onClose, dice }: Props) {
   const { port, origin } = arrival;
-  const focus = location(port);
+  const focus = atlasPoint(port);
   const reduceMotion = useReducedMotion();
   const [overview, setOverview] = useState(false);
   const [camera, setCamera] = useState<Camera>(() => reduceMotion ? { ...focus, scale: harborScale } : world);
@@ -119,9 +115,9 @@ function AtlasArrival({ arrival, is3D, onClose, dice }: Props) {
     y: (y - camera.y) * camera.scale + mapHeight / 2,
   });
   const marker = project(focus.x, focus.y);
-  const from = origin && origin.code !== port.code ? location(origin) : null;
+  const from = origin && origin.code !== port.code ? atlasPoint(origin) : null;
   // Unwrap the preceding port across the date line for trans-Pacific passages.
-  if (from) from.x += 360 * Math.round((focus.x - from.x) / 360);
+  if (from) from.x = unwrapAtlasX(from.x, focus.x);
   const labels: { name: string; x: number; y: number }[] = [];
   const regional = camera.scale > 2.5;
   for (const [name, longitude, latitude] of regional ? countries : continents) {
