@@ -134,7 +134,7 @@
 
 .terminal-port-information { display: grid; gap: 15px; min-width: 0; align-content: start; }
 .terminal-port-information > .port-miniature-detail { margin: 0; }
-.terminal-quay-column { min-width: 0; }
+.terminal-quay-column { display: grid; align-content: start; gap: 16px; min-width: 0; }
 @media (min-width: 760px) {
   .chart-dialog:has(.terminal-detail[data-working-berth]) { width: min(49rem, calc(100vw - 2rem)); }
   .terminal-detail[data-working-berth] { grid-template-columns: minmax(0, 1fr) minmax(0, 1.12fr); column-gap: 22px; }

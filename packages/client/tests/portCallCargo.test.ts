@@ -4,7 +4,8 @@ import {
   OneMonopolyEngine, getCargoBookings, getCargoOpportunity, getFeederRoutes, getLogisticsRoutes,
   type CargoKind, type GameAction, type GameEvent, type GameState,
 } from '@one-monopoly/shared';
-import { getPortCallCargo } from '../src/components/ports/portCallCargo.js';
+import { getPortCallCargo, getPortCallLoad } from '../src/components/ports/portCallCargo.js';
+import type { PortLoad } from '../src/components/ports/portArrival.js';
 
 const seats = [{ id: 'a', name: 'An', token: 'ONE_APUS' as const }, { id: 'b', name: 'Bình', token: 'PILOT_BOAT' as const }];
 const start = () => OneMonopolyEngine.createGame('call', seats, 'logistics');
@@ -141,4 +142,65 @@ test('origin, non-refrigerated detours and a full empty yard expose no local rer
   assert.equal(blocked.unloadAction, null);
   assert.equal(blocked.stockAfterUnload, null);
   assert.equal(blocked.estimate?.total, null);
+});
+
+function pickup(state: GameState, tileId: number, kind: CargoKind = 'laden', reefer = false) {
+  const action = getCargoBookings(state, 'a', kind, reefer).find(choice => choice.tileId === tileId)!.action;
+  const result = act(state, action);
+  const event = result.events.find(item => item.type === 'CARGO_LOADED');
+  assert.ok(event);
+  return {state: result.state, event};
+}
+
+test('a confirmed local loading slip matches all cargo fields without moving the ship, paying or changing any yard', () => {
+  for (const [kind, reefer, round] of [['laden', false, 1], ['empty', false, 1], ['laden', true, 1], ['laden', true, 0]] as const) {
+    const initial = start();
+    initial.turnCount = round;
+    const { state, event } = pickup(initial, 1, kind, reefer);
+    const snapshot = structuredClone(state);
+    const call = getPortCallCargo(state, 0, 'a');
+    assert.equal(getPortCallLoad(call, event), event);
+    assert.equal(getPortCallLoad(call, null), null);
+    for (const other of [
+      {...event, playerId: 'b'}, {...event, tileId: 3}, {...event, originTileId: 3},
+      {...event, destinationTileId: 3}, {...event, bookingId: event.bookingId + 1},
+      {...event, kind: kind === 'empty' ? 'laden' as const : 'empty' as const},
+      {...event, reeferDueRound: reefer ? undefined : 0},
+    ]) assert.equal(getPortCallLoad(call, other), null);
+    assert.deepEqual(state, snapshot);
+    assert.equal(state.players[0].position, 0);
+    assert.equal(state.players[0].balance, 0);
+    assert.equal(state.logistics!.deliveries.a, 0);
+    assert.deepEqual(state.logistics!.ports[1], initial.logistics!.ports[1]);
+    assert.equal(state.logistics!.ports[0].supply, initial.logistics!.ports[0].supply - (kind === 'laden' ? 1 : 0));
+    assert.equal(state.logistics!.ports[0].empties, initial.logistics!.ports[0].empties - (kind === 'empty' ? 1 : 0));
+  }
+});
+
+test('an earlier slip cannot match a later booking with the same origin, destination and cargo service', () => {
+  const first = pickup(start(), 3);
+  const arrival = sail(first.state, 3);
+  assert.equal(getPortCallLoad(getPortCallCargo(arrival, 3, 'a'), first.event), null);
+  const discharged = act(arrival, getCargoOpportunity(arrival, 'a')!.action);
+  assert.equal(getPortCallLoad(getPortCallCargo(discharged.state, 3, 'a'), first.event), null);
+  const returned = feeder(discharged.state, 0);
+  const later = pickup(returned, 3);
+  const call = getPortCallCargo(later.state, 0, 'a');
+  assert.notEqual(first.event.bookingId, later.event.bookingId);
+  assert.equal(getPortCallLoad(call, first.event), null);
+  assert.equal(getPortCallLoad(call, later.event), later.event);
+});
+
+test('a diversion before departure invalidates the original slip and another seat or ended match cannot reshow it', () => {
+  const { state, event } = pickup(start(), 1);
+  const changed = act(state, {type:'CHANGE_DESTINATION', bookingId: event.bookingId, destinationTileId: 3, revision: state.cargoRevision!});
+  const call = getPortCallCargo(changed.state, 0, 'a');
+  assert.equal(call?.booking?.bookingId, event.bookingId);
+  assert.equal(getPortCallLoad(call, event), null);
+  // A destination-change event shares the manifest fields but never represents a physical pickup.
+  assert.equal(getPortCallLoad(call, changed.events[0] as PortLoad), null);
+  const nextSeat = act(state, {type:'END_TURN'}).state;
+  assert.equal(getPortCallLoad(getPortCallCargo(nextSeat, 0, 'a'), event), null);
+  assert.equal(getPortCallLoad(getPortCallCargo(nextSeat, 0, 'b'), event), null);
+  assert.equal(getPortCallLoad(getPortCallCargo({...state, winnerId:'a'}, 0, 'a'), event), null);
 });

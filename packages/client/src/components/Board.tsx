@@ -1,5 +1,5 @@
 import React, { useLayoutEffect } from 'react';
-import { BOARD_TILES, GameAction, GameCard, GameState, getVoyagePayment, OneMonopolyEngine, Player } from '@one-monopoly/shared';
+import { BOARD_TILES, GameAction, GameCard, GameState, getCargoOpportunity, getVoyagePayment, OneMonopolyEngine, Player } from '@one-monopoly/shared';
 import { LogisticsTile, TileView } from './TileView.js';
 import { TILE_CENTER_PERCENT } from './boardCoordinates.js';
 import { getPortTender } from './ports/portTender.js';
@@ -11,7 +11,7 @@ import { StormTugRescue } from './StormTugRescue.js';
 import { CargoTransfer, useCargoTransfer } from './CargoTransfer.js';
 import { useStormTugRescue } from './stormTugPlayback.js';
 import { BoardSky } from './BoardSky.js';
-import { getPortCallCargo } from './ports/portCallCargo.js';
+import { getPortCallCargo, getPortCallLoad } from './ports/portCallCargo.js';
 import { portGuide } from './ports/portGuide.js';
 import { WorldPortAtlas } from './WorldPortAtlas.js';
 import { ChartTerrainContours } from './ChartTerrainContours.js';
@@ -151,7 +151,7 @@ function MovingPawn({ player, frame, allowIdle, exposure, tile, heading, is3D, z
   );
 }
 
-function arrivalStatus(call: NonNullable<ReturnType<typeof getPortCallCargo>>) {
+function arrivalStatus(call: NonNullable<ReturnType<typeof getPortCallCargo>>, loadedHere: boolean) {
   if (call.receipt) {
     const type = call.receipt.kind === 'empty' ? 'vỏ rỗng' : call.receipt.reeferDueRound !== undefined ? 'hàng lạnh' : 'hàng xuất';
     return `Đã giao ${type} · +$${getVoyagePayment(call.receipt)}M`;
@@ -161,7 +161,10 @@ function arrivalStatus(call: NonNullable<ReturnType<typeof getPortCallCargo>>) {
     return `Khoang trống · ${call.stock.supply} lô xuất · ${excess} vỏ dư`;
   }
   const service = call.cargoType === 'reefer' ? 'Hàng lạnh' : call.cargoType === 'empty' ? 'Vỏ rỗng' : 'Hàng xuất';
-  if (!call.bookedHere) return `${service} còn trên tàu → ${portGuide[BOARD_TILES[call.booking.destinationTileId].code].name}`;
+  if (!call.bookedHere) {
+    const destination = portGuide[BOARD_TILES[call.booking.destinationTileId].code].name;
+    return loadedHere ? `Đã xếp ${service.toLocaleLowerCase('vi')} → ${destination}` : `${service} còn trên tàu → ${destination}`;
+  }
   if (!call.active) return `${service} · chờ lượt dỡ`;
   if (call.receiver === 'unavailable') return call.cargoType === 'empty' ? 'Bến đã đủ vỏ rỗng' : 'Chưa có xe nhận tại bến';
   const total = call.estimate?.total;
@@ -188,7 +191,7 @@ export const Board: React.FC<Props> = ({
   const idleMotion = useIdleMotion();
   const isLogistics = gameState.mode === 'logistics';
   const allowIdle = idleMotion && selectedTileId === null && !activeCard && !gameState.winnerId;
-  const { tracks, claims, rentReceipts, pendingRentReceipts, advance, atlas, showPort, closeAtlas, portDischarge } = useBoardPlayback(gameState, subscribeBoard);
+  const { tracks, claims, rentReceipts, pendingRentReceipts, advance, atlas, showPort, closeAtlas, portDischarge, portLoad } = useBoardPlayback(gameState, subscribeBoard);
   const { rescue, finishRescue } = useStormTugRescue(subscribeBoard);
   const { transfer, finishTransfer } = useCargoTransfer(subscribeBoard);
   const moving = gameState.players.some((player) => !player.isBankrupt && tracks[player.id]?.frames.length);
@@ -200,9 +203,12 @@ export const Board: React.FC<Props> = ({
   const arrivalCargo = React.useMemo(() => atlasTile && arrivalCaptain
     ? getPortCallCargo(gameState, atlasTile.id, arrivalCaptain, portDischarge ?? undefined) : null,
   [gameState, atlasTile, arrivalCaptain, portDischarge]);
+  const loadedHere = !!getPortCallLoad(arrivalCargo, portLoad);
+  const canPickUp = React.useMemo(() => arrivalCargo?.active && !arrivalCargo.booking && arrivalCargo.playerId === myPlayerId
+    && getCargoOpportunity(gameState, arrivalCargo.playerId)?.action.type === 'LOAD_CARGO', [gameState, arrivalCargo, myPlayerId]);
   const atlasFreight = atlasTile && arrivalCargo ? {
-    status: arrivalStatus(arrivalCargo),
-    actionLabel: arrivalCargo.receipt ? 'Xem biên nhận' : 'Xem cầu cảng',
+    status: arrivalStatus(arrivalCargo, loadedHere),
+    actionLabel: canPickUp ? 'Chọn lô để xếp' : loadedHere ? 'Xem vận đơn' : arrivalCargo.receipt ? 'Xem biên nhận' : 'Xem cầu cảng',
     onOpenTerminal: () => {
       setTerminalArrival({ tileId: atlasTile.id, playerId: arrivalCargo.playerId });
       onSelectTile(atlasTile.id);
@@ -501,6 +507,7 @@ export const Board: React.FC<Props> = ({
         is3D={is3D}
         arrivalCaptainId={terminalArrival?.tileId === selectedTileId ? terminalArrival.playerId : undefined}
         portDischarge={portDischarge}
+        portLoad={portLoad}
         onClose={() => { setTerminalArrival(null); onSelectTile(null); }}
         onShowPort={(port) => {
           setTerminalArrival(null);

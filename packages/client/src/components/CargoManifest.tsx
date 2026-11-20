@@ -1,10 +1,13 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import {
-  BOARD_TILES, LOGISTICS_DELIVERY_TARGET, getCargoBookings, getCargoOpportunity, getCargoRedirections,
-  getEmptyNeed, getFeederDistanceNm, getFreightQuote, getLogisticsRoutes, getTenderBonus, isFinalLogisticsRound, type CargoKind, type GameAction, type GameState, type Player,
+  LOGISTICS_DELIVERY_TARGET, getCargoBookings, getCargoOpportunity, getCargoRedirections,
+  getEmptyNeed, getFeederDistanceNm, getFreightQuote, getLogisticsRoutes, getTenderBonus, isFinalLogisticsRound, type GameAction, type GameState, type Player,
 } from '@one-monopoly/shared';
-import { ArrowRight, Check, Container, Flag, MapPin, Route, Ship, Snowflake, Store, Truck } from 'lucide-react';
-import { portGuide } from './ports/portGuide.js';
+import { ArrowRight, Check, Container, Flag, MapPin, Route, Ship, Snowflake, Truck } from 'lucide-react';
+import {
+  CargoBooking, ContractRate, PortSelect, Quote, getDefaultBookingService, port, receiving, typeName,
+  type DestinationDraft, type DraftControls, type Submit,
+} from './CargoBookingForm.js';
 import './cargo-manifest.css';
 import { DiversionComparison } from './DiversionComparison.js';
 import { FreightMarketBoard } from './FreightMarketBoard.js';
@@ -12,7 +15,7 @@ import { TenderDesk } from './TenderDesk.js';
 import { BackhaulDesk } from './BackhaulDesk.js';
 import { EarlyTruckDesk } from './EarlyTruckDesk.js';
 import { FeederSailing } from './FeederSailing.js';
-import { ReeferBookingTerms, ReeferDeadline, ReeferReceipt } from './ReeferCargo.js';
+import { ReeferDeadline, ReeferReceipt } from './ReeferCargo.js';
 
 interface DeskProps {
   gameState: GameState;
@@ -20,28 +23,8 @@ interface DeskProps {
   onAction: (action: GameAction, onFailure?: () => void, onSuccess?: () => void) => void;
 }
 
-type BookingService = CargoKind | 'reefer';
-interface DestinationDraft {
-  service: BookingService;
-  tileId?: number;
-  redirectOpen?: boolean;
-  fromMarket?: boolean;
-}
-interface DraftControls {
-  draft: DestinationDraft;
-  editDraft: (draft: DestinationDraft) => void;
-  onOpenMarket: () => void;
-}
-
 type PortStock = NonNullable<GameState['logistics']>['ports'][number];
-type Submit = (action: GameAction, after?: () => void) => void;
 const distance = new Intl.NumberFormat('vi-VN');
-const typeName = (kind: CargoKind) => kind === 'empty' ? 'Container rỗng' : 'Hàng xuất';
-
-function port(id: number) {
-  const tile = BOARD_TILES[id];
-  return portGuide[tile.code] ?? { name: tile.name, country: '', code: tile.code };
-}
 
 function Stock({ stock }: { stock: PortStock }) {
   return (
@@ -52,107 +35,6 @@ function Stock({ stock }: { stock: PortStock }) {
         <small>{stock.empties > stock.emptyTarget ? `dư ${stock.empties - stock.emptyTarget}` : getEmptyNeed(stock) ? `thiếu ${getEmptyNeed(stock)}` : 'đủ'}</small>
       </dd></div>
     </dl>
-  );
-}
-
-function PortSelect({ label, value, options, onChange, purpose, onOpenMarket, focusDraft }: {
-  label: string; value: number; options: { tileId: number; description?: string }[];
-  onChange: (id: number) => void; purpose: 'booking' | 'destination' | 'redirect';
-  onOpenMarket?: () => void;
-  focusDraft?: DestinationDraft;
-}) {
-  const id = useId();
-  const select = useRef<HTMLSelectElement>(null);
-  useEffect(() => {
-    if (!focusDraft) return;
-    // The native market dialog restores focus to its opener as it closes.
-    const frame = requestAnimationFrame(() => {
-      select.current?.focus({ preventScroll: true });
-      select.current?.scrollIntoView({ block: 'center', behavior: 'instant' });
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [focusDraft]);
-
-  return (
-    <div className="freight-field">
-      <div className="freight-field-heading">
-        <label htmlFor={id}>{label}</label>
-        {onOpenMarket && <button type="button" data-cargo-market aria-haspopup="dialog" onClick={onOpenMarket}>
-          <Store aria-hidden="true" />So sánh cảng</button>}
-      </div>
-      <select id={id} ref={select} value={value} onChange={event => onChange(Number(event.target.value))}
-        data-cargo-booking={purpose === 'booking' || undefined}
-        data-cargo-destination={purpose === 'destination' || undefined}
-        data-cargo-redirect={purpose === 'redirect' || undefined}>
-        {options.map(({tileId, description}) => {
-          const place = port(tileId);
-          return <option key={tileId} value={tileId}>
-            {place.name}{place.country && place.country !== place.name ? ` · ${place.country}` : ''}{description ? ` · ${description}` : ''}
-          </option>;
-        })}
-      </select>
-    </div>
-  );
-}
-
-function receiving(state: GameState, playerId: string, tileId: number, kind: CargoKind) {
-  const stock = state.logistics!.ports[tileId];
-  const capacity = kind === 'empty' ? getEmptyNeed(stock) : stock.demand;
-  const bonus = getTenderBonus(state, playerId, tileId, kind);
-  const label = capacity === 0 && bonus > 0 ? 'Chỗ nhận riêng của chủ hàng'
-    : kind === 'empty' ? `Cần ${capacity} vỏ rỗng` : `${capacity} xe chờ nhận`;
-  return bonus > 0 ? `${label} · hợp đồng +$${bonus}M` : label;
-}
-
-function ContractRate({ amount }: { amount: number }) {
-  return amount > 0 ? <span className="freight-contract-rate" data-contract-bonus={amount}>
-    Phụ phí hợp đồng <strong>+${amount}M</strong>
-  </span> : null;
-}
-
-function Quote({ nm, reward }: { nm: number; reward?: number }) {
-  return <span className="freight-quote"><Route aria-hidden="true" />
-    {distance.format(nm)} hải lý{reward !== undefined && <strong>+${reward}M</strong>}
-  </span>;
-}
-
-function CargoBooking({ state, player, busy, submit, draft, editDraft, onOpenMarket }: {
-  state: GameState; player: Player; busy: boolean; submit: Submit;
-} & DraftControls) {
-  const radioName = useId();
-  const { service, tileId: targetId } = draft;
-  const reefer = service === 'reefer';
-  const kind = reefer ? 'laden' : service;
-  const bookings = getCargoBookings(state, player.id, kind, reefer);
-  const choice = bookings.find(b => b.tileId === targetId) ?? bookings.find(b => getTenderBonus(state, player.id, b.tileId, kind)) ?? bookings[0];
-  const stocks = state.logistics!.ports;
-  const local = stocks[player.position];
-  return (
-    <div className="freight-booking">
-      <fieldset className="freight-kind">
-        <legend>Chọn lô hàng để xếp</legend>
-        {(['laden', 'empty', 'reefer'] as const).filter(value => value !== 'reefer' || state.logistics?.reeferSlots).map(value => (
-          <label key={value}><input type="radio" name={radioName} value={value} data-cargo-kind={value} checked={service === value}
-            onChange={() => editDraft({ service: value })} />
-            <span>{value === 'reefer' ? <Snowflake aria-hidden="true" /> : value === 'laden' ? <Truck aria-hidden="true" /> : <Container aria-hidden="true" />}
-              {value === 'reefer' ? 'Hàng lạnh' : typeName(value)}</span>
-          </label>
-        ))}
-      </fieldset>
-      {reefer && <ReeferBookingTerms state={state} tileId={player.position} destinationTileId={choice?.tileId} />}
-      {choice ? <>
-        <PortSelect label="Cảng đích của lô hàng" value={choice.tileId} purpose="booking" onChange={tileId => editDraft({ service, tileId })}
-          onOpenMarket={onOpenMarket} focusDraft={draft.fromMarket ? draft : undefined}
-          options={bookings.map(b => ({ tileId: b.tileId, description: receiving(state, player.id, b.tileId, kind) }))} />
-        <div className="freight-terms"><span>Cước cơ bản</span>
-          <Quote nm={choice.quote.distanceNm} reward={choice.quote.reward} /></div>
-        <ContractRate amount={getTenderBonus(state, player.id, choice.tileId, kind)} />
-        <button type="button" className="chart-button freight-handling" disabled={busy} data-cargo-action="LOAD_CARGO"
-          onClick={() => submit(choice.action)}><Container aria-hidden="true" />Xếp {reefer ? 'container lạnh' : kind === 'empty' ? 'container rỗng' : 'container hàng xuất'}</button>
-      </> : !reefer && <p className="freight-note">{kind === 'laden'
-        ? local.supply === 0 ? 'Bến này đã hết xe chở hàng xuất.' : 'Chưa có bến đích còn xe nhận hàng nhập.'
-        : local.empties <= local.emptyTarget ? 'Bến này cần giữ lại số vỏ rỗng đang có.' : 'Chưa có bến đích thiếu vỏ rỗng.'}</p>}
-    </div>
   );
 }
 
@@ -316,10 +198,7 @@ export function FreightDesk({ marketOpen, onOpenMarket, onCloseMarket, onInspect
   // Drafts belong to a particular turn, berth and manifest, including a newly emptied hold.
   const scope = [gameState.roomId, gameState.turnCount, player.id, player.position, player.lastDelivery?.bookingId,
     player.cargo?.bookingId, player.cargo?.destinationTileId].join('/');
-  const contract = gameState.logistics.market?.contract;
-  const defaultService = contract && getTenderBonus(gameState, player.id, contract.destinationTileId, contract.kind)
-    ? contract.kind : 'laden';
-  const draft = saved?.scope === scope ? saved.draft : { service: defaultService };
+  const draft = saved?.scope === scope ? saved.draft : { service: getDefaultBookingService(gameState, player.id) };
   const editDraft = (next: DestinationDraft) => setSaved({ scope, draft: next });
 
   return <>

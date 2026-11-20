@@ -4,7 +4,7 @@ import {
   type CargoAction, type CargoBooking, type CargoDestinationEstimate, type CargoKind, type DeliveryReceipt,
   type DestinationChange, type GameState, type PortStock,
 } from '@one-monopoly/shared';
-import type { PortDischarge } from './portArrival.js';
+import type { PortDischarge, PortLoad } from './portArrival.js';
 
 export interface PortCallCargo {
   tileId: number;
@@ -22,6 +22,17 @@ export interface PortCallCargo {
   unloadAction: Extract<CargoAction, { type: 'UNLOAD_CARGO' }> | null;
   redirectAction: DestinationChange | null;
   receipt: DeliveryReceipt | null;
+}
+
+/** Match a live loading event to the manifest at its physical pickup berth. */
+export function getPortCallLoad(call: PortCallCargo | null, event: PortLoad | null): PortLoad | null {
+  if (!call?.active || !call.booking || event?.type !== 'CARGO_LOADED' || event.playerId !== call.playerId ||
+      event.tileId !== call.tileId || event.originTileId !== call.tileId) return null;
+  const booking = call.booking;
+  if (event.bookingId !== booking.bookingId || event.originTileId !== booking.originTileId ||
+      event.destinationTileId !== booking.destinationTileId || event.kind !== booking.kind ||
+      event.reeferDueRound !== booking.reeferDueRound) return null;
+  return event;
 }
 
 /** The caller associates the accepted unload event with this visit and clears it on the next arrival. */

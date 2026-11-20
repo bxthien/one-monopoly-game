@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { BOARD_TILES, OneMonopolyEngine, type GameState } from '@one-monopoly/shared';
-import { readPortLanding, updatePortDischarge, type PortDischarge } from '../src/components/ports/portArrival.js';
+import { BOARD_TILES, getCargoBookings, getCargoOpportunity, getCargoRedirections, getLogisticsRoutes,
+  OneMonopolyEngine, type GameState } from '@one-monopoly/shared';
+import { readPortLanding, updatePortDischarge, updatePortLoad, type PortDischarge } from '../src/components/ports/portArrival.js';
 import { portGuide } from '../src/components/ports/portGuide.js';
 import { portModels } from '../src/components/ports/portModels.js';
 
@@ -140,5 +141,35 @@ describe('port arrivals', () => {
     assert.equal(updatePortDischarge(receipt, [{ type: 'LOGISTICS_TURN_ENDED', playerId: 'captain', sailed: true }]), null);
     assert.equal(updatePortDischarge(receipt, [{ type: 'CARGO_LOADED', playerId: 'captain', bookingId: 8, kind: 'laden',
       tileId: 1, originTileId: 1, destinationTileId: 3 }]), null);
+  });
+
+  it('keeps the waybill until a confirmed port operation replaces it, respecting event order', () => {
+    const initial = OneMonopolyEngine.createGame('quay', [
+      { id: 'captain', name: 'Linh', token: 'ONE_APUS' }, { id: 'pilot', name: 'Minh', token: 'PILOT_BOAT' },
+    ], 'logistics');
+    const loaded = OneMonopolyEngine.dispatch(initial, getCargoBookings(initial, 'captain', 'laden')[0].action);
+    const waybill = updatePortLoad(null, loaded.events);
+    assert.ok(waybill);
+    assert.equal(waybill.bookingId, loaded.state.players[0].cargo?.bookingId);
+    const redirect = getCargoRedirections(loaded.state, 'captain')[0].action;
+    const rejected = OneMonopolyEngine.dispatch(loaded.state, { ...redirect, revision: -1 });
+    assert.equal(updatePortLoad(waybill, rejected.events), waybill);
+    const changed = OneMonopolyEngine.dispatch(loaded.state, redirect);
+    assert.equal(changed.events[0]?.type, 'CARGO_DESTINATION_CHANGED');
+    assert.equal(updatePortLoad(waybill, changed.events), null);
+    const route = getLogisticsRoutes(loaded.state, 'captain').find(port => port.tileId === waybill.destinationTileId)!;
+    const sailed = OneMonopolyEngine.dispatch(loaded.state, route.action);
+    assert.equal(updatePortLoad(waybill, sailed.events), null);
+    const delivered = OneMonopolyEngine.dispatch(sailed.state, getCargoOpportunity(sailed.state, 'captain')!.action);
+    assert.equal(updatePortLoad(waybill, delivered.events), null);
+    const next = OneMonopolyEngine.dispatch(delivered.state, getCargoBookings(delivered.state, 'captain', 'laden')[0].action);
+    const newest = updatePortLoad(waybill, [...sailed.events, ...delivered.events, ...next.events]);
+    assert.ok(newest);
+    assert.notEqual(newest.bookingId, waybill.bookingId);
+    assert.equal(newest.tileId, waybill.destinationTileId);
+    assert.equal(updatePortLoad(newest, [{ type: 'FREIGHT_TENDER_BID', playerId: 'captain', tenderId: 1 }]), newest);
+    const ended = OneMonopolyEngine.dispatch(next.state, { type: 'END_TURN' });
+    assert.equal(updatePortLoad(newest, ended.events), null);
+    assert.equal(updatePortLoad(newest, null), null);
   });
 });
