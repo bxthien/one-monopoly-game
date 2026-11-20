@@ -134,7 +134,32 @@ export interface FreightMarket {
 }
 export interface FreightTenderBid { type: 'BID_FREIGHT_TENDER'; tenderId: number; amount: number; revision: number }
 export interface PortStock { supply: number; demand: number; empties: number; emptyTarget: number }
+export type TruckOperation = 'export' | 'import';
+export interface PortTruckCall {
+  type: 'CALL_PORT_TRUCK'; tileId: number; operation: TruckOperation; revision: number;
+}
+export interface TruckScheduleEntry {
+  operation: TruckOperation;
+  consumed: boolean;
+  /** The yard can run this operation now. A captain still needs their own unused call. */
+  available: boolean;
+  /** Yard stock immediately after advancing this operation alone. */
+  after: PortStock;
+}
+export interface PortTruckSchedule {
+  tileId: number;
+  scheduledRound: number;
+  before: PortStock;
+  /** Next round's opening yard if no other captain changes the current stock. */
+  projected: PortStock;
+  operations: TruckScheduleEntry[];
+}
+export interface EarlyTruckChoice { operation: TruckOperation; after: PortStock; action: PortTruckCall }
 export interface LogisticsState {
+  /** Absent in freight rooms created before early truck calls were introduced. */
+  earlyTruckAvailable?: Record<string, boolean>;
+  /** Advanced operations for the upcoming rollover, grouped by terminal. */
+  calledTrucks?: Record<number, TruckOperation[]>;
   voyageLog?: VoyageLogEntry[];
   /** New freight games grant each captain one short second sail for the whole match. */
   feederAvailable?: Record<string, boolean>;
@@ -283,6 +308,7 @@ export type SailAction = { type: 'SAIL_TO_PORT'; tileId: number; revision: numbe
 export type FeederSailAction = { type: 'SAIL_FEEDER'; tileId: number; revision: number };
 
 export type GameAction =
+  | PortTruckCall
   | BackhaulAccept
   | CargoAction | DestinationChange | SailAction | FeederSailAction | FreightTenderBid
   | { type: 'OFFER_TRADE'; tileId: number; sellerId: string; price: number }
@@ -309,6 +335,7 @@ export type GameAction =
   | { type: 'END_TURN' };
 
 export type GameEvent =
+  | { type: 'PORT_TRUCK_CALLED'; operation: TruckOperation; tileId: number; playerId: string; scheduledRound: number }
   | { type: 'BACKHAUL_ACCEPTED' | 'BACKHAUL_EXPIRED' | 'BACKHAUL_FULFILLED'; playerId: string; job: BackhaulJob }
   | { type: 'FREIGHT_TENDER_BID'; tenderId: number; playerId: string }
   | ({ type: 'FREIGHT_TENDER_AWARDED' } & FreightAward)

@@ -1,10 +1,11 @@
 import { useId, useMemo, useState } from 'react';
-import { ArrowUpRight, Award, Container, MapPin, Ship, Truck, X } from 'lucide-react';
-import { BOARD_TILES, type CargoKind, type GameState } from '@one-monopoly/shared';
+import { ArrowUpRight, Award, Container, CalendarDays, MapPin, Ship, Truck, X } from 'lucide-react';
+import { BOARD_TILES, isFinalLogisticsRound, type CargoKind, type GameState } from '@one-monopoly/shared';
 import { BoardDialog } from './BoardDialog.js';
 import { freightMarketRows, type MarketFilter, type MarketSort } from './freightMarketRows.js';
 import { marketPlanRates, marketRowsByRate, type MarketPlanService } from './marketPlanRates.js';
 import { portGuide } from './ports/portGuide.js';
+import { TruckTimetable } from './TruckTimetable.js';
 import './freight-market-board.css';
 
 type Service = CargoKind | 'reefer';
@@ -33,6 +34,9 @@ const columns = [
 
 export function FreightMarketBoard({ gameState, myPlayerId, onClose, onSelectPort, service = 'laden', onPlanPort }: Props) {
   const heading = useId(), sortId = useId();
+  const [showSchedule, setShowSchedule] = useState(false);
+  const hasSchedule = !!gameState.logistics?.earlyTruckAvailable && !gameState.winnerId && !isFinalLogisticsRound(gameState);
+  const timetableOpen = hasSchedule && showSchedule;
   const [filter, setFilter] = useState<MarketFilter>('all');
   const [sort, setSort] = useState<PlanSort>('opportunity');
   const captain = gameState.players.find(p => p.id === myPlayerId) ?? gameState.players[gameState.activePlayerIndex];
@@ -64,6 +68,13 @@ export function FreightMarketBoard({ gameState, myPlayerId, onClose, onSelectPor
           {berth && <p><MapPin aria-hidden="true" />Khoảng cách từ {captain.id === myPlayerId ? 'tàu của bạn' : `tàu của ${captain.name}`} tại <strong>{berth.name}</strong></p>}</div>
         <button type="button" className="chart-dialog-close" aria-label="Đóng thị trường cảng" onClick={onClose}><X aria-hidden="true" /></button>
       </header>
+      {hasSchedule && <div className="market-view-picker" role="group" aria-label="Chế độ thị trường cảng">
+        <button type="button" aria-pressed={!timetableOpen} onClick={() => setShowSchedule(false)}>Tồn bến hiện tại</button>
+        <button type="button" data-market-truck-schedule aria-pressed={timetableOpen} onClick={() => setShowSchedule(true)}>
+          <CalendarDays size={15} aria-hidden="true" />Lịch xe vòng {gameState.turnCount + 1}
+        </button>
+      </div>}
+      {timetableOpen ? <TruckTimetable state={gameState} viewerId={myPlayerId} inspect={inspect} /> : <>
       <div className="market-board-toolbar">
         <div className="market-board-filters" role="group" aria-label="Lọc theo nhu cầu tại cảng">
           {filters.map(({ key, label }) => <button type="button" key={key} data-market-filter={key}
@@ -123,6 +134,7 @@ export function FreightMarketBoard({ gameState, myPlayerId, onClose, onSelectPor
           </tr>;
         })}</tbody></table>
       </div> : <p className="market-board-empty">Hiện chưa có cảng đáp ứng bộ lọc này.</p>}
+      </>}
     </section>
   </BoardDialog>;
 }

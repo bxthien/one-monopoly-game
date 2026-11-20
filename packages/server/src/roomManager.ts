@@ -368,7 +368,7 @@ export class RoomManager {
     const { state: nextState, events } = OneMonopolyEngine.dispatch(room.gameState, action, playerId);
     const freightCommand = action.type === 'LOAD_CARGO' || action.type === 'UNLOAD_CARGO' ||
       action.type === 'CHANGE_DESTINATION' || action.type === 'SAIL_TO_PORT' || action.type === 'SAIL_FEEDER' ||
-      action.type === 'ACCEPT_BACKHAUL' || action.type === 'BID_FREIGHT_TENDER';
+      action.type === 'ACCEPT_BACKHAUL' || action.type === 'BID_FREIGHT_TENDER' || action.type === 'CALL_PORT_TRUCK';
     if (nextState === room.gameState && (room.gameState.mode === 'logistics' || freightCommand)) {
       return { success: false, error: 'Lệnh điều độ không còn hợp lệ. Hãy kiểm tra lại vận đơn và tình trạng bến.' };
     }

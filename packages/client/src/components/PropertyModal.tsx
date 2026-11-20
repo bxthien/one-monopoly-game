@@ -8,11 +8,14 @@ import {
   GREEN_FLEET_ESG_BONUS,
   getTradeRestriction,
   getEmptyNeed,
+  getPortTruckSchedule,
+  type PortTruckSchedule,
   type PortStock,
   LOOP_GROUPS_CONFIG,
   OneMonopolyEngine,
 } from '@one-monopoly/shared';
 import { TokenBadge } from './TokenBadge.js';
+import { ScheduledOperations } from './TruckTimetable.js';
 import { BoardDialog } from './BoardDialog.js';
 import { PortMiniature } from './ports/PortMiniature.js';
 import { portGuide, type PortGuide } from './ports/portGuide.js';
@@ -64,10 +67,11 @@ function TerminalQueue({ quantity, direction }: { quantity: number; direction: '
   );
 }
 
-function TerminalDetails({ guide, stock, tender, titleId, onClose, onShowPort }: {
+function TerminalDetails({ guide, stock, tender, schedule, titleId, onClose, onShowPort }: {
   guide: PortGuide;
   stock?: PortStock;
   tender: PortTenderNotice | null;
+  schedule: PortTruckSchedule | null;
   titleId: string;
   onClose: () => void;
   onShowPort: (port: PortGuide) => void;
@@ -104,6 +108,10 @@ function TerminalDetails({ guide, stock, tender, titleId, onClose, onShowPort }:
             </dl>
           </section>
         )}
+        {schedule && schedule.operations.length > 0 && <section className="terminal-truck-schedule" aria-label="Lịch xe tại bến">
+          <h4>Lịch xe vòng {schedule.scheduledRound}</h4>
+          <ScheduledOperations schedule={schedule} />
+        </section>}
         <div className="port-deed-geography terminal-geography">
           <p>{guide.fact}</p>
           <button type="button" onClick={() => onShowPort(guide)}>Xem trên bản đồ</button>
@@ -142,7 +150,7 @@ export const PropertyModal: React.FC<Props> = ({
   const guide = portGuide[tile.code];
   if (gameState.mode === 'logistics') {
     return guide ? <TerminalDetails key={tileId} guide={guide} stock={gameState.logistics?.ports[tileId]}
-      tender={getPortTender(gameState, tileId)} titleId={titleId} onClose={onClose} onShowPort={onShowPort} /> : null;
+      tender={getPortTender(gameState, tileId)} schedule={getPortTruckSchedule(gameState, tileId)} titleId={titleId} onClose={onClose} onShowPort={onShowPort} /> : null;
   }
   const rentSchedule = getRentSchedule(tile);
   const prop = gameState.properties[tileId];

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BOARD_TILES, GameCard, getMissionProgress, getVoyagePayment, STORM_DRIFT_STEPS, STORM_TUG_FEE } from '@one-monopoly/shared';
+import { BOARD_TILES, GameCard, getMissionProgress, getVoyagePayment, STORM_DRIFT_STEPS, STORM_TUG_FEE, type PortStock } from '@one-monopoly/shared';
 import { useSocket } from './hooks/useSocket.js';
 import { Lobby } from './components/Lobby.js';
 import { Board } from './components/Board.js';
@@ -9,6 +9,7 @@ import { TradeDesk } from './components/TradeDesk.js';
 import { ActionControls } from './components/ActionControls.js';
 import { FreightDesk } from './components/CargoManifest.js';
 import { DiversionReceipt, type DiversionEvent } from './components/DiversionReceipt.js';
+import { TruckCallReceipt, type TruckCallEvent } from './components/TruckCallReceipt.js';
 import { VoyageLog } from './components/VoyageLog.js';
 import { portGuide } from './components/ports/portGuide.js';
 import { SecretMissionCardView } from './components/SecretMissionCardView.js';
@@ -19,6 +20,7 @@ import { AlertCircle, BookOpen, Box, CloudLightning, CloudRain, Compass, Gavel, 
 
 const noticeIcons = { auction: Gavel, trade: Handshake, debt: LifeBuoy, freight: Truck };
 type BoardNotice = { type: keyof typeof noticeIcons; text: string }
+  | { type: 'truckCall'; call: TruckCallEvent; captain: string; stock: PortStock; revision: number }
   | { type: 'diversion'; change: DiversionEvent; captain: string; revision: number };
 const weatherReadouts = {
   sun: { Icon: Sun, label: 'Nắng' },
@@ -126,6 +128,12 @@ export const App: React.FC = () => {
         else if (evt.type === 'FREIGHT_CONTRACT_FULFILLED') logMsg = `${who} đã giao đúng hạn tại ${port} và nhận thêm $${evt.amount}M tiền thưởng hợp đồng.`;
         else logMsg = `Hợp đồng giao tại ${port} của ${who} đã hết hạn.`;
         setBoardNotice({ type: 'freight', text: logMsg });
+      } else if (evt.type === 'PORT_TRUCK_CALLED') {
+        const who = state.players.find(player => player.id === evt.playerId)?.name ?? 'Thuyền trưởng';
+        const port = portGuide[BOARD_TILES[evt.tileId].code].name;
+        const stock = state.logistics?.ports[evt.tileId];
+        logMsg = `${who} gọi sớm ${evt.operation === 'export' ? 'xe xuất' : 'xe nhận hàng'} của vòng ${evt.scheduledRound} tại ${port}.`;
+        if (stock) setBoardNotice({ type: 'truckCall', call: evt, captain: who, stock, revision: state.cargoRevision ?? 0 });
       } else if (evt.type === 'CARGO_LOADED' || evt.type === 'CARGO_UNLOADED' || evt.type === 'CARGO_DESTINATION_CHANGED') {
         const who = state.players.find(p => p.id === evt.playerId)?.name ?? 'Thuyền trưởng';
         const to = portGuide[BOARD_TILES[evt.destinationTileId].code].name;
@@ -220,7 +228,7 @@ export const App: React.FC = () => {
   }), [subscribeBoard, myPlayerId]);
 
   const activePlayer = gameState?.players[gameState.activePlayerIndex];
-  const NoticeIcon = boardNotice && boardNotice.type !== 'diversion' ? noticeIcons[boardNotice.type] : MapPin;
+  const NoticeIcon = boardNotice && 'text' in boardNotice ? noticeIcons[boardNotice.type] : MapPin;
   const captain = gameState?.players.find(player => player.id === myPlayerId);
   const freightGame = gameState?.mode === 'logistics';
   const canOpenTrades = !freightGame && captain && !captain.isBankrupt && !gameState?.winnerId;
@@ -337,7 +345,9 @@ export const App: React.FC = () => {
               />
             </div>
             <div className="chart-position" role="status">
-              {boardNotice?.type === 'diversion' ? (
+              {boardNotice?.type === 'truckCall' ? (
+                <TruckCallReceipt key={boardNotice.revision} call={boardNotice.call} captain={boardNotice.captain} stock={boardNotice.stock} is3D={is3D} />
+              ) : boardNotice?.type === 'diversion' ? (
                 <DiversionReceipt key={boardNotice.revision} change={boardNotice.change} captain={boardNotice.captain} />
               ) : boardNotice ? (
                 <><NoticeIcon size={14} aria-hidden="true" /><strong>{boardNotice.text}</strong></>

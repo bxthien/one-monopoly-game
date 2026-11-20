@@ -10,6 +10,7 @@ import { DiversionComparison } from './DiversionComparison.js';
 import { FreightMarketBoard } from './FreightMarketBoard.js';
 import { TenderDesk } from './TenderDesk.js';
 import { BackhaulDesk } from './BackhaulDesk.js';
+import { EarlyTruckDesk } from './EarlyTruckDesk.js';
 import { FeederSailing } from './FeederSailing.js';
 import { ReeferBookingTerms, ReeferDeadline, ReeferReceipt } from './ReeferCargo.js';
 
@@ -273,6 +274,7 @@ function CaptainDesk({ gameState, myPlayerId, onAction, player, ...planning }: D
     <div className="freight-berth"><MapPin aria-hidden="true" /><span>Bến hiện tại <strong>{location.name}</strong></span>
       <span className="freight-port-code">{location.code}</span></div>
     {stock && <Stock stock={stock} />}
+    <EarlyTruckDesk state={gameState} player={player} canAct={canAct} busy={busy} submit={submit} />
     {cargo ? <CargoTicket state={gameState} player={player} /> : <p className="freight-empty"><Container aria-hidden="true" />Khoang tàu trống</p>}
     {canAct && (cargo ? <>
       {unload && <button type="button" className="chart-button freight-handling" data-cargo-action="UNLOAD_CARGO" disabled={busy}
