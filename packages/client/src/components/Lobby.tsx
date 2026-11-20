@@ -1,11 +1,15 @@
-import React, { useEffect, useState } from 'react';
-import { LOGISTICS_DELIVERY_TARGET, LOGISTICS_ROUND_LIMIT, VESSEL_TOKENS, type VesselToken } from '@one-monopoly/shared';
+import React, { useEffect, useId, useState } from 'react';
+import {
+  FREIGHT_RIVALS, FREIGHT_RIVAL_STYLES, LOGISTICS_DELIVERY_TARGET, LOGISTICS_ROUND_LIMIT, VESSEL_TOKENS,
+  type FreightRivalStyle, type VesselToken,
+} from '@one-monopoly/shared';
 import { ArrowRight, Check, Compass, Copy, KeyRound, Plus, Users } from 'lucide-react';
 import { RoomState } from '../hooks/useSocket.js';
 import { TOKEN_CONFIG } from './TokenBadge.js';
 import { useIdleMotion } from '../hooks/useIdleMotion.js';
 import { TokenModel, tokenPosterUrl } from './TokenModel.js';
 import './chart-lobby.css';
+import './lobby-rival-picker.css';
 
 interface Props {
   room: RoomState | null;
@@ -13,12 +17,44 @@ interface Props {
   onCreateRoom: (name: string, token: VesselToken) => void;
   onJoinRoom: (roomId: string, name: string, token: VesselToken) => void;
   onToggleReady: (isReady: boolean) => void;
-  onStartGame: () => void;
+  onStartGame: (style?: FreightRivalStyle) => void;
+  isStarting?: boolean;
   onLeaveRoom: () => void;
 }
 
+function HostStart({ room, onStartGame, isStarting }: Pick<Props, 'onStartGame' | 'isStarting'> & { room: RoomState }) {
+  const [selected, setSelected] = useState<FreightRivalStyle>('standard');
+  const groupId = useId();
+  const solo = room.players.length === 1;
+
+  return <>
+    {solo && !room.isGameStarted && <fieldset className="lobby-rival-picker" data-rival-picker disabled={isStarting}>
+      <legend>Chọn đối thủ máy</legend>
+      <div className="lobby-rival-options">
+        {FREIGHT_RIVAL_STYLES.map(style => {
+          const rival = FREIGHT_RIVALS[style];
+          const id = `${groupId}-${style}`;
+          return <label key={style} className="lobby-rival-option">
+            <input type="radio" name={groupId} value={style} data-rival-option={style} checked={selected === style}
+              aria-labelledby={`${id}-name`} aria-describedby={`${id}-description`} onChange={() => setSelected(style)} />
+            <span className="lobby-rival-card">
+              <span className="lobby-rival-emoji" aria-hidden="true">{rival.emoji}</span>
+              <strong id={`${id}-name`} title={rival.name}>{rival.shortName}</strong>
+              <span className="lobby-rival-description" id={`${id}-description`}>{rival.description}</span>
+            </span>
+          </label>;
+        })}
+      </div>
+    </fieldset>}
+    <button className="chart-lobby-primary" type="button" data-lobby-start disabled={!room.players.length || room.isGameStarted || isStarting}
+      onClick={() => solo ? onStartGame(selected) : onStartGame()}>
+      {isStarting ? 'Đang mở ván…' : solo ? 'Bắt đầu ván đấu (cùng bot)' : 'Bắt đầu ván đấu'}<ArrowRight />
+    </button>
+  </>;
+}
+
 export const Lobby: React.FC<Props> = ({
-  room, myPlayerId, onCreateRoom, onJoinRoom, onToggleReady, onStartGame, onLeaveRoom,
+  room, myPlayerId, onCreateRoom, onJoinRoom, onToggleReady, onStartGame, isStarting = false, onLeaveRoom,
 }) => {
   const idleMotion = useIdleMotion();
   const [tab, setTab] = useState<'create' | 'join'>('create');
@@ -98,9 +134,8 @@ export const Lobby: React.FC<Props> = ({
                 ))}
               </ul>
               {isHost ? (
-                <button className="chart-lobby-primary" type="button" disabled={room.players.length < 1} onClick={onStartGame}>
-                  {room.players.length === 1 ? 'Bắt đầu ván đấu (cùng bot)' : 'Bắt đầu ván đấu'}<ArrowRight />
-                </button>
+                <HostStart key={`${room.id}/${room.players.length === 1 ? 'solo' : 'crew'}`} room={room} onStartGame={onStartGame}
+                  isStarting={isStarting} />
               ) : (
                 <button className="chart-lobby-primary" type="button" onClick={() => onToggleReady(!myPlayer?.isReady)}>
                   {myPlayer?.isReady ? 'Hủy sẵn sàng' : 'Tôi đã sẵn sàng!'}<Check />
@@ -114,6 +149,7 @@ export const Lobby: React.FC<Props> = ({
                 <button type="button" aria-pressed={creating} onClick={() => setTab('create')}><Plus />Tạo phòng mới</button>
                 <button type="button" aria-pressed={!creating} onClick={() => setTab('join')}><KeyRound />Vào bằng mã</button>
               </div>
+              {creating && <p className="lobby-solo-hint">Đấu với máy hoặc mời bạn bè bằng mã phòng.</p>}
 
               <form onSubmit={(event) => {
                 event.preventDefault();

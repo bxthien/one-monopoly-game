@@ -2,10 +2,13 @@ import {
   AUCTION_BID_SECONDS,
   AUCTION_INCREMENT,
   BOARD_TILES,
+  FREIGHT_RIVALS,
+  type FreightRivalStyle,
   GameAction,
   GameEvent,
   GameState,
   getDebtRecovery,
+  isFreightRivalStyle,
   LOOP_GROUPS_CONFIG,
   OneMonopolyEngine,
   VesselToken,
@@ -18,6 +21,11 @@ import { getFreightBotAction } from './freightBot.js';
 
 const TURN_SECONDS = 45;
 const BOT_PURCHASE_RESERVE = 80;
+const rivalTokens: Record<FreightRivalStyle, readonly [VesselToken, VesselToken]> = {
+  standard: ['ONE_APUS', 'PILOT_BOAT'],
+  equipment: ['GANTRY_CRANE', 'CONTAINER_TRUCK'],
+  coastal: ['BUNKER_BARGE', 'PILOT_BOAT'],
+};
 
 export function gameStateForPlayer(state: GameState, viewerId: string | undefined): GameState {
   const logistics = state.logistics;
@@ -57,6 +65,7 @@ export function getTimerPlayerId(state: GameState): string {
 }
 
 export interface RoomPlayer {
+  freightRivalStyle?: FreightRivalStyle;
   id: string;
   name: string;
   token: VesselToken;
@@ -233,32 +242,38 @@ export class RoomManager {
     return true;
   }
 
-  public startGame(roomId: string, callerId: string, mode: 'classic' | 'logistics' = 'logistics'): { success: boolean; error?: string } {
+  public startGame(
+    roomId: string, callerId: string, mode: 'classic' | 'logistics' = 'logistics', rivalStyle?: FreightRivalStyle
+  ): { success: boolean; error?: string } {
     const room = this.getRoom(roomId);
     if (!room) return { success: false, error: 'Phòng không tồn tại!' };
     if (room.hostId !== callerId) return { success: false, error: 'Chỉ phòng trưởng (Host) mới có quyền bắt đầu!' };
     if (room.isGameStarted) return { success: false, error: 'Trò chơi đã bắt đầu!' };
 
-    // Tự động bổ sung AI Bot nếu chỉ có 1 người chơi
-    if (room.players.length === 1) {
-      room.players.push({
-        id: 'ai-mate-1',
-        name: 'AI Thuyền Phó (Bot)',
-        token: room.players[0].token === 'ONE_APUS' ? 'PILOT_BOAT' : 'ONE_APUS',
-        isReady: true,
-        isOnline: true,
-      });
+    const solo = room.players.length === 1;
+    if (rivalStyle !== undefined) {
+      if (!isFreightRivalStyle(rivalStyle)) return { success: false, error: 'Hồ sơ đối thủ vận tải không hợp lệ.' };
+      if (!solo || mode !== 'logistics') return { success: false, error: 'Chỉ có thể chọn đối thủ cho ván vận tải một người.' };
     }
 
-    const gameState = OneMonopolyEngine.createGame(
-      room.id,
-      room.players.map((p) => ({
-        id: p.id,
-        name: p.name,
-        token: p.token,
-      })), mode
-    );
+    const style = solo && mode === 'logistics' ? rivalStyle ?? 'standard' : undefined;
+    let seats = room.players;
+    if (solo) {
+      const [preferred, alternate] = rivalTokens[style ?? 'standard'];
+      seats = [...seats, {
+        id: 'ai-mate-1',
+        name: style ? FREIGHT_RIVALS[style].name : 'AI Thuyền Phó (Bot)',
+        token: seats[0].token === preferred ? alternate : preferred,
+        isReady: true,
+        isOnline: true,
+        ...(style && { freightRivalStyle: style }),
+      }];
+    }
 
+    const playersData = seats.map(({ id, name, token }) => ({ id, name, token }));
+    const gameState = OneMonopolyEngine.createGame(room.id, playersData, mode);
+    if (style) gameState.players[1].freightRivalStyle = style;
+    room.players = seats;
     room.gameState = gameState;
     room.isGameStarted = true;
 
@@ -470,7 +485,7 @@ export class RoomManager {
         room.botTimer = setTimeout(() => {
           room.botTimer = null;
           if (room.gameState !== state) return;
-          this.dispatchAction(room.id, captain.id, getFreightBotAction(gameStateForPlayer(state, captain.id)));
+          this.dispatchAction(room.id, captain.id, getFreightBotAction(gameStateForPlayer(state, captain.id), captain.freightRivalStyle));
         }, delay);
       }
       return;

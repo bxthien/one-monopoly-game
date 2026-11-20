@@ -116,8 +116,9 @@ export function getPortStockAfterDischarge(stock: PortStock, kind: CargoKind, he
   };
 }
 
-function canReceive(state: GameState, playerId: string, tileId: number, kind: CargoKind) {
-  const stock = state.logistics!.ports[tileId];
+export function canReceiveCargo(state: GameState, playerId: string, tileId: number, kind: CargoKind): boolean {
+  const stock = state.logistics?.ports[tileId];
+  if (state.mode !== 'logistics' || !stock) return false;
   return getPublicReceivingSlots(stock, kind) > 0 || getTenderBonus(state, playerId, tileId, kind) > 0 ||
     (kind === 'laden' && getImportTruckReservation(state, playerId)?.destinationTileId === tileId);
 }
@@ -159,7 +160,7 @@ export function getCargoBookings(state: GameState, playerId: string, kind: Cargo
   return ports.flatMap(({ id }) => {
     if (reefer && !isReeferPort(id)) return [];
     const quote = getFreightQuote(player.position, id, kind);
-    return quote && canReceive(state, playerId, id, kind) ? [{ tileId: id, quote, action: {
+    return quote && canReceiveCargo(state, playerId, id, kind) ? [{ tileId: id, quote, action: {
       ...(reefer ? { reefer: true as const } : {}),
       type: 'LOAD_CARGO' as const, tileId: player.position, kind, destinationTileId: id, revision: state.cargoRevision ?? 0,
     } }] : [];
@@ -172,7 +173,7 @@ export function getCargoRedirections(state: GameState, playerId: string): Bookin
   return ports.flatMap(({ id }) => {
     if (booking.reeferDueRound !== undefined && !isReeferPort(id)) return [];
     const quote = getFreightQuote(booking.originTileId, id, booking.kind);
-    return id !== booking.destinationTileId && quote && canReceive(state, playerId, id, booking.kind)
+    return id !== booking.destinationTileId && quote && canReceiveCargo(state, playerId, id, booking.kind)
       ? [{ tileId: id, quote, action: { type: 'CHANGE_DESTINATION' as const,
           bookingId: booking.bookingId, destinationTileId: id, revision: state.cargoRevision ?? 0 } }]
       : [];
@@ -190,7 +191,7 @@ export function getCargoOpportunity(state: GameState, playerId: string): CargoOp
     return suggested ? { action: suggested.action, quote: null } : null;
   }
   const stock = state.logistics!.ports[player.position];
-  if (!stock || player.position !== booking.destinationTileId || !canReceive(state, playerId, player.position, booking.kind)) return null;
+  if (!stock || player.position !== booking.destinationTileId || !canReceiveCargo(state, playerId, player.position, booking.kind)) return null;
   const quote = getFreightQuote(booking.originTileId, player.position, booking.kind);
   return quote ? { action: { type: 'UNLOAD_CARGO', tileId: player.position, originTileId: booking.originTileId,
     bookingId: booking.bookingId, revision: state.cargoRevision ?? 0 }, quote } : null;
@@ -202,7 +203,7 @@ export interface LogisticsRoute {
 
 function dischargeQuote(state: GameState, player: Player, destination: number): FreightQuote | null {
   const cargo = player.cargo;
-  return cargo?.destinationTileId === destination && canReceive(state, player.id, destination, cargo.kind)
+  return cargo?.destinationTileId === destination && canReceiveCargo(state, player.id, destination, cargo.kind)
     ? getFreightQuote(cargo.originTileId, destination, cargo.kind) : null;
 }
 

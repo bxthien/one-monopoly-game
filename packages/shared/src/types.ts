@@ -1,3 +1,5 @@
+import type { FreightRivalStyle } from './freightRivals.js';
+
 export const VESSEL_TOKENS = [
   'ONE_APUS',
   'ONE_MAGENTA',
@@ -186,6 +188,7 @@ export interface Player {
   id: string;
   name: string;
   token: VesselToken;
+  freightRivalStyle?: FreightRivalStyle;
   balance: number;
   position: number;
   inHold: boolean;

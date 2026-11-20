@@ -8,6 +8,7 @@ import { PlayerSidebar } from './components/PlayerSidebar.js';
 import { TradeDesk } from './components/TradeDesk.js';
 import { ActionControls } from './components/ActionControls.js';
 import { FreightDesk } from './components/CargoManifest.js';
+import { RivalDispatch } from './components/RivalDispatch.js';
 import { DiversionReceipt, type DiversionEvent } from './components/DiversionReceipt.js';
 import { TruckCallReceipt, type TruckCallEvent } from './components/TruckCallReceipt.js';
 import { VoyageLog } from './components/VoyageLog.js';
@@ -32,6 +33,7 @@ const weatherReadouts = {
 export const App: React.FC = () => {
   const {
     isConnected,
+    isStarting,
     subscribeBoard,
     room,
     gameState,
@@ -286,6 +288,7 @@ export const App: React.FC = () => {
         <main className="chart-lobby-main">
           <Lobby
             room={room}
+            isStarting={isStarting}
             myPlayerId={myPlayerId}
             onCreateRoom={createRoom}
             onJoinRoom={joinRoom}
@@ -360,6 +363,7 @@ export const App: React.FC = () => {
             <PlayerSidebar gameState={gameState} myPlayerId={myPlayerId} turnTimer={turnTimer}
               onOfferForTile={openTrades} rentReceipts={rent.visible} pendingRent={rent.pending} reactions={reactions} />
             <div className="table-actions">
+              {freightGame && <RivalDispatch state={gameState} myPlayerId={myPlayerId} subscribeBoard={subscribeBoard} onInspectPort={setSelectedTileId} />}
               {freightGame ? <FreightDesk gameState={gameState} myPlayerId={myPlayerId} onAction={sendAction}
                 marketOpen={freightTool === 'market'} onOpenMarket={() => setFreightTool('market')}
                 onCloseMarket={() => setFreightTool(null)} onInspectPort={setSelectedTileId} /> : <ActionControls

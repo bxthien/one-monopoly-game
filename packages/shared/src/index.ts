@@ -1,4 +1,5 @@
 export * from './types.js';
+export * from './freightRivals.js';
 export * from './boardData.js';
 export * from './gameEngine.js';
 export { canSettleTrade, getTradeRestriction } from './trade.js';
@@ -8,7 +9,7 @@ export { getDebtRecovery } from './debtRecovery.js';
 export type { DebtRecovery, DebtRecoveryOption } from './debtRecovery.js';
 export {
   PORT_COORDINATES, LOGISTICS_DELIVERY_TARGET, LOGISTICS_ROUND_LIMIT, LOGISTICS_PORT_CAPACITY,
-  getCargoOpportunity, getCargoBookings, getCargoRedirections, getEarlyTruckCalls, getPortTruckSchedule,
+  canReceiveCargo, getCargoOpportunity, getCargoBookings, getCargoRedirections, getEarlyTruckCalls, getPortTruckSchedule,
   getPortStockAfterDischarge, getImportTruckThroughRound, getReserveImportTruckAction,
   getEmptyNeed, getFreightQuote, getTenderBidAction,
   FEEDER_RANGE_NM, getFeederDistanceNm, getFeederRoutes, getLogisticsRoutes, getLogisticsStandings, isFinalLogisticsRound,

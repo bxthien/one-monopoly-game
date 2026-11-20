@@ -1,8 +1,8 @@
 import {
-  FREIGHT_TENDER_MAX_BID, FREIGHT_TENDER_MIN_BID, getCargoBookings, getCargoOpportunity,
-  getAcceptBackhaulAction, getCargoRedirections, getEarlyTruckCalls, getEmptyNeed, getFeederRoutes, getLogisticsRoutes,
-  getTenderBidAction, isReeferPort, REEFER_ON_TIME_BONUS,
-  type FreightTender, type GameAction, type GameState, type Player, type PortStock,
+  FREIGHT_TENDER_MAX_BID, FREIGHT_TENDER_MIN_BID, canReceiveCargo, getCargoBookings, getCargoOpportunity,
+  getAcceptBackhaulAction, getCargoRedirections, getEarlyTruckCalls, getEmptyNeed, getFeederDistanceNm, getFeederRoutes, getLogisticsRoutes,
+  getImportTruckReservation, getReserveImportTruckAction, getTenderBidAction, isFinalLogisticsRound, isReeferPort, REEFER_ON_TIME_BONUS,
+  type FreightRivalStyle, type FreightTender, type GameAction, type GameState, type Player, type PortStock,
 } from '@one-monopoly/shared';
 
 function bestBooking(state: GameState, captain: Player, choices: ReturnType<typeof getCargoBookings>) {
@@ -12,6 +12,40 @@ function bestBooking(state: GameState, captain: Player, choices: ReturnType<type
     .filter(reefer => choices.some(choice => choice.tileId === reefer.tileId && choice.action.kind === 'laden'))
     .sort((a, b) => b.quote.reward - a.quote.reward)[0];
   return cold && cold.quote.reward + REEFER_ON_TIME_BONUS >= best.quote.reward ? cold.action : best.action;
+}
+
+function equipmentBooking(state: GameState, captain: Player) {
+  const ports = state.logistics!.ports;
+  return getCargoBookings(state, captain.id, 'empty')
+    .map(choice => ({ choice, shortage: getEmptyNeed(ports[choice.tileId]) }))
+    .filter(({ shortage }) => shortage > 0)
+    .sort((a, b) => b.shortage - a.shortage || b.choice.quote.reward - a.choice.quote.reward ||
+      a.choice.tileId - b.choice.tileId)[0]?.choice.action;
+}
+
+function shortSeaBooking(state: GameState, captain: Player, canDeliverNow: boolean) {
+  const bookings = [
+    ...getCargoBookings(state, captain.id, 'laden'),
+    ...getCargoBookings(state, captain.id, 'empty'),
+    ...(canDeliverNow ? getCargoBookings(state, captain.id, 'laden', true) : []),
+  ];
+  const localJobs = bookings.flatMap(({ action, quote, tileId }) => {
+    const distance = getFeederDistanceNm(captain.position, tileId);
+    const payment = quote.reward + (action.reefer ? REEFER_ON_TIME_BONUS : 0);
+    return distance === null ? [] : [{ action, distance, payment, tileId }];
+  });
+  return localJobs.sort((a, b) => a.distance - b.distance || b.payment - a.payment || a.tileId - b.tileId)[0]?.action;
+}
+
+function contestedTruck(state: GameState, captain: Player, feederRoutes: ReturnType<typeof getFeederRoutes>) {
+  const booking = captain.cargo;
+  if (!state.logistics?.hasSailed || booking?.kind !== 'laden') return null;
+  const destination = booking.destinationTileId;
+  if (state.logistics.ports[destination]?.demand !== 1 ||
+      feederRoutes.some(route => route.tileId === destination && route.quote)) return null;
+  const competes = state.players.some(other => other.id !== captain.id && !other.isBankrupt &&
+    other.cargo?.kind === 'laden' && other.cargo.destinationTileId === destination && !getImportTruckReservation(state, other.id));
+  return competes ? getReserveImportTruckAction(state, captain.id) : null;
 }
 
 // Spend the once-per-game call only if it creates a booking or discharge right now.
@@ -43,7 +77,7 @@ function quoteNextRound(captain: Player, stock: PortStock, tender: FreightTender
   return FREIGHT_TENDER_MAX_BID - (available > 1 ? 5 : 3);
 }
 
-export function getFreightBotAction(state: GameState): GameAction {
+export function getFreightBotAction(state: GameState, style: FreightRivalStyle = 'standard'): GameAction {
   const captain = state.players[state.activePlayerIndex];
   const operations = state.logistics;
   if (!operations) return { type: 'END_TURN' };
@@ -86,9 +120,14 @@ export function getFreightBotAction(state: GameState): GameAction {
     if (feeder) return feeder.action;
   }
 
-  // Price the next round from the berth and equipment actually available after this voyage.
+  const coastalLoad = style === 'coastal' && !job
+    ? shortSeaBooking(state, captain, !operations.hasSailed || feederRoutes.length > 0) : undefined;
+  const canLoadForFeeder = coastalLoad && feederRoutes.some(route => route.tileId === coastalLoad.destinationTileId);
+  const reservation = style !== 'standard' ? contestedTruck(state, captain, feederRoutes) : null;
+  // Delay a speculative bid while the coastal ship can make another delivery or a specialist owes a return.
   const tender = operations.market?.tender;
-  if (operations.hasSailed && tender && !owesDelivery) {
+  if (operations.hasSailed && tender && !owesDelivery && !canLoadForFeeder && !reservation &&
+      (style === 'standard' || backhaul?.status !== 'active')) {
     const amount = quoteNextRound(captain, operations.ports[captain.position], tender);
     if (amount !== null) {
       if (tender.bids[captain.id] === undefined) {
@@ -121,7 +160,20 @@ export function getFreightBotAction(state: GameState): GameAction {
     }
   }
 
+  if (style === 'coastal' && job) {
+    const feeder = feederRoutes.find(route => route.tileId === job.destinationTileId && route.quote);
+    if (feeder) return feeder.action;
+  }
+  if (reservation) return reservation;
   if (!job) {
+    if (style !== 'standard' && operations.hasSailed && !canLoadForFeeder && isFinalLogisticsRound(state)) {
+      return { type: 'END_TURN' };
+    }
+    if (coastalLoad) return coastalLoad;
+    if (style === 'equipment') {
+      const empty = equipmentBooking(state, captain);
+      if (empty) return empty;
+    }
     const exports = getCargoBookings(state, captain.id, 'laden');
     const equipment = getCargoBookings(state, captain.id, 'empty');
     // After an export, try returning equipment to a shortage port for the next ship.
@@ -137,15 +189,11 @@ export function getFreightBotAction(state: GameState): GameAction {
       const supply = callTruckForCargo(state, captain);
       if (supply) return supply;
     }
-  } else {
-    const receiver = operations.ports[job.destinationTileId];
-    const canReceive = receiver && (job.kind === 'empty' ? getEmptyNeed(receiver) > 0 : receiver.demand > 0);
-    if (!canReceive) {
-      const alternatives = getCargoRedirections(state, captain.id);
-      const atBerth = alternatives.find(option => option.tileId === captain.position);
-      if (atBerth) return atBerth.action;
-      if (alternatives.length) return alternatives[0].action;
-    }
+  } else if (!canReceiveCargo(state, captain.id, job.destinationTileId, job.kind)) {
+    const alternatives = getCargoRedirections(state, captain.id);
+    const atBerth = alternatives.find(option => option.tileId === captain.position);
+    if (atBerth) return atBerth.action;
+    if (alternatives.length) return alternatives[0].action;
   }
 
   const routes = getLogisticsRoutes(state, captain.id);

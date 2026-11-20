@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { GameAction, GameEvent, GameState, VesselToken } from '@one-monopoly/shared';
+import { GameAction, GameEvent, GameState, VesselToken, type FreightRivalStyle } from '@one-monopoly/shared';
 
 import { DICE_ROLL_MS } from '../components/boardTravel.js';
 
@@ -15,6 +15,7 @@ export interface RoomState {
     id: string;
     name: string;
     token: VesselToken;
+    freightRivalStyle?: FreightRivalStyle;
     isReady: boolean;
     isOnline: boolean;
   }>;
@@ -39,6 +40,8 @@ export interface ReactionEvent {
 export function useSocket() {
   const socketRef = useRef<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [isStarting, setIsStarting] = useState(false);
+  const pendingStart = useRef<symbol | null>(null);
   const [room, setRoom] = useState<RoomState | null>(null);
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
@@ -72,6 +75,11 @@ export function useSocket() {
     });
     socketRef.current = socket;
     let reactionSequence = 0;
+    const finishStart = () => {
+      if (pendingStart.current === null) return;
+      pendingStart.current = null;
+      setIsStarting(false);
+    };
     const clearHiddenReactions = () => {
       if (document.hidden) setReactions([]);
     };
@@ -108,6 +116,7 @@ export function useSocket() {
     });
 
     socket.on('disconnect', () => {
+      finishStart();
       setReactions([]);
       setIsConnected(false);
     });
@@ -117,6 +126,7 @@ export function useSocket() {
     });
 
     socket.on('game:init', (data: { state: GameState }) => {
+      finishStart();
       setReactions([]);
       clearTimeout(rollTimerRef.current);
       rollTimerRef.current = undefined;
@@ -126,6 +136,7 @@ export function useSocket() {
     });
 
     socket.on('game:update', (data: { state: GameState; events: GameEvent[] }) => {
+      finishStart();
       const hasDiceRoll = data.events?.some((e) => e.type === 'DICE_ROLLED');
       if (hasDiceRoll) {
         setIsRolling(true);
@@ -218,11 +229,24 @@ export function useSocket() {
     [room, myPlayerId]
   );
 
-  const startGame = useCallback(() => {
-    if (!socketRef.current || !room || !myPlayerId) return;
-    socketRef.current.emit('room:start', {
+  const startGame = useCallback((rivalStyle?: FreightRivalStyle) => {
+    if (!room || !myPlayerId || pendingStart.current !== null) return;
+    if (!socketRef.current?.connected) {
+      setErrorMsg('Chưa kết nối với phòng chơi.');
+      return;
+    }
+    const request = Symbol();
+    pendingStart.current = request;
+    setIsStarting(true);
+    socketRef.current.timeout(5000).emit('room:start', {
       roomId: room.id,
       playerId: myPlayerId,
+      ...(rivalStyle !== undefined && { rivalStyle }),
+    }, (timeout: Error | null, result?: { success: boolean; error?: string }) => {
+      if (pendingStart.current !== request) return;
+      pendingStart.current = null;
+      setIsStarting(false);
+      if (timeout || !result?.success) setErrorMsg(timeout ? 'Chưa nhận được xác nhận bắt đầu ván.' : result?.error || 'Không thể bắt đầu ván.');
     });
   }, [room, myPlayerId]);
 
@@ -272,6 +296,7 @@ export function useSocket() {
 
   return {
     isConnected,
+    isStarting,
     subscribeBoard,
     room,
     gameState,
