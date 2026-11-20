@@ -175,6 +175,7 @@ export interface GameState {
   auctionSequence?: number;
   tradeOffers?: TradeOffer[];
   tradeSequence?: number;
+  canUpgradeCurrentPort?: boolean; // True when landing on an already-owned port (allows at most 1 upgrade on this visit)
   pendingDebt: DebtInfo | null;
   pendingSlotCharter: PendingSlotCharter | null;
   winnerId: string | null;

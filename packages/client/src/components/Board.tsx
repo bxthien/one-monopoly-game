@@ -8,10 +8,11 @@ import { Pawn3D } from './Pawn3D.js';
 import { BoardSky } from './BoardSky.js';
 import type { BoardLighting } from './boardLighting.js';
 import { forwardHeading, type TravelFrame } from './boardTravel.js';
-import { useBoardPlayback } from './useBoardPlayback.js';
+import { useBoardPlayback, type RentReceipt } from './useBoardPlayback.js';
 import { useIdleMotion } from '../hooks/useIdleMotion.js';
 import type { SubscribeBoard } from '../hooks/useSocket.js';
 import './chart-board.css';
+import './tile-rent.css';
 
 interface Props {
   gameState: GameState;
@@ -25,6 +26,7 @@ interface Props {
   onCloseCard: () => void;
   is3D?: boolean;
   onPawnMovingChange?: (isMoving: boolean) => void;
+  onRentReceiptsChange?: (visible: Record<number, RentReceipt>, pending: Record<number, RentReceipt>) => void;
 }
 
 // Bảng toạ độ phần trăm chính xác theo tâm từng ô cờ (0..31) trên lưới 9x9 (1.35fr + 7*1fr + 1.35fr)
@@ -176,14 +178,18 @@ export const Board: React.FC<Props> = ({
   onCloseCard,
   is3D = true,
   onPawnMovingChange,
+  onRentReceiptsChange,
 }) => {
   const [selectedTileId, setSelectedTileId] = useState<number | null>(null);
 
   const idleMotion = useIdleMotion();
   const allowIdle = idleMotion && selectedTileId === null && !activeCard && !gameState.winnerId;
-  const { tracks, claims, advance } = useBoardPlayback(gameState, subscribeBoard);
+  const { tracks, claims, rentReceipts, pendingRentReceipts, advance } = useBoardPlayback(gameState, subscribeBoard);
   const moving = gameState.players.some((player) => !player.isBankrupt && tracks[player.id]?.frames.length);
   useLayoutEffect(() => { onPawnMovingChange?.(moving); }, [moving, onPawnMovingChange]);
+  useLayoutEffect(() => {
+    onRentReceiptsChange?.(rentReceipts, pendingRentReceipts);
+  }, [rentReceipts, pendingRentReceipts, onRentReceiptsChange]);
 
   // Helper to determine orientation cho bàn cờ 32 ô (9 ô mỗi cạnh)
   const getTileOrientation = (
@@ -295,6 +301,7 @@ export const Board: React.FC<Props> = ({
                     property={prop}
                     claim={claims[tile.id]}
                     auctioned={gameState.auction?.tileId === tile.id}
+                    receipt={rentReceipts[tile.id]}
                     owner={owner}
                     currentRent={currentRent}
                     orientation={getTileOrientation(tile.id)}
@@ -365,12 +372,57 @@ export const Board: React.FC<Props> = ({
               );
             })}
           </div>
+
+          {/* Floating Rent Receipts in 3D Scene */}
+          <div
+            className="absolute inset-2 pointer-events-none z-50"
+            style={{ transformStyle: is3D ? 'preserve-3d' : undefined }}
+          >
+            {Object.values(rentReceipts).map((receipt) => {
+              const coord = TILE_CENTER_PERCENT[receipt.tileId];
+              if (!coord) return null;
+              return (
+                <div
+                  key={`receipt-${receipt.tileId}`}
+                  className="absolute pointer-events-none tile-rent-container"
+                  style={{
+                    left: `${coord.x}%`,
+                    top: `${coord.y}%`,
+                    transform: is3D
+                      ? 'translate(-50%, -50%) rotateZ(calc(0deg - var(--board-yaw))) rotateX(calc(0deg - var(--board-tilt) - 12deg)) translateZ(54px)'
+                      : 'translate(-50%, -50%)',
+                    transformStyle: is3D ? 'preserve-3d' : undefined,
+                  }}
+                  aria-hidden="true"
+                >
+                  <div className="tile-rent-popup">
+                    {receipt.lines.map((line, idx) => (
+                      <div
+                        key={idx}
+                        className={`tile-rent-line ${line.type === 'deduct' ? 'tile-rent-deduct' : 'tile-rent-credit'}`}
+                      >
+                        <span className="tile-rent-name">{line.playerName}:</span>
+                        <span className="tile-rent-val">
+                          {line.type === 'deduct' ? `-$${line.amount}M 💸` : `+$${line.amount}M 💰`}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 
       <span className="sr-only" role="status">
         {Object.values(claims).map((claim) => (
           <span key={claim.tileId}>{gameState.players.find((player) => player.id === claim.playerId)?.name} đã mua {BOARD_TILES[claim.tileId].name}. </span>
+        ))}
+        {Object.values(rentReceipts).map((receipt) => (
+          <span key={`rent-${receipt.tileId}`}>
+            Thanh toán cước tại {BOARD_TILES[receipt.tileId]?.name}: {receipt.lines.map((l) => `${l.playerName} ${l.type === 'deduct' ? 'bị trừ' : 'nhận'} $${l.amount}M`).join(', ')}.
+          </span>
         ))}
       </span>
 

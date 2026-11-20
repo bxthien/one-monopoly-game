@@ -8,6 +8,7 @@ import { PlayerSidebar } from './components/PlayerSidebar.js';
 import { TradeDesk } from './components/TradeDesk.js';
 import { ActionControls } from './components/ActionControls.js';
 import { ReactionFloatingBar } from './components/ReactionFloatingBar.js';
+import type { RentReceipt } from './components/useBoardPlayback.js';
 import { GameOverModal } from './components/GameOverModal.js';
 import { AlertCircle, BookOpen, Box, Compass, Gavel, Handshake, LogOut, Map, MapPin, Radio, X } from 'lucide-react';
 
@@ -34,6 +35,13 @@ export const App: React.FC = () => {
 
   const [activeCard, setActiveCard] = useState<GameCard | null>(null);
   const [isPawnMoving, setIsPawnMoving] = useState(false);
+  const [rent, setRent] = useState<{
+    visible: Record<number, RentReceipt>;
+    pending: Record<number, RentReceipt>;
+  }>({ visible: {}, pending: {} });
+  const updateRent = React.useCallback((visible: Record<number, RentReceipt>, pending: Record<number, RentReceipt>) => {
+    setRent({ visible, pending });
+  }, []);
   const pendingCardRef = React.useRef<GameCard | null>(null);
   const [eventLogs, setEventLogs] = useState<string[]>([]);
   const [boardNotice, setBoardNotice] = useState<{ type: 'auction' | 'trade'; text: string } | null>(null);
@@ -243,6 +251,7 @@ export const App: React.FC = () => {
                 onCloseCard={() => setActiveCard(null)}
                 is3D={is3D}
                 onPawnMovingChange={setIsPawnMoving}
+                onRentReceiptsChange={updateRent}
               />
             </div>
             <div className="chart-position" role="status">
@@ -254,7 +263,8 @@ export const App: React.FC = () => {
             </div>
           </section>
           <aside className="table-controls">
-            <PlayerSidebar gameState={gameState} myPlayerId={myPlayerId} turnTimer={turnTimer} onOfferForTile={openTrades} />
+            <PlayerSidebar gameState={gameState} myPlayerId={myPlayerId} turnTimer={turnTimer}
+              onOfferForTile={openTrades} rentReceipts={rent.visible} pendingRent={rent.pending} />
             <div className="table-actions">
               <ActionControls
                 gameState={gameState}

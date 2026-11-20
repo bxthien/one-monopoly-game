@@ -1,7 +1,77 @@
-import { useCallback, useLayoutEffect, useState } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import type { GameEvent, GameState } from '@one-monopoly/shared';
 import type { SubscribeBoard } from '../hooks/useSocket.js';
 import { buildTravelFrames, restingPose, type Pose, type TravelFrame } from './boardTravel.js';
+
+export interface RentLine {
+  playerId: string;
+  playerName: string;
+  amount: number;
+  type: 'deduct' | 'credit';
+}
+
+export interface RentReceipt {
+  tileId: number;
+  lines: RentLine[];
+}
+
+export function parseRentReceiptFromEvent(
+  event: GameEvent,
+  players: Array<{ id: string; name: string }>
+): RentReceipt | null {
+  if (event.type === 'DEMURRAGE_PAID') {
+    const debtor = players.find((p) => p.id === event.debtorId);
+    const creditor = players.find((p) => p.id === event.creditorId);
+    return {
+      tileId: event.tileId,
+      lines: [
+        {
+          playerId: event.debtorId,
+          playerName: debtor?.name ?? 'Khách',
+          amount: event.amount,
+          type: 'deduct',
+        },
+        {
+          playerId: event.creditorId,
+          playerName: creditor?.name ?? 'Chủ cảng',
+          amount: event.amount,
+          type: 'credit',
+        },
+      ],
+    };
+  }
+
+  if (event.type === 'SLOT_CHARTER_RENT_SPLIT') {
+    const visitor = players.find((p) => p.id === event.visitorId);
+    const owner = players.find((p) => p.id === event.ownerId);
+    const partner = players.find((p) => p.id === event.partnerId);
+    return {
+      tileId: event.tileId,
+      lines: [
+        {
+          playerId: event.visitorId,
+          playerName: visitor?.name ?? 'Khách',
+          amount: event.ownerAmount + event.splitAmount,
+          type: 'deduct',
+        },
+        {
+          playerId: event.ownerId,
+          playerName: owner?.name ?? 'Chủ cảng',
+          amount: event.ownerAmount,
+          type: 'credit',
+        },
+        {
+          playerId: event.partnerId,
+          playerName: partner?.name ?? 'Đối tác',
+          amount: event.splitAmount,
+          type: 'credit',
+        },
+      ],
+    };
+  }
+
+  return null;
+}
 
 type Claim = Pick<Extract<GameEvent, { type: 'TILE_PURCHASED' }>, 'tileId' | 'playerId' | 'price'>;
 interface Track {
@@ -17,6 +87,9 @@ function snapshot(state: GameState): Record<string, Track> {
 export function useBoardPlayback(initialState: GameState, subscribe: SubscribeBoard) {
   const [tracks, setTracks] = useState(() => snapshot(initialState));
   const [claims, setClaims] = useState<Record<number, Claim>>({});
+  const [rentReceipts, setRentReceipts] = useState<Record<number, RentReceipt>>({});
+  const [pendingRentReceipts, setPendingRentReceipts] = useState<Record<number, RentReceipt>>({});
+  const rentExpiry = useRef(new Map<number, ReturnType<typeof setTimeout>>()).current;
 
   useLayoutEffect(() => {
     const preference = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -29,37 +102,23 @@ export function useBoardPlayback(initialState: GameState, subscribe: SubscribeBo
     };
     preference.addEventListener('change', settlePending);
     document.addEventListener('visibilitychange', settlePending);
-    const expiry = new Map<number, ReturnType<typeof setTimeout>>();
-    const resetClaims = () => {
-      expiry.forEach(clearTimeout);
-      expiry.clear();
+    const claimExpiry = new Map<number, ReturnType<typeof setTimeout>>();
+
+    const resetTimers = () => {
+      claimExpiry.forEach(clearTimeout);
+      claimExpiry.clear();
+      rentExpiry.forEach(clearTimeout);
+      rentExpiry.clear();
     };
+
     const unsubscribe = subscribe((state, events) => {
       if (events === null) {
-        resetClaims();
+        resetTimers();
         setClaims({});
+        setRentReceipts({});
+        setPendingRentReceipts({});
         setTracks(snapshot(state));
         return;
-      }
-
-      for (const event of events) {
-        let claim: Claim;
-        if (event.type === 'TILE_PURCHASED') claim = event;
-        else if (event.type === 'TRADE_CLOSED' && event.result === 'ACCEPTED') {
-          const { tileId, buyerId, price } = event.offer;
-          claim = { tileId, playerId: buyerId, price };
-        } else continue;
-        const { tileId } = claim;
-        clearTimeout(expiry.get(tileId));
-        setClaims((prev) => ({ ...prev, [tileId]: claim }));
-        expiry.set(tileId, setTimeout(() => {
-          setClaims((prev) => {
-            const next = { ...prev };
-            delete next[tileId];
-            return next;
-          });
-          expiry.delete(tileId);
-        }, 1800));
       }
 
       setTracks((prev) => {
@@ -83,14 +142,72 @@ export function useBoardPlayback(initialState: GameState, subscribe: SubscribeBo
         }
         return next;
       });
+
+      for (const event of events) {
+        let claim: Claim | undefined;
+        if (event.type === 'TILE_PURCHASED') claim = event;
+        else if (event.type === 'TRADE_CLOSED' && event.result === 'ACCEPTED') {
+          const { tileId, buyerId, price } = event.offer;
+          claim = { tileId, playerId: buyerId, price };
+        }
+        if (claim) {
+          const entry = claim;
+          const { tileId } = entry;
+          clearTimeout(claimExpiry.get(tileId));
+          setClaims((prev) => ({ ...prev, [tileId]: entry }));
+          claimExpiry.set(tileId, setTimeout(() => {
+            setClaims((prev) => {
+              const next = { ...prev };
+              delete next[tileId];
+              return next;
+            });
+            claimExpiry.delete(tileId);
+          }, 1800));
+        }
+
+        const receipt = parseRentReceiptFromEvent(event, state.players);
+        if (receipt) setPendingRentReceipts((prev) => ({ ...prev, [receipt.tileId]: receipt }));
+      }
     });
     return () => {
       unsubscribe();
-      resetClaims();
+      resetTimers();
       preference.removeEventListener('change', settlePending);
       document.removeEventListener('visibilitychange', settlePending);
     };
-  }, [subscribe]);
+  }, [subscribe, rentExpiry]);
+
+  // Wait for the actual dice and pawn queue, including travel already in progress
+  // when a follow-up event (such as a charter decision) collects the rent.
+  useLayoutEffect(() => {
+    const arrived = Object.values(pendingRentReceipts).filter(receipt =>
+      !tracks[receipt.lines[0].playerId]?.frames.length);
+    if (arrived.length === 0) return;
+
+    setPendingRentReceipts((prev) => {
+      const next = { ...prev };
+      for (const receipt of arrived) {
+        if (next[receipt.tileId] === receipt) delete next[receipt.tileId];
+      }
+      return next;
+    });
+    setRentReceipts((prev) => {
+      const next = { ...prev };
+      for (const receipt of arrived) next[receipt.tileId] = receipt;
+      return next;
+    });
+    for (const { tileId } of arrived) {
+      clearTimeout(rentExpiry.get(tileId));
+      rentExpiry.set(tileId, setTimeout(() => {
+        setRentReceipts((prev) => {
+          const next = { ...prev };
+          delete next[tileId];
+          return next;
+        });
+        rentExpiry.delete(tileId);
+      }, 2500));
+    }
+  }, [pendingRentReceipts, tracks, rentExpiry]);
 
   const advance = useCallback((id: string, frame: TravelFrame) => {
     setTracks((prev) => {
@@ -100,5 +217,5 @@ export function useBoardPlayback(initialState: GameState, subscribe: SubscribeBo
     });
   }, []);
 
-  return { tracks, claims, advance };
+  return { tracks, claims, rentReceipts, pendingRentReceipts, advance };
 }

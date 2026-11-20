@@ -10,6 +10,7 @@
   cursor: pointer;
   border-radius: 3px;
 }
+.fleet-balance { display: grid; justify-items: end; gap: 2px; }
 .fleet-portfolio-open:hover { background: #e9eee3; }
 .fleet-asset-count {
   display: inline-flex;

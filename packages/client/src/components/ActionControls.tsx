@@ -1,6 +1,6 @@
 import React from 'react';
-import { BOARD_TILES, GameAction, GameState, getTradeRestriction } from '@one-monopoly/shared';
-import { Dices, Check, Gavel, DollarSign, Ticket, AlertTriangle, Handshake, Ship, Flag } from 'lucide-react';
+import { BOARD_TILES, GREEN_FLEET_COST, LOOP_GROUPS_CONFIG, getTradeRestriction, type GameAction, type GameState } from '@one-monopoly/shared';
+import { AlertTriangle, Building2, Check, Dices, DollarSign, Flag, Gavel, Handshake, Leaf, Ship, Ticket } from 'lucide-react';
 import { StormDecision } from './StormDecision.js';
 import { PropertyAuctionPanel } from './PropertyAuctionPanel.js';
 import './chart-actions.css';
@@ -239,25 +239,93 @@ export const ActionControls: React.FC<Props> = ({
     );
   }
 
+  const currentProp = gameState.properties[activePlayer.position];
+  const isDockedAtMyPort =
+    Boolean(gameState.canUpgradeCurrentPort) &&
+    currentTile.type === 'PORT' &&
+    currentProp?.ownerId === myPlayerId &&
+    !currentProp.isMortgaged;
+  const buildCost =
+    currentTile.buildCost ||
+    (currentTile.group ? LOOP_GROUPS_CONFIG[currentTile.group]?.buildCost : undefined) ||
+    50;
+  const canBuildDockedContainer =
+    isDockedAtMyPort &&
+    currentProp.containerLevel < 5 &&
+    activePlayer.balance >= buildCost;
+  const canUpgradeDockedGreen =
+    isDockedAtMyPort &&
+    currentProp.containerLevel === 5 &&
+    !currentProp.hasGreenFleet &&
+    activePlayer.balance >= GREEN_FLEET_COST;
+  const showDockedUpgradePanel =
+    isDockedAtMyPort &&
+    (currentProp.containerLevel < 5 || !currentProp.hasGreenFleet);
+
+  const dockedUpgradeControls = showDockedUpgradePanel ? (
+    <section className="chart-action-panel">
+      <div className="chart-action-offer">
+        <div>
+          <p className="chart-action-copy">NÂNG CẤP TẠI CẢNG ĐANG ĐẬU</p>
+          <h3 className="chart-action-title">
+            {currentTile.name} (Cấp {currentProp.containerLevel}/5)
+          </h3>
+        </div>
+        <div className="chart-action-price">
+          ${currentProp.containerLevel < 5 ? buildCost : GREEN_FLEET_COST}M
+        </div>
+      </div>
+
+      {currentProp.containerLevel < 5 ? (
+        <button
+          onClick={() => onAction({ type: 'BUILD_CONTAINER', tileId: activePlayer.position })}
+          disabled={!canBuildDockedContainer}
+          className="chart-button chart-button-primary chart-button-wide"
+        >
+          <Building2 size={18} aria-hidden="true" />{' '}
+          {currentProp.containerLevel === 4
+            ? `LÊN SIÊU TÀU ONE INNOVATION (+$${buildCost}M)`
+            : `ĐẶT LÔ CONTAINER CẤP ${currentProp.containerLevel + 1} (+$${buildCost}M)`}
+        </button>
+      ) : (
+        !currentProp.hasGreenFleet && (
+          <button
+            onClick={() => onAction({ type: 'UPGRADE_GREEN_FLEET', tileId: activePlayer.position })}
+            disabled={!canUpgradeDockedGreen}
+            className="chart-button chart-button-primary chart-button-wide"
+          >
+            <Leaf size={18} aria-hidden="true" /> GẮN HUY HIỆU TÀU XANH (+${GREEN_FLEET_COST}M)
+          </button>
+        )
+      )}
+    </section>
+  ) : null;
+
   if (gameState.phase === 'WAIT_FOR_ROLL') {
     return (
-      <button
-        onClick={() => onAction({ type: 'ROLL_DICE' })}
-        disabled={isRolling}
-        className="chart-button chart-button-primary chart-button-wide"
-      >
-        <Dices size={18} aria-hidden="true" />
-        {isRolling ? 'ĐANG LẮC XÚC XẮC...' : 'LẮC XÚC XẮC!'}
-      </button>
+      <>
+        {dockedUpgradeControls}
+        <button
+          onClick={() => onAction({ type: 'ROLL_DICE' })}
+          disabled={isRolling}
+          className="chart-button chart-button-primary chart-button-wide"
+        >
+          <Dices size={18} aria-hidden="true" />
+          {isRolling ? 'ĐANG LẮC XÚC XẮC...' : 'LẮC XÚC XẮC!'}
+        </button>
+      </>
     );
   }
 
   return (
-    <button
-      onClick={() => onAction({ type: 'END_TURN' })}
-      className="chart-button chart-button-navy chart-button-wide"
-    >
-      <Flag size={18} aria-hidden="true" /> KẾT THÚC LƯỢT
-    </button>
+    <>
+      {dockedUpgradeControls}
+      <button
+        onClick={() => onAction({ type: 'END_TURN' })}
+        className="chart-button chart-button-navy chart-button-wide"
+      >
+        <Flag size={18} aria-hidden="true" /> KẾT THÚC LƯỢT
+      </button>
+    </>
   );
 };
