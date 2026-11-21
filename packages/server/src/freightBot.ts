@@ -1,7 +1,8 @@
 import {
   FREIGHT_TENDER_MAX_BID, FREIGHT_TENDER_MIN_BID, canReceiveCargo, getCargoBookings, getCargoOpportunity,
   getAcceptBackhaulAction, getCargoRedirections, getEarlyTruckCalls, getEmptyNeed, getFeederDistanceNm, getFeederRoutes, getLogisticsRoutes,
-  getImportTruckReservation, getReserveImportTruckAction, getTenderBidAction, isFinalLogisticsRound, isReeferPort, REEFER_ON_TIME_BONUS,
+  getImportTruckReservation, getReserveImportTruckAction, getStreetTurnAction, getTenderBidAction, isFinalLogisticsRound, isReeferPort,
+  OneMonopolyEngine, REEFER_ON_TIME_BONUS,
   type FreightRivalStyle, type FreightTender, type GameAction, type GameState, type Player, type PortStock,
 } from '@one-monopoly/shared';
 
@@ -35,6 +36,26 @@ function shortSeaBooking(state: GameState, captain: Player, canDeliverNow: boole
     return distance === null ? [] : [{ action, distance, payment, tileId }];
   });
   return localJobs.sort((a, b) => a.distance - b.distance || b.payment - a.payment || a.tileId - b.tileId)[0]?.action;
+}
+
+function coastalStreetTurn(state: GameState, captain: Player, feederRoutes: ReturnType<typeof getFeederRoutes>) {
+  const operations = state.logistics!;
+  if (!operations.backhaulEnabled || operations.ports[captain.position].supply !== 0) return null;
+  const reuse = getStreetTurnAction(state, captain.id);
+  if (!reuse) return null;
+
+  // Discharging can trigger the final round or settle an award. Check the actual resulting return terms.
+  const after = OneMonopolyEngine.dispatch(state, reuse, captain.id).state;
+  const offer = after.players[after.activePlayerIndex].backhaul;
+  if (offer?.status !== 'offered' || offer.bookingId !== reuse.bookingId) return null;
+  const target = offer.destinationTileId;
+  const contract = after.logistics?.market?.contract;
+  if (contract?.status === 'active' && contract.playerId === captain.id &&
+      (contract.destinationTileId !== target || contract.kind !== 'laden')) return null;
+  if (!canReceiveCargo(after, captain.id, target, 'laden')) return null;
+  const canSailNow = !operations.hasSailed || feederRoutes.some(route => route.tileId === target);
+  if (!canSailNow && (offer.deadlineRound <= state.turnCount || operations.ports[target].demand < 1)) return null;
+  return reuse;
 }
 
 function contestedTruck(state: GameState, captain: Player, feederRoutes: ReturnType<typeof getFeederRoutes>) {
@@ -107,7 +128,9 @@ export function getFreightBotAction(state: GameState, style: FreightRivalStyle =
       }
     }
   }
-  if (discharge?.action.type === 'UNLOAD_CARGO') return discharge.action;
+  if (discharge?.action.type === 'UNLOAD_CARGO') {
+    return style === 'coastal' ? coastalStreetTurn(state, captain, feederRoutes) ?? discharge.action : discharge.action;
+  }
   if (job && captain.position === job.destinationTileId) {
     const receiver = callTruckForCargo(state, captain);
     if (receiver) return receiver;
@@ -124,10 +147,12 @@ export function getFreightBotAction(state: GameState, style: FreightRivalStyle =
     ? shortSeaBooking(state, captain, !operations.hasSailed || feederRoutes.length > 0) : undefined;
   const canLoadForFeeder = coastalLoad && feederRoutes.some(route => route.tileId === coastalLoad.destinationTileId);
   const reservation = style !== 'standard' ? contestedTruck(state, captain, feederRoutes) : null;
+  const streetReturn = style === 'coastal' && captain.lastDelivery?.streetTurn &&
+    backhaul?.bookingId === captain.lastDelivery.bookingId;
   // Delay a speculative bid while the coastal ship can make another delivery or a specialist owes a return.
   const tender = operations.market?.tender;
   if (operations.hasSailed && tender && !owesDelivery && !canLoadForFeeder && !reservation &&
-      (style === 'standard' || backhaul?.status !== 'active')) {
+      !streetReturn && (style === 'standard' || backhaul?.status !== 'active')) {
     const amount = quoteNextRound(captain, operations.ports[captain.position], tender);
     if (amount !== null) {
       if (tender.bids[captain.id] === undefined) {
@@ -142,7 +167,7 @@ export function getFreightBotAction(state: GameState, style: FreightRivalStyle =
   }
 
   const conflictingBid = tender && tender.bids[captain.id] !== undefined && tender.destinationTileId !== backhaul?.destinationTileId;
-  if (backhaul && !owesDelivery && (backhaul.status === 'active' || !conflictingBid)) {
+  if (backhaul && !owesDelivery && (backhaul.status === 'active' || streetReturn || !conflictingBid)) {
     const target = backhaul.destinationTileId;
     const pickup = !job && captain.position === backhaul.originTileId ? bestBooking(state, captain,
       [...getCargoBookings(state, captain.id, 'laden'), ...getCargoBookings(state, captain.id, 'empty')]

@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { ArrowRight, Container, Snowflake } from 'lucide-react';
 import { BOARD_TILES, getEmptyNeed, isReeferPort, type GameAction, type GameState } from '@one-monopoly/shared';
 import { DiversionComparison } from './DiversionComparison.js';
+import { StreetTurnOption } from './StreetTurnOption.js';
 import { getPortCallCargo } from './ports/portCallCargo.js';
 import { portGuide } from './ports/portGuide.js';
 import './terminal-cargo-exchange.css';
@@ -83,6 +84,7 @@ export function TerminalCargoExchange({ state, tileId, playerId, myPlayerId, onA
       {mine && <button ref={unloadButton} type="button" className="quay-primary" data-terminal-unload disabled={busy} onClick={() => send(unloadAction)}>
         Dỡ {empty ? 'container rỗng' : cargoType === 'reefer' ? 'hàng lạnh' : 'hàng xuất'} tại {port}
       </button>}
+      {mine && <StreetTurnOption state={state} playerId={playerId} placement="quay" busy={busy} onChoose={send} />}
     </div>}
     {redirectAction && (mine ? <>
       <button type="button" className="quay-preview" data-terminal-cod-preview aria-expanded={comparing} aria-controls={comparisonId}

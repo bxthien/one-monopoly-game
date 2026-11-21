@@ -80,6 +80,7 @@ export interface CargoBooking {
 }
 export interface FreightQuote { distanceNm: number; reward: number }
 export interface DeliveryReceipt extends CargoBooking, FreightQuote {
+  streetTurn?: true;
   backhaulBonus?: number;
   reeferBonus?: number;
   tileId: number;
@@ -104,6 +105,7 @@ export interface VoyageLogEntry {
   kind: CargoKind;
   distanceNm: number;
   baseFreight: number;
+  streetTurn?: true;
   reeferBonus?: number;
   tenderBonus?: number;
   backhaulBonus?: number;
@@ -164,6 +166,8 @@ export interface ReserveImportTruckAction {
   type: 'RESERVE_IMPORT_TRUCK'; bookingId: number; destinationTileId: number; revision: number;
 }
 export interface LogisticsState {
+  /** One direct transfer from a dry import to a public export per captain in new freight games. */
+  streetTurnAvailable?: Record<string, boolean>;
   /** Ports report public demand; held import trucks are recorded separately by captain. */
   importTruckAvailable?: Record<string, boolean>;
   importTruckReservations?: Record<string, ImportTruckReservation>;
@@ -314,7 +318,8 @@ export type StormChoice = 'TUG' | 'DRIFT';
 
 export type CargoAction =
   | { type: 'LOAD_CARGO'; tileId: number; kind: CargoKind; reefer?: true; destinationTileId: number; revision: number }
-  | { type: 'UNLOAD_CARGO'; tileId: number; originTileId: number; bookingId: number; revision: number };
+  | { type: 'UNLOAD_CARGO'; tileId: number; originTileId: number; bookingId: number; revision: number; streetTurn?: true };
+export type StreetTurnAction = Extract<CargoAction, { type: 'UNLOAD_CARGO' }> & { streetTurn: true };
 export type DestinationChange = { type: 'CHANGE_DESTINATION'; bookingId: number; destinationTileId: number; revision: number };
 export type SailAction = { type: 'SAIL_TO_PORT'; tileId: number; revision: number };
 export type FeederSailAction = { type: 'SAIL_FEEDER'; tileId: number; revision: number };

@@ -120,7 +120,7 @@ function TerminalDetails({ guide, stock, tender, schedule, titleId, onClose, onS
           onClickCapture={event => {
             if (event.detail !== 0 || !(event.target instanceof Element)) return;
             if (event.target.closest('[data-terminal-load]')) keyboardConfirmation.current = 'CARGO_LOADED';
-            if (event.target.closest('[data-terminal-unload]')) keyboardConfirmation.current = 'CARGO_UNLOADED';
+            if (event.target.closest('[data-terminal-unload], [data-street-turn-unload="quay"]')) keyboardConfirmation.current = 'CARGO_UNLOADED';
           }}>
           {handling?.type === 'CARGO_LOADED' && <PortLoadingSlip key={handling.bookingId} event={handling}
             captainName={captainName} is3D={is3D} animate={animate} />}

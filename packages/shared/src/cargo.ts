@@ -9,7 +9,7 @@ import {
 import type {
   CargoAction, CargoKind, DestinationChange, EngineResult, FreightQuote, GameAction, GameEvent,
   DeliveryReceipt, EarlyTruckChoice, FeederSailAction, FreightTenderBid, GameState, LogisticsState,
-  Player, PortStock, PortTruckSchedule, ReserveImportTruckAction, SailAction, TruckOperation,
+  Player, PortStock, PortTruckSchedule, ReserveImportTruckAction, SailAction, StreetTurnAction, TruckOperation,
 } from './types.js';
 
 export const LOGISTICS_DELIVERY_TARGET = 3;
@@ -72,6 +72,7 @@ export function createLogisticsState(players: Player[]): LogisticsState {
   });
   return {
     voyageLog: [],
+    streetTurnAvailable: Object.fromEntries(players.map(player => [player.id, true])),
     importTruckAvailable: Object.fromEntries(players.map(player => [player.id, true])),
     importTruckReservations: {},
     earlyTruckAvailable: Object.fromEntries(players.map(player => [player.id, true])),
@@ -108,11 +109,13 @@ export function getPublicReceivingSlots(stock: PortStock, kind: CargoKind): numb
   return kind === 'laden' ? stock.demand : getEmptyNeed(stock);
 }
 
-export function getPortStockAfterDischarge(stock: PortStock, kind: CargoKind, heldTruck = false): PortStock {
+export function getPortStockAfterDischarge(stock: PortStock, kind: CargoKind, heldTruck = false, streetTurn = false): PortStock {
+  const directExport = streetTurn && kind === 'laden';
   return {
     ...stock,
     demand: kind === 'laden' && !heldTruck ? Math.max(0, stock.demand - 1) : stock.demand,
-    empties: Math.min(LOGISTICS_PORT_CAPACITY, stock.empties + 1),
+    supply: directExport ? Math.min(LOGISTICS_PORT_CAPACITY, stock.supply + 1) : stock.supply,
+    empties: directExport ? stock.empties : Math.min(LOGISTICS_PORT_CAPACITY, stock.empties + 1),
   };
 }
 
@@ -195,6 +198,18 @@ export function getCargoOpportunity(state: GameState, playerId: string): CargoOp
   const quote = getFreightQuote(booking.originTileId, player.position, booking.kind);
   return quote ? { action: { type: 'UNLOAD_CARGO', tileId: player.position, originTileId: booking.originTileId,
     bookingId: booking.bookingId, revision: state.cargoRevision ?? 0 }, quote } : null;
+}
+
+function canStreetTurn(logistics: LogisticsState, player: Player): boolean {
+  return logistics.streetTurnAvailable?.[player.id] === true && player.cargo?.kind === 'laden' &&
+    player.cargo.reeferDueRound === undefined && logistics.ports[player.position]?.supply < LOGISTICS_PORT_CAPACITY;
+}
+
+export function getStreetTurnAction(state: GameState, playerId: string): StreetTurnAction | null {
+  const player = activeCaptain(state, playerId);
+  if (!player || !canStreetTurn(state.logistics!, player)) return null;
+  const unload = getCargoOpportunity(state, playerId)?.action;
+  return unload?.type === 'UNLOAD_CARGO' ? { ...unload, streetTurn: true } : null;
 }
 
 export interface LogisticsRoute {
@@ -408,11 +423,16 @@ export function dispatchLogistics(state: GameState, action: GameAction, playerId
       const booking = player.cargo;
       if (!booking || !offer?.quote || action.tileId !== at || booking.bookingId !== action.bookingId ||
           booking.originTileId !== action.originTileId) return unchanged;
+      if (action.streetTurn !== undefined && (action.streetTurn !== true || !canStreetTurn(state.logistics!, player))) return unchanged;
       const result = next();
       const captain = result.players[state.activePlayerIndex];
       const logistics = result.logistics!;
       const stock = logistics.ports[at];
       const receipt: DeliveryReceipt = { ...booking, tileId: at, ...offer.quote };
+      if (action.streetTurn) {
+        logistics.streetTurnAvailable![playerId] = false;
+        receipt.streetTurn = true;
+      }
       const reeferBonus = getReeferBonus(booking, state.turnCount);
       if (reeferBonus !== undefined) receipt.reeferBonus = reeferBonus;
       const contractEvent = fulfillFreightContract(result, playerId, receipt);
@@ -426,7 +446,7 @@ export function dispatchLogistics(state: GameState, action: GameAction, playerId
       logistics.deliveries[playerId]++;
       logistics.earnings[playerId] += payment;
       if (booking.kind === 'empty') logistics.emptyDeliveries[playerId]++;
-      logistics.ports[at] = getPortStockAfterDischarge(stock, booking.kind, heldTruck);
+      logistics.ports[at] = getPortStockAfterDischarge(stock, booking.kind, heldTruck, action.streetTurn);
       recordVoyage(logistics, playerId, result.turnCount, receipt);
       const events: GameEvent[] = [{ type: 'CARGO_UNLOADED', playerId, ...receipt }];
       if (contractEvent) events.push(contractEvent);

@@ -154,7 +154,7 @@ function MovingPawn({ player, frame, allowIdle, exposure, tile, heading, is3D, z
 function arrivalStatus(call: NonNullable<ReturnType<typeof getPortCallCargo>>, loadedHere: boolean) {
   if (call.receipt) {
     const type = call.receipt.kind === 'empty' ? 'vỏ rỗng' : call.receipt.reeferDueRound !== undefined ? 'hàng lạnh' : 'hàng xuất';
-    return `Đã giao ${type} · +$${getVoyagePayment(call.receipt)}M`;
+    return `Đã giao ${type} · +$${getVoyagePayment(call.receipt)}M${call.receipt.streetTurn ? ' · thêm 1 lô xuất' : ''}`;
   }
   if (!call.booking) {
     const excess = Math.max(0, call.stock.empties - call.stock.emptyTarget);

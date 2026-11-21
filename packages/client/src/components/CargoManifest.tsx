@@ -20,6 +20,7 @@ import { FeederSailing } from './FeederSailing.js';
 import { ReeferDeadline, ReeferReceipt } from './ReeferCargo.js';
 import { FinalPortCallEnd } from './FinalPortCallEnd.js';
 import { PortDeliverySlip } from './PortDeliverySlip.js';
+import { StreetTurnOption } from './StreetTurnOption.js';
 import { WatchPlanCard } from './WatchPlanCard.js';
 import { useWatchPlan } from '../hooks/useWatchPlan.js';
 
@@ -138,7 +139,7 @@ function CargoTicket({ state, player }: { state: GameState; player: Player }) {
 
 function CaptainDesk({ gameState, myPlayerId, is3D, remainingSeconds, onAction, player, ...planning }: DeskProps & DraftControls & { player: Player }) {
   const [busy, setBusy] = useState(false);
-  const [reviewedBooking, setReviewedBooking] = useState<number | null>(null);
+  const [receiptBooking, setReceiptBooking] = useState<number | null>(null);
   const settlementRef = useRef<HTMLDivElement>(null);
   const unloadRef = useRef<HTMLButtonElement>(null);
   const inFlight = useRef(false);
@@ -152,13 +153,14 @@ function CaptainDesk({ gameState, myPlayerId, is3D, remainingSeconds, onAction, 
   const opportunity = canAct ? getCargoOpportunity(gameState, player.id) : null;
   const unload = opportunity?.action.type === 'UNLOAD_CARGO' ? opportunity : null;
   const payable = unload ? getCargoDestinationEstimate(gameState, player.id, player.position)?.total : null;
-  const showSettlement = !!receipt && !cargo && receipt.bookingId === reviewedBooking && canAct;
-  const canFinishReviewedCall = !!cargo && cargo.bookingId === reviewedBooking && !!unload;
+  const showSettlement = !!receipt && !cargo && receipt.bookingId === receiptBooking && canAct;
+  const canFinishReviewedCall = !!cargo && cargo.bookingId === receiptBooking && !!unload;
   useLayoutEffect(() => {
     if (document.hidden) return;
-    if (showSettlement) settlementRef.current?.focus();
+    if (showSettlement && receipt?.streetTurn) settlementRef.current?.querySelector<HTMLElement>('[data-terminal-receipt]')?.focus();
+    else if (showSettlement) settlementRef.current?.focus();
     else if (canFinishReviewedCall) unloadRef.current?.focus();
-  }, [showSettlement, canFinishReviewedCall]);
+  }, [showSettlement, canFinishReviewedCall, receipt?.streetTurn]);
   const dischargeBonus = unload && cargo ? getTenderBonus(gameState, player.id, player.position, cargo.kind) : 0;
   const tenderReceiver = dischargeBonus > 0 && cargo && !getImportTruckReservation(gameState, player.id) &&
     (cargo.kind === 'empty' ? getEmptyNeed(stock) : stock.demand) === 0;
@@ -173,8 +175,8 @@ function CaptainDesk({ gameState, myPlayerId, is3D, remainingSeconds, onAction, 
     const release = () => { inFlight.current = false; setBusy(false); };
     onAction(action, release, () => { release(); after?.(); });
   };
-  const submitFromReview: Submit = (action, after) => submit(action, () => {
-    if (action.type !== 'END_TURN' && cargo && !document.hidden) setReviewedBooking(cargo.bookingId);
+  const submitWithReceipt: Submit = (action, after) => submit(action, () => {
+    if (action.type !== 'END_TURN' && cargo && !document.hidden) setReceiptBooking(cargo.bookingId);
     after?.();
   });
   return <section className="freight-desk" aria-label="Điều độ vận tải" data-captain={player.id} data-berth={player.position}>
@@ -198,6 +200,7 @@ function CaptainDesk({ gameState, myPlayerId, is3D, remainingSeconds, onAction, 
       {dischargeBonus > 0 && (
         <p className="freight-note freight-discharge-bonus">{tenderReceiver && 'Chủ hàng có chỗ nhận riêng. '}Tổng thu đã gồm ${dischargeBonus}M phụ phí hợp đồng.</p>
       )}
+      {unload && <StreetTurnOption state={gameState} playerId={player.id} placement="desk" busy={busy} onChoose={submitWithReceipt} />}
       {target && !unload && <p className="freight-note">{cargo.kind === 'empty' ? 'Bến đã đủ vỏ rỗng.' : 'Bến đã hết xe chờ nhận hàng.'} Bạn có thể đổi cảng đích.</p>}
       <ChangeDestination key={cargo.bookingId} choices={getCargoRedirections(gameState, player.id)} booked={cargo}
         state={gameState} busy={busy} submit={submit} {...planning} />
@@ -209,10 +212,11 @@ function CaptainDesk({ gameState, myPlayerId, is3D, remainingSeconds, onAction, 
       <PortDeliverySlip event={receipt} captainName={player.name} is3D={is3D} />
     </div>}
     {canAct && (gameState.phase === 'AWAITING_SAIL' || gameState.phase === 'END_OF_TURN') &&
-      <FinalPortCallEnd state={gameState} playerId={player.id} remainingSeconds={remainingSeconds} busy={busy} submit={submitFromReview} />}
+      <FinalPortCallEnd state={gameState} playerId={player.id} remainingSeconds={remainingSeconds} busy={busy} submit={submitWithReceipt} />}
     {!mine && !gameState.winnerId && <p className="freight-wait" role="status">Đang chờ {player.name} điều độ tàu.</p>}
     <BackhaulDesk state={gameState} viewerId={myPlayerId} busy={busy} submit={submit} />
     {receipt && !showSettlement && <div className="freight-receipt-wrap"><p className="freight-receipt"><Check aria-hidden="true" /><span>Đã giao {receipt.reeferDueRound !== undefined ? 'hàng lạnh' : typeName(receipt.kind).toLocaleLowerCase('vi')} · {port(receipt.originTileId).name} → {port(receipt.tileId).name}</span><strong>Tổng +${getVoyagePayment(receipt)}M</strong></p>
+      {receipt.streetTurn && <p className="freight-note" data-street-turn-summary>Đã chuyển thẳng vỏ để đóng thêm 1 lô hàng xuất tại {port(receipt.tileId).name}.</p>}
       <ReeferReceipt bonus={receipt.reeferBonus} />
       {!!receipt.tenderBonus && <span className="freight-contract-paid" data-paid-contract-bonus={receipt.tenderBonus}>Đã nhận phụ phí hợp đồng <strong>+${receipt.tenderBonus}M</strong></span>}
       {!!receipt.backhaulBonus && <span className="freight-contract-paid">Đã nhận phụ phí chiều về <strong>+${receipt.backhaulBonus}M</strong></span>}

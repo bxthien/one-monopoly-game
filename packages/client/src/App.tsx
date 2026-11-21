@@ -143,6 +143,7 @@ export const App: React.FC = () => {
         if (evt.type === 'CARGO_LOADED') logMsg = `${who} đã xếp ${box} lên tàu đi ${to}.`;
         else if (evt.type === 'CARGO_UNLOADED') {
           logMsg = `${who} giao ${box} cho xe tại ${to}, nhận $${getVoyagePayment(evt)}M.`;
+          if (evt.streetTurn) logMsg += ' Vỏ được chuyển thẳng để đóng thêm 1 lô hàng xuất tại bến.';
         }
         else logMsg = `${who} đổi cảng đích của ${box} từ ${portGuide[BOARD_TILES[evt.previousDestinationTileId].code].name} sang ${to}.`;
         setBoardNotice(evt.type === 'CARGO_DESTINATION_CHANGED'

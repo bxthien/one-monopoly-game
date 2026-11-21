@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react';
 import { BOARD_TILES, getVoyagePayment, type DeliveryReceipt, type GameEvent } from '@one-monopoly/shared';
 import { portGuide } from './ports/portGuide.js';
+import { StreetTurnScene } from './StreetTurnScene.js';
 import './port-delivery-slip.css';
 
 type Loading = Extract<GameEvent, { type: 'CARGO_LOADED' }>;
@@ -110,7 +111,7 @@ export function PortDeliverySlip({ event, captainName, is3D, animate = true }: {
   const payment = getVoyagePayment(event);
   return <section className="port-delivery-slip" data-terminal-receipt data-booking-id={event.bookingId} tabIndex={-1}
     data-origin-port={origin.code} data-discharge-port={port.code} data-cargo-service={service}
-    data-payout={payment} data-view={is3D ? 'tilted' : 'flat'} data-animate={animate}
+    data-payout={payment} data-view={is3D ? 'tilted' : 'flat'} data-animate={animate} data-street-turn={event.streetTurn}
     aria-label="Phiếu giao nhận" role="status">
     <div className="quay-receipt-heading"><h4>Phiếu giao nhận <small>#{event.bookingId}</small></h4>
       <b className="quay-payment" aria-label={`Đã nhận ${payment} triệu đô la`}>+${payment}M</b>
@@ -118,7 +119,10 @@ export function PortDeliverySlip({ event, captainName, is3D, animate = true }: {
     <p className="quay-receipt-route">{origin.name} <span aria-hidden="true">→</span><span className="sr-only">đến</span> {port.name}
       <small>{serviceNames[service]} · {captainName}</small>
     </p>
-    <HandoffScene service={service} is3D={is3D} />
+    {event.streetTurn ? <>
+      <StreetTurnScene is3D={is3D} animate={animate} />
+      <p className="quay-receipt-route" data-street-turn-result>Thêm 1 lô hàng xuất tại {port.name}. Mọi tàu đều có thể đặt lô này.</p>
+    </> : <HandoffScene service={service} is3D={is3D} />}
     <p className="quay-fares"><span>Cước ${event.reward}M</span>
       {event.reeferBonus !== undefined && <span>Hàng lạnh +${event.reeferBonus}M</span>}
       {!!event.tenderBonus && <span>Hợp đồng +${event.tenderBonus}M</span>}

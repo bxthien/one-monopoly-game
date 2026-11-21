@@ -35,8 +35,9 @@ function bookingReport(booking: CargoBooking, berth?: number): Report {
 
 function deliveryReport(delivery: DeliveryReceipt, historical: boolean): Report {
   const service = serviceOf(delivery);
+  const label = historical ? 'Lô đã giao gần nhất ·' : 'Đã giao';
   return { operation: 'delivered', service, payment: getVoyagePayment(delivery),
-    action: historical ? `Lô đã giao gần nhất · ${serviceNames[service]}` : `Đã giao ${serviceNames[service]}`,
+    action: `${label} ${serviceNames[service]}${delivery.streetTurn ? ' · thêm 1 lô xuất tại bến' : ''}`,
     from: delivery.originTileId, to: delivery.tileId };
 }
 

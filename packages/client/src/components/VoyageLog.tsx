@@ -120,6 +120,7 @@ export function VoyageLog({ gameState, myPlayerId, onClose }: Props) {
           <h3>{guide(active.originTileId).name} <ArrowRight aria-label="đến" /> {guide(active.destinationTileId).name}</h3>
           <p className="voyage-distance">{number.format(active.distanceNm)} hải lý</p>
           <VoyageMap key={`${active.playerId}:${active.bookingId}`} entry={active} />
+          {active.streetTurn && <p className="voyage-distance" data-voyage-street-turn>Vỏ nhập được chuyển thẳng đến nhà xuất khẩu, tạo 1 lô hàng tại {guide(active.destinationTileId).name}.</p>}
           <Fare entry={active} />
         </article>
         <section className="voyage-entries" aria-label="Các chuyến đã giao">
