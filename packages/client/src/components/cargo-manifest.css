@@ -14,7 +14,7 @@
   font-size: 13px;
   line-height: 1.35;
 }
-.freight-desk svg { width: 16px; height: 16px; flex: 0 0 auto; }
+.freight-desk svg:where(.lucide) { width: 16px; height: 16px; flex: 0 0 auto; }
 .freight-desk h2, .freight-desk p, .freight-desk dl, .freight-desk dd { margin: 0; }
 .freight-desk-header, .freight-berth, .freight-ticket-type, .freight-terms, .freight-empty,
 .freight-receipt, .freight-quote, .freight-progress, .freight-link, .freight-ticket-route {
@@ -92,6 +92,7 @@
 }
 .freight-receipt, .freight-own-cargo { padding-top: 6px; border-top: 1px solid var(--freight-rule); font-size: 12px; }
 .freight-receipt svg { color: #286449; }
+.freight-desk [data-desk-settlement]:focus-visible { outline: 2px solid #17527b; outline-offset: 2px; }
 .freight-receipt > strong { margin-left: auto; }
 .freight-own-cargo strong { margin-left: 4px; }
 @media (max-width: 430px) {

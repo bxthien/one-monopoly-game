@@ -1,9 +1,8 @@
 import type { CSSProperties } from 'react';
-import { BOARD_TILES, getVoyagePayment, type GameEvent } from '@one-monopoly/shared';
+import { BOARD_TILES, getVoyagePayment, type DeliveryReceipt, type GameEvent } from '@one-monopoly/shared';
 import { portGuide } from './ports/portGuide.js';
 import './port-delivery-slip.css';
 
-type Discharge = Extract<GameEvent, { type: 'CARGO_UNLOADED' }>;
 type Loading = Extract<GameEvent, { type: 'CARGO_LOADED' }>;
 type Service = 'laden' | 'empty' | 'reefer';
 const serviceNames: Record<Service, string> = { laden: 'Hàng xuất', empty: 'Vỏ rỗng', reefer: 'Hàng lạnh' };
@@ -103,7 +102,7 @@ export function PortLoadingSlip({ event, captainName, is3D, animate = true }: {
 }
 
 export function PortDeliverySlip({ event, captainName, is3D, animate = true }: {
-  event: Discharge; captainName: string; is3D: boolean; animate?: boolean;
+  event: DeliveryReceipt; captainName: string; is3D: boolean; animate?: boolean;
 }) {
   const origin = portGuide[BOARD_TILES[event.originTileId].code];
   const port = portGuide[BOARD_TILES[event.tileId].code];

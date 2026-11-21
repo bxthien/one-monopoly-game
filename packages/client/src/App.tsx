@@ -364,7 +364,8 @@ export const App: React.FC = () => {
               onOfferForTile={openTrades} rentReceipts={rent.visible} pendingRent={rent.pending} reactions={reactions} />
             <div className="table-actions">
               {freightGame && <RivalDispatch state={gameState} myPlayerId={myPlayerId} subscribeBoard={subscribeBoard} onInspectPort={setSelectedTileId} />}
-              {freightGame ? <FreightDesk gameState={gameState} myPlayerId={myPlayerId} onAction={sendAction}
+              {freightGame ? <FreightDesk gameState={gameState} myPlayerId={myPlayerId} is3D={is3D} onAction={sendAction}
+                remainingSeconds={turnTimer?.playerId === activePlayer.id ? turnTimer.seconds : undefined}
                 marketOpen={freightTool === 'market'} onOpenMarket={() => setFreightTool('market')}
                 onCloseMarket={() => setFreightTool(null)} onInspectPort={setSelectedTileId} /> : <ActionControls
                 gameState={gameState}
