@@ -1,10 +1,12 @@
-import { useId, useRef, useState } from 'react';
+import { useId, useLayoutEffect, useRef, useState } from 'react';
 import {
-  BOARD_TILES, FREIGHT_TENDER_MIN_BID, FREIGHT_TENDER_MAX_BID, getTenderBidAction,
+  BOARD_TILES, FREIGHT_TENDER_MIN_BID, FREIGHT_TENDER_MAX_BID, getTenderBidAction, getWithdrawTenderBidAction,
   type CargoKind, type FreightContract, type FreightTender, type GameAction, type GameState,
 } from '@one-monopoly/shared';
 import { Award, Check, ChevronDown, Clock3, Gavel, LockKeyhole } from 'lucide-react';
 import { portGuide } from './ports/portGuide.js';
+import { TenderQuotePreview } from './TenderQuotePreview.js';
+import { TenderWithdrawalReceipt } from './TenderWithdrawalReceipt.js';
 import './tender-desk.css';
 
 interface Props {
@@ -12,6 +14,7 @@ interface Props {
   viewerId: string | null;
   canAct: boolean;
   busy: boolean;
+  is3D: boolean;
   submit: (action: GameAction, after?: () => void) => void;
 }
 
@@ -22,20 +25,40 @@ function place(tileId: number) {
 const cargoName = (kind: CargoKind) => kind === 'empty' ? 'Container rỗng' : 'Hàng xuất';
 const midpoint = Math.round((FREIGHT_TENDER_MIN_BID + FREIGHT_TENDER_MAX_BID) / 2);
 
-function CurrentTender({ state, tender, viewerId, canAct, busy, submit }: Props & { tender: FreightTender }) {
+function CurrentTender({ state, tender, viewerId, canAct, busy, is3D, submit }: Props & { tender: FreightTender }) {
   const [open, setOpen] = useState(false);
+  const [withdrawalRevision, setWithdrawalRevision] = useState<number | null>(null);
   const [draft, setDraft] = useState(String(midpoint));
   const formId = useId(), amountId = useId();
   const opener = useRef<HTMLButtonElement>(null);
+  const form = useRef<HTMLFormElement>(null);
+  const returnFocus = useRef(false);
   const target = place(tender.destinationTileId);
   const own = viewerId ? tender.bids[viewerId] : undefined;
   const parsed = draft.trim() === '' ? NaN : Number(draft);
   const valid = Number.isInteger(parsed) && parsed >= FREIGHT_TENDER_MIN_BID && parsed <= FREIGHT_TENDER_MAX_BID;
   const action = viewerId && canAct && valid ? getTenderBidAction(state, viewerId, parsed) : null;
+  const withdrawal = viewerId && canAct && own !== undefined ? getWithdrawTenderBidAction(state, viewerId) : null;
   const priority = state.players.find(player => player.id === tender.priorityPlayerId);
   const participants = tender.bidderIds.map(id => state.players.find(player => player.id === id)?.name).filter(Boolean);
+  useLayoutEffect(() => {
+    if (!open && !busy && returnFocus.current) {
+      returnFocus.current = false;
+      if (!document.hidden && document.activeElement === document.body && !document.querySelector('dialog[open]')) {
+        opener.current?.focus({ preventScroll: true });
+      }
+    }
+  }, [open, busy]);
+  function closeAfterAcceptance(withdrawnAt: number | null = null) {
+    returnFocus.current = document.activeElement === document.body || !!form.current?.contains(document.activeElement);
+    setOpen(false);
+    setWithdrawalRevision(document.hidden ? null : withdrawnAt);
+  }
   function toggle() {
-    if (!open) setDraft(String(own ?? midpoint));
+    if (!open) {
+      setDraft(String(own ?? midpoint));
+      setWithdrawalRevision(null);
+    }
     setOpen(!open);
   }
   return <section className="tender-current" data-tender-id={tender.id} aria-label="Gói thầu đang mở">
@@ -51,15 +74,13 @@ function CurrentTender({ state, tender, viewerId, canAct, busy, submit }: Props 
       {canAct && <button type="button" className="tender-open" ref={opener} data-tender-toggle disabled={busy} onClick={toggle}
         aria-expanded={open} aria-controls={formId}>{open ? 'Đóng' : own === undefined ? 'Báo giá kín' : 'Sửa báo giá'}<ChevronDown aria-hidden="true" /></button>}
     </div>
-    {open && canAct && <form className="tender-form" id={formId} onSubmit={event => {
+    {withdrawalRevision !== null && withdrawalRevision === state.cargoRevision && canAct && own === undefined &&
+      <TenderWithdrawalReceipt port={target.name} is3D={is3D} />}
+    {open && canAct && viewerId && <form ref={form} className="tender-form" id={formId} onSubmit={event => {
       event.preventDefault();
-      if (action && !busy) submit(action, () => {
-        setOpen(false);
-        opener.current?.focus({ preventScroll: true });
-      });
+      if (action && !busy) submit(action, () => closeAfterAcceptance());
     }}>
-      <p>Giao đúng loại hàng tại cảng đích trong vòng sau để nhận phụ phí. Chuẩn bị sẵn hàng hoặc kết thúc lượt tại bến có hàng.</p>
-      <p>Gửi hoặc sửa giá trước khi kết thúc lượt của bạn. Cuối vòng, chủ hàng chọn phụ phí thấp nhất.{priority && <> Nếu bằng giá, xét thứ tự từ {priority.name}.</>}</p>
+      <p>Cuối vòng, chủ hàng chọn phụ phí thấp nhất.{priority && <> Nếu bằng giá, xét thứ tự từ {priority.name}.</>} Bạn có thể sửa hoặc rút giá đã gửi trước khi kết thúc lượt.</p>
       <label htmlFor={amountId}>Phụ phí đề nghị <span>(triệu đô la)</span></label>
       <div className="tender-price-row">
         <input data-tender-amount id={amountId} type="number" inputMode="numeric" step="1"
@@ -72,9 +93,12 @@ function CurrentTender({ state, tender, viewerId, canAct, busy, submit }: Props 
           ))}
         </div>
       </div>
+      <TenderQuotePreview state={state} playerId={viewerId} tender={tender} amount={valid ? parsed : null} />
       <div className="tender-form-foot"><span id={formId + '-limit'}>Số nguyên · ${FREIGHT_TENDER_MIN_BID}M–${FREIGHT_TENDER_MAX_BID}M</span>
         <button type="submit" data-tender-submit data-cargo-action="BID_FREIGHT_TENDER" disabled={!action || busy}>
           {own === undefined ? 'Gửi báo giá' : 'Cập nhật báo giá'}</button></div>
+      {withdrawal && <button type="button" className="tender-withdraw" data-tender-withdraw disabled={busy}
+        onClick={() => submit(withdrawal, () => closeAfterAcceptance(withdrawal.revision + 1))}>Rút báo giá đã gửi</button>}
     </form>}
   </section>;
 }

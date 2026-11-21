@@ -8,7 +8,7 @@ import {
 } from './freightTender.js';
 import type {
   CargoAction, CargoKind, DestinationChange, EngineResult, FreightQuote, GameAction, GameEvent,
-  DeliveryReceipt, EarlyTruckChoice, FeederSailAction, FreightTenderBid, GameState, LogisticsState,
+  DeliveryReceipt, EarlyTruckChoice, FeederSailAction, FreightTenderBid, FreightTenderWithdrawal, GameState, LogisticsState,
   Player, PortStock, PortTruckSchedule, ReserveImportTruckAction, SailAction, StreetTurnAction, TruckOperation,
 } from './types.js';
 
@@ -142,12 +142,22 @@ export function getReserveImportTruckAction(state: GameState, playerId: string):
   return { type: 'RESERVE_IMPORT_TRUCK', bookingId, destinationTileId, revision: state.cargoRevision ?? 0 };
 }
 
-export function getTenderBidAction(state: GameState, playerId: string, amount: number): FreightTenderBid | null {
+function openTenderFor(state: GameState, playerId: string) {
   const tender = state.logistics?.market?.tender;
-  if (!tender || !activeCaptain(state, playerId) || tender.round !== state.turnCount || isFinalLogisticsRound(state) ||
-      !Number.isInteger(amount) || amount < FREIGHT_TENDER_MIN_BID || amount > FREIGHT_TENDER_MAX_BID ||
+  return tender && activeCaptain(state, playerId) && tender.round === state.turnCount && !isFinalLogisticsRound(state) ? tender : null;
+}
+
+export function getTenderBidAction(state: GameState, playerId: string, amount: number): FreightTenderBid | null {
+  const tender = openTenderFor(state, playerId);
+  if (!tender || !Number.isInteger(amount) || amount < FREIGHT_TENDER_MIN_BID || amount > FREIGHT_TENDER_MAX_BID ||
       tender.bids[playerId] === amount) return null;
   return { type: 'BID_FREIGHT_TENDER', tenderId: tender.id, amount, revision: state.cargoRevision ?? 0 };
+}
+
+export function getWithdrawTenderBidAction(state: GameState, playerId: string): FreightTenderWithdrawal | null {
+  const tender = openTenderFor(state, playerId);
+  if (!tender || !Object.hasOwn(tender.bids, playerId) || !Number.isInteger(tender.bids[playerId])) return null;
+  return { type: 'WITHDRAW_FREIGHT_TENDER_BID', tenderId: tender.id, revision: state.cargoRevision ?? 0 };
 }
 
 type Load = Extract<CargoAction, { type: 'LOAD_CARGO' }>;
@@ -378,10 +388,21 @@ export function dispatchLogistics(state: GameState, action: GameAction, playerId
       if (!bid || bid.tenderId !== action.tenderId) return unchanged;
       const result = next();
       const tender = result.logistics!.market!.tender!;
+      tender.bidderIds ??= Object.keys(tender.bids);
       if (!tender.bidderIds.includes(playerId)) tender.bidderIds.push(playerId);
       tender.bidCount = tender.bidderIds.length;
       tender.bids[playerId] = bid.amount;
       return { state: result, events: [{ type: 'FREIGHT_TENDER_BID', playerId, tenderId: tender.id }] };
+    }
+    case 'WITHDRAW_FREIGHT_TENDER_BID': {
+      const withdrawal = getWithdrawTenderBidAction(state, playerId);
+      if (!withdrawal || withdrawal.tenderId !== action.tenderId) return unchanged;
+      const result = next();
+      const tender = result.logistics!.market!.tender!;
+      delete tender.bids[playerId];
+      tender.bidderIds = (tender.bidderIds ?? Object.keys(tender.bids)).filter(id => id !== playerId);
+      tender.bidCount = tender.bidderIds.length;
+      return { state: result, events: [{ type: 'FREIGHT_TENDER_BID_WITHDRAWN', playerId, tenderId: tender.id }] };
     }
     case 'LOAD_CARGO': {
       if ((action.reefer !== undefined && action.reefer !== true) || at !== action.tileId ||

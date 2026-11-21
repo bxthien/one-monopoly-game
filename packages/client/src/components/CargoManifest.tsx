@@ -189,7 +189,7 @@ function CaptainDesk({ gameState, myPlayerId, is3D, remainingSeconds, onAction, 
       <span className="freight-progress"><Container aria-hidden="true" /><span className="sr-only">Đã giao </span>
         {delivered > LOGISTICS_DELIVERY_TARGET ? `${delivered} lô` : `${delivered}/${LOGISTICS_DELIVERY_TARGET}`}</span>
     </header>
-    <TenderDesk state={gameState} viewerId={myPlayerId} canAct={canAct} busy={busy} submit={submit} />
+    <TenderDesk state={gameState} viewerId={myPlayerId} canAct={canAct} busy={busy} is3D={is3D} submit={submit} />
     <div className="freight-berth"><MapPin aria-hidden="true" /><span>Bến hiện tại <strong>{location.name}</strong></span>
       <span className="freight-port-code">{location.code}</span></div>
     {stock && <Stock stock={stock} />}

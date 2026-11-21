@@ -120,9 +120,9 @@ export const App: React.FC = () => {
         else if (evt.type === 'BACKHAUL_FULFILLED') logMsg = `${who} hoàn thành chuyến về ${port}.`;
         else logMsg = `Chuyến về ${port} của ${who} đã hết hiệu lực.`;
         setBoardNotice({ type: 'freight', text: logMsg });
-      } else if (evt.type === 'FREIGHT_TENDER_BID') {
+      } else if (evt.type === 'FREIGHT_TENDER_BID' || evt.type === 'FREIGHT_TENDER_BID_WITHDRAWN') {
         const who = state.players.find(player => player.id === evt.playerId)?.name ?? 'Một đội tàu';
-        logMsg = `${who} đã gửi chào giá kín cho chủ hàng.`;
+        logMsg = evt.type === 'FREIGHT_TENDER_BID' ? `${who} đã gửi chào giá kín cho chủ hàng.` : `${who} đã rút báo giá kín.`;
       } else if (evt.type === 'FREIGHT_TENDER_AWARDED' || evt.type === 'FREIGHT_CONTRACT_FULFILLED' || evt.type === 'FREIGHT_CONTRACT_EXPIRED') {
         const who = state.players.find(player => player.id === evt.playerId)?.name ?? 'Đội tàu';
         const port = portGuide[BOARD_TILES[evt.destinationTileId].code].name;

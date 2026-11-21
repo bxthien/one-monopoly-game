@@ -40,10 +40,12 @@ export function gameStateForPlayer(state: GameState, viewerId: string | undefine
     }),
   };
   if (logistics && market && tender) {
+    const bidderIds = tender.bidderIds ?? Object.keys(tender.bids);
+    const bidCount = tender.bidCount ?? bidderIds.length;
     const bids = viewerId !== undefined && Object.hasOwn(tender.bids, viewerId)
       ? { [viewerId]: tender.bids[viewerId] }
       : {};
-    const { id, round, kind, destinationTileId, priorityPlayerId, bidderIds, bidCount } = tender;
+    const { id, round, kind, destinationTileId, priorityPlayerId } = tender;
     view.logistics = {
       ...logistics,
       market: { ...market, tender: { id, round, kind, destinationTileId, priorityPlayerId, bidderIds, bidCount, bids } },
@@ -54,7 +56,7 @@ export function gameStateForPlayer(state: GameState, viewerId: string | undefine
 
 export function publicGameEvents(events: GameEvent[]): GameEvent[] {
   // The offer amount belongs only in the bidder's snapshot, including on their own acknowledgement.
-  return events.map(event => event.type === 'FREIGHT_TENDER_BID'
+  return events.map(event => event.type === 'FREIGHT_TENDER_BID' || event.type === 'FREIGHT_TENDER_BID_WITHDRAWN'
     ? { type: event.type, tenderId: event.tenderId, playerId: event.playerId }
     : event);
 }
@@ -331,6 +333,11 @@ export class RoomManager {
     const room = this.getRoom(roomId);
     if (!room || !room.gameState) return { success: false, error: 'Phòng hoặc ván chơi không tồn tại' };
     if (!action || typeof action.type !== 'string') return { success: false, error: 'Hành động không hợp lệ.' };
+    if (action.type === 'WITHDRAW_FREIGHT_TENDER_BID' && (
+      Object.keys(action).length !== 3 ||
+      !Number.isSafeInteger(action.tenderId) || action.tenderId < 1 ||
+      !Number.isSafeInteger(action.revision) || action.revision < 0
+    )) return { success: false, error: 'Yêu cầu rút báo giá không hợp lệ.' };
     if (action.type === 'RESERVE_IMPORT_TRUCK' && (
       Object.keys(action).length !== 4 ||
       !Number.isSafeInteger(action.bookingId) || action.bookingId < 1 ||
@@ -390,7 +397,7 @@ export class RoomManager {
     const freightCommand = action.type === 'LOAD_CARGO' || action.type === 'UNLOAD_CARGO' ||
       action.type === 'CHANGE_DESTINATION' || action.type === 'SAIL_TO_PORT' || action.type === 'SAIL_FEEDER' ||
       action.type === 'ACCEPT_BACKHAUL' || action.type === 'BID_FREIGHT_TENDER' || action.type === 'CALL_PORT_TRUCK' ||
-      action.type === 'RESERVE_IMPORT_TRUCK';
+      action.type === 'WITHDRAW_FREIGHT_TENDER_BID' || action.type === 'RESERVE_IMPORT_TRUCK';
     if (nextState === room.gameState && (room.gameState.mode === 'logistics' || freightCommand)) {
       return { success: false, error: 'Lệnh điều độ không còn hợp lệ. Hãy kiểm tra lại vận đơn và tình trạng bến.' };
     }

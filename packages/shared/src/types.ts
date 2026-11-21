@@ -144,6 +144,7 @@ export interface FreightMarket {
   bonusEarnings: Record<string, number>;
 }
 export interface FreightTenderBid { type: 'BID_FREIGHT_TENDER'; tenderId: number; amount: number; revision: number }
+export interface FreightTenderWithdrawal { type: 'WITHDRAW_FREIGHT_TENDER_BID'; tenderId: number; revision: number }
 export interface PortStock { supply: number; demand: number; empties: number; emptyTarget: number }
 export type TruckOperation = 'export' | 'import';
 export interface PortTruckCall {
@@ -335,7 +336,7 @@ export type GameAction =
   | ReserveImportTruckAction
   | PortTruckCall
   | BackhaulAccept
-  | CargoAction | DestinationChange | SailAction | FeederSailAction | FreightTenderBid
+  | CargoAction | DestinationChange | SailAction | FeederSailAction | FreightTenderBid | FreightTenderWithdrawal
   | { type: 'OFFER_TRADE'; tileId: number; sellerId: string; price: number }
   | { type: 'RESPOND_TRADE'; offerId: number; accept: boolean }
   | { type: 'CANCEL_TRADE'; offerId: number }
@@ -364,6 +365,7 @@ export type GameEvent =
   | { type: 'PORT_TRUCK_CALLED'; operation: TruckOperation; tileId: number; playerId: string; scheduledRound: number }
   | { type: 'BACKHAUL_ACCEPTED' | 'BACKHAUL_EXPIRED' | 'BACKHAUL_FULFILLED'; playerId: string; job: BackhaulJob }
   | { type: 'FREIGHT_TENDER_BID'; tenderId: number; playerId: string }
+  | { type: 'FREIGHT_TENDER_BID_WITHDRAWN'; tenderId: number; playerId: string }
   | ({ type: 'FREIGHT_TENDER_AWARDED' } & FreightAward)
   | ({ type: 'FREIGHT_CONTRACT_EXPIRED' } & FreightAward)
   | ({ type: 'FREIGHT_CONTRACT_FULFILLED'; bookingId: number } & FreightAward)

@@ -3,7 +3,7 @@ import { once } from 'node:events';
 import { createServer } from 'node:http';
 import { test } from 'node:test';
 import { io as connect } from 'socket.io-client';
-import { RoomManager } from '../dist/roomManager.js';
+import { publicGameEvents, RoomManager } from '../dist/roomManager.js';
 import { gameStateForPlayer, setupSocketServer } from '../dist/socketServer.js';
 
 function bid(state, amount) {
@@ -11,6 +11,10 @@ function bid(state, amount) {
     type: 'BID_FREIGHT_TENDER', tenderId: state.logistics.market.tender.id,
     revision: state.cargoRevision, amount,
   };
+}
+
+function withdraw(state) {
+  return { type: 'WITHDRAW_FREIGHT_TENDER_BID', tenderId: state.logistics.market.tender.id, revision: state.cargoRevision };
 }
 
 function visibleBids(snapshot, entrants, mine) {
@@ -69,7 +73,7 @@ test('socket dispatch hides prices even before serialization and rejected bids l
   assert.notEqual(room.gameState, state, 'bot still acts on the originally scheduled deadline');
 });
 
-test('sealed prices stay private on live broadcasts, raw acknowledgements and reconnect, including for the host', async t => {
+async function socketNetwork(t) {
   const httpServer = createServer();
   try {
     await new Promise((resolve, reject) => httpServer.once('error', reject).listen(0, '127.0.0.1', resolve));
@@ -79,9 +83,7 @@ test('sealed prices stay private on live broadcasts, raw acknowledgements and re
   }
   const { io, roomManager } = setupSocketServer(httpServer);
   const connected = [];
-  let room;
   t.after(async () => {
-    room?.timer?.stop();
     connected.forEach(client => client.disconnect());
     await io.close();
   });
@@ -95,6 +97,13 @@ test('sealed prices stay private on live broadcasts, raw acknowledgements and re
     await ready;
     return client;
   }
+  return { open, request, next, roomManager };
+}
+
+test('sealed prices stay private on live broadcasts, raw acknowledgements and reconnect, including for the host', async t => {
+  const network = await socketNetwork(t);
+  if (!network) return;
+  const { open, request, next, roomManager } = network;
   let host = await open();
   const rival = await open();
   const bystander = await open();
@@ -102,7 +111,8 @@ test('sealed prices stay private on live broadcasts, raw acknowledgements and re
   const { roomId, playerId: first } = captain;
   const second = (await request(rival, 'room:join', { roomId, playerName: 'Minh', token: 'PILOT_BOAT' })).playerId;
   const third = (await request(bystander, 'room:join', { roomId, playerName: 'An', token: 'GANTRY_CRANE' })).playerId;
-  room = roomManager.getRoom(roomId);
+  const room = roomManager.getRoom(roomId);
+  t.after(() => room.timer?.stop());
   const occupants = () => [[host, first], [rival, second], [bystander, third]];
   const action = (client, playerId, command) => request(client, 'game:action', { roomId, playerId, action: command });
   async function broadcast(requestAction) {
@@ -171,4 +181,154 @@ test('sealed prices stay private on live broadcasts, raw acknowledgements and re
   // An acknowledgement on the superseded socket is ordered after any unintended broadcasts to it.
   assert.equal((await action(oldHost, first, { type: 'END_TURN' })).success, false);
   assert.deepEqual(oldUpdates, []);
+});
+
+test('bid and withdrawal broadcasts whitelist the same public fields even when an event contains private prices', () => {
+  for (const type of ['FREIGHT_TENDER_BID', 'FREIGHT_TENDER_BID_WITHDRAWN']) {
+    const event = { type, playerId: 'captain', tenderId: 1, amount: 4, oldAmount: 4, bids: { other: 11 }, offer: { quote: 4 } };
+    assert.deepEqual(publicGameEvents([event]), [{ type, playerId: 'captain', tenderId: 1 }]);
+  }
+});
+
+test('reconnecting to a legacy tender rebuilds public participation before it hides the other sealed quotes', t => {
+  const manager = new RoomManager();
+  const { room, playerId } = manager.createRoom('Linh', 'ONE_APUS', 'captain');
+  const rival = manager.joinRoom(room.id, 'Minh', 'PILOT_BOAT', 'other').playerId;
+  manager.startGame(room.id, playerId);
+  t.after(() => room.timer?.stop());
+  const tender = room.gameState.logistics.market.tender;
+  const entrants = [rival, playerId];
+  tender.bids = Object.assign(Object.create({ inherited: 9 }), { [rival]: 12, [playerId]: 7 });
+  tender.previousAmount = 16;
+  for (const omitted of [['bidderIds'], ['bidCount'], ['bidderIds', 'bidCount']]) {
+    tender.bidderIds = entrants;
+    tender.bidCount = entrants.length;
+    for (const field of omitted) delete tender[field];
+    for (const [viewer, mine] of [[playerId, { [playerId]: 7 }], [rival, { [rival]: 12 }], [undefined, {}], ['inherited', {}]]) {
+      const view = gameStateForPlayer(room.gameState, viewer);
+      visibleBids(view, entrants, mine);
+      assert.equal(Object.hasOwn(view.logistics.market.tender, 'previousAmount'), false);
+    }
+    for (const field of omitted) assert.equal(Object.hasOwn(tender, field), false);
+  }
+});
+
+test('a withdrawal preserves the turn deadline and an old request cannot cancel a replacement bid', t => {
+  t.mock.timers.enable({ apis: ['setInterval', 'setTimeout'] });
+  const writes = [];
+  const manager = new RoomManager({ onBroadcastUpdate: (_id, _state, events) => writes.push(events) });
+  const { room, playerId: captain } = manager.createRoom('Linh', 'ONE_APUS', 'first');
+  const other = manager.joinRoom(room.id, 'Minh', 'PILOT_BOAT', 'second').playerId;
+  manager.startGame(room.id, captain);
+  t.after(() => room.timer?.stop());
+  const send = (socket, playerId, action) => manager.dispatchSocketAction(socket, { roomId: room.id, playerId, action });
+  const own = action => send('first', captain, action);
+  assert.ok(own(bid(room.gameState, 4)).success);
+  const cancel = withdraw(room.gameState);
+  t.mock.timers.tick(3000);
+  const state = room.gameState, updates = writes.length;
+  const refused = [
+    ['second', captain, cancel], ['second', other, cancel], ['disconnected', captain, cancel],
+    ['first', captain, { ...cancel, amount: 4 }], ['first', captain, { ...cancel, playerId: other }],
+    ['first', captain, { ...cancel, revision: String(cancel.revision) }], ['first', captain, { ...cancel, revision: cancel.revision - 1 }],
+    ['first', captain, { ...cancel, tenderId: cancel.tenderId + 1 }],
+  ];
+  for (const args of refused) {
+    const result = send(...args);
+    assert.equal(result.success, false);
+    assert.equal(result.state, undefined);
+    assert.equal(room.gameState, state);
+    assert.equal(writes.length, updates);
+  }
+  const accepted = own(cancel);
+  assert.ok(accepted.success, accepted.error);
+  visibleBids(accepted.state, [], {});
+  assert.equal(accepted.state.cargoRevision, state.cargoRevision + 1);
+  assert.deepEqual(accepted.events, [{ type: 'FREIGHT_TENDER_BID_WITHDRAWN', playerId: captain, tenderId: cancel.tenderId }]);
+  assert.equal(room.timer.getRemainingSeconds(), 42);
+  assert.equal(own(withdraw(room.gameState)).success, false);
+  assert.ok(own(bid(room.gameState, 8)).success);
+  const replacement = room.gameState;
+  assert.equal(own(cancel).success, false);
+  assert.equal(room.gameState, replacement);
+  visibleBids(room.gameState, [captain], { [captain]: 8 });
+  assert.equal(room.timer.getRemainingSeconds(), 42);
+  t.mock.timers.tick(42000);
+  assert.equal(room.gameState.players[room.gameState.activePlayerIndex].id, other);
+  assert.equal(own(withdraw(room.gameState)).success, false);
+  visibleBids(room.gameState, [captain], { [captain]: 8 });
+});
+
+test('two connected captains see a withdrawal, reconnect to private quotes, and award only the bid still submitted', async t => {
+  const network = await socketNetwork(t);
+  if (!network) return;
+  const { open, request, next, roomManager } = network;
+  const seats = [await open(), await open()];
+  const first = await request(seats[0], 'room:create', { playerName: 'Linh', token: 'ONE_APUS' });
+  const { roomId } = first;
+  const second = await request(seats[1], 'room:join', { roomId, playerName: 'Minh', token: 'PILOT_BOAT' });
+  const ids = [first.playerId, second.playerId];
+  const room = roomManager.getRoom(roomId);
+  t.after(() => room.timer?.stop());
+  const send = (client, playerId, action) => request(client, 'game:action', { roomId, playerId, action });
+  async function act(index, action) {
+    const [packets, ack] = await Promise.all([
+      Promise.all(seats.map(socket => next(socket, 'game:update'))),
+      send(seats[index], ids[index], action),
+    ]);
+    assert.ok(ack.success, ack.error);
+    for (const packet of packets) assert.deepEqual(packet.events, ack.events);
+    return [...packets, ack];
+  }
+  const [, start] = await Promise.all([
+    Promise.all(seats.map(socket => next(socket, 'game:update'))),
+    request(seats[0], 'room:start', { roomId, playerId: ids[0] }),
+  ]);
+  assert.ok(start.success, start.error);
+  await act(0, bid(room.gameState, 15));
+  await act(0, { type: 'END_TURN' });
+  await act(1, bid(room.gameState, 4));
+  const cancel = withdraw(room.gameState);
+  const after = await act(1, cancel);
+  visibleBids(after[0].state, [ids[0]], { [ids[0]]: 15 });
+  visibleBids(after[1].state, [ids[0]], {});
+  visibleBids(after[2].state, [ids[0]], {});
+  assert.deepEqual(after[2].events, [{ type: 'FREIGHT_TENDER_BID_WITHDRAWN', playerId: ids[1], tenderId: cancel.tenderId }]);
+
+  // A replacement connection can see only its own live quote and the old one loses its authority.
+  for (const [i, token, login] of [[0, 'ONE_APUS', first], [1, 'PILOT_BOAT', second]]) {
+    const old = seats[i];
+    seats[i] = await open();
+    const [init, ack] = await Promise.all([
+      next(seats[i], 'game:init'),
+      request(seats[i], 'room:join', { roomId, sessionToken: login.sessionToken, playerName: 'Rejoin', token }),
+    ]);
+    assert.equal(ack.isReconnect, true);
+    visibleBids(init.state, [ids[0]], i === 0 ? { [ids[0]]: 15 } : {});
+    assert.deepEqual(ack.gameState, init.state);
+    assert.equal((await send(old, ids[i], withdraw(room.gameState))).success, false);
+    old.disconnect();
+  }
+  const awarded = await act(1, { type: 'END_TURN' });
+  for (const packet of awarded) {
+    const award = packet.events.find(event => event.type === 'FREIGHT_TENDER_AWARDED');
+    assert.equal(award.playerId, ids[0]);
+    assert.equal(award.amount, 15);
+    visibleBids(packet.state, [], {});
+  }
+
+  // A delayed withdrawal from round one cannot remove the same player's new-round quote.
+  await act(0, { type: 'END_TURN' });
+  await act(1, bid(room.gameState, 11));
+  const late = await send(seats[1], ids[1], cancel);
+  assert.equal(late.success, false);
+  assert.equal(late.state, undefined);
+  visibleBids(room.gameState, [ids[1]], { [ids[1]]: 11 });
+  await act(1, withdraw(room.gameState));
+  const unawarded = await act(1, { type: 'END_TURN' });
+  for (const packet of unawarded) {
+    assert.equal(packet.events.some(event => event.type === 'FREIGHT_TENDER_AWARDED'), false);
+    assert.equal(packet.state.logistics.market.contract, null);
+    visibleBids(packet.state, [], {});
+  }
 });
