@@ -29,6 +29,7 @@ interface DeskProps {
   gameState: GameState;
   myPlayerId: string | null;
   is3D: boolean;
+  onOpenFeederChart: (captainId: string, originTileId: number) => void;
   remainingSeconds?: number;
   onAction: (action: GameAction, onFailure?: () => void, onSuccess?: () => void) => void;
 }
@@ -139,7 +140,7 @@ function CargoTicket({ state, player }: { state: GameState; player: Player }) {
   </div>;
 }
 
-function CaptainDesk({ gameState, myPlayerId, is3D, remainingSeconds, onAction, player, ...planning }: DeskProps & DraftControls & { player: Player }) {
+function CaptainDesk({ gameState, myPlayerId, is3D, remainingSeconds, onAction, onOpenFeederChart, player, ...planning }: DeskProps & DraftControls & { player: Player }) {
   const [busy, setBusy] = useState(false);
   const [receiptBooking, setReceiptBooking] = useState<number | null>(null);
   const settlementRef = useRef<HTMLDivElement>(null);
@@ -209,7 +210,8 @@ function CaptainDesk({ gameState, myPlayerId, is3D, remainingSeconds, onAction, 
     </> : <CargoBooking state={gameState} player={player} busy={busy} submit={submit} {...planning} />)}
     {!!routes.length && <Sailing key={cargo?.destinationTileId ?? 'empty'} state={gameState} player={player}
       routes={routes} busy={busy} submit={submit} />}
-    {canAct && <FeederSailing key={player.position} state={gameState} captain={player} busy={busy} submit={submit} />}
+    {canAct && <FeederSailing key={player.position} state={gameState} captain={player} busy={busy} submit={submit}
+      onOpenChart={() => onOpenFeederChart(player.id, player.position)} />}
     {showSettlement && <div ref={settlementRef} tabIndex={-1} role="region" aria-label="Biên nhận dỡ hàng" data-desk-settlement>
       <PortDeliverySlip event={receipt} captainName={player.name} is3D={is3D} />
     </div>}

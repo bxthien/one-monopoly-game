@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { ChevronRight, Crosshair, Dices, Globe2, X } from 'lucide-react';
+import { ChevronRight, Crosshair, Dices, Globe2, Navigation, X } from 'lucide-react';
 import { useReducedMotion } from 'framer-motion';
 import { portGuide, type PortArrival, type PortGuide } from './ports/portGuide.js';
 import { atlasPoint, atlasWidth as worldWidth, unwrapAtlasX } from './ports/atlasGeometry.js';
@@ -43,14 +43,18 @@ interface Props {
   is3D: boolean;
   onClose: () => void;
   dice?: readonly number[];
-  freight?: { status: string; actionLabel: string; onOpenTerminal: () => void };
+  focusTerminalOnArrival?: boolean;
+  freight?: {
+    status: string; actionLabel: string; onOpenTerminal: () => void;
+    feeder?: { stops: { tileId: number; code: string; distanceNm: number }[]; open: (tileId?: number) => void };
+  };
 }
 
 export function WorldPortAtlas(props: Props) {
   return <AtlasArrival key={props.arrival.id} {...props} />;
 }
 
-function AtlasArrival({ arrival, is3D, onClose, dice, freight }: Props) {
+function AtlasArrival({ arrival, is3D, onClose, dice, freight, focusTerminalOnArrival }: Props) {
   const { port, origin } = arrival;
   const focus = atlasPoint(port);
   const reduceMotion = useReducedMotion();
@@ -59,8 +63,16 @@ function AtlasArrival({ arrival, is3D, onClose, dice, freight }: Props) {
   const currentCamera = useRef(camera);
   const map = useRef<SVGSVGElement>(null);
   const overviewButton = useRef<HTMLButtonElement>(null);
+  const terminalButton = useRef<HTMLButtonElement>(null);
   const [mapSize, setMapSize] = useState({ height: 180, overviewScale: 1 });
   const { height: mapHeight, overviewScale } = mapSize;
+
+  useEffect(() => {
+    if (focusTerminalOnArrival && !document.hidden && !document.querySelector('dialog[open]') &&
+        (document.activeElement === document.body || document.activeElement?.matches('[data-desk-feeder-chart], [data-atlas-feeder]'))) {
+      terminalButton.current?.focus({ preventScroll: true });
+    }
+  }, [focusTerminalOnArrival]);
 
   useEffect(() => {
     if (arrival.playerName) return;
@@ -194,6 +206,23 @@ function AtlasArrival({ arrival, is3D, onClose, dice, freight }: Props) {
               <g className={regional ? 'world-atlas-countries' : 'world-atlas-continents'} aria-hidden="true">
                 {labels.map(label => <text key={label.name} x={label.x} y={label.y}>{label.name}</text>)}
               </g>
+              {!overview && regional && freight?.feeder?.stops.map(stop => {
+                const other = portGuide[stop.code];
+                const point = project(unwrapAtlasX(other.longitude + 180, camera.x), 90 - other.latitude);
+                if (point.x < 7 || point.x > 353 || point.y < 7 || point.y > mapHeight - 7) return null;
+                const dx = point.x - marker.x, dy = point.y - marker.y;
+                const distance = Math.hypot(dx, dy);
+                const lift = distance > 0 && distance < 14 ? 14 / distance : 1;
+                const x = marker.x + dx * lift, y = marker.y + dy * lift;
+                return <g key={stop.code} className="world-atlas-feeder-pin" aria-hidden="true"
+                  data-atlas-feeder-pin={stop.tileId} onClick={() => freight.feeder?.open(stop.tileId)}>
+                  <title>{other.name} · {stop.distanceNm} hải lý</title>
+                  {lift > 1 && <path d={`M${point.x} ${point.y}L${x} ${y}`} stroke="#326b73" />}
+                  <circle cx={x} cy={y} r="7" fill="transparent" />
+                  <circle cx={x} cy={y} r="3.5" fill="#f6f3da" stroke="#23616b" strokeWidth="1.5" />
+                  <circle cx={x} cy={y} r="1.3" fill="#23616b" />
+                </g>;
+              })}
               <g className="world-atlas-destination" transform={`translate(${marker.x} ${marker.y})`} aria-hidden="true">
                 <circle r="7.5" fill="#a5195b" opacity=".16" />
                 <circle r="3.8" fill="#ac185f" stroke="#fffaf0" strokeWidth="1.3" />
@@ -216,7 +245,11 @@ function AtlasArrival({ arrival, is3D, onClose, dice, freight }: Props) {
           <p>{overview ? `${port.name} · ${port.country}` : port.fact}</p>
           {freight && <div className="world-atlas-freight" data-atlas-freight>
             <span role="status" aria-atomic="true">{freight.status}</span>
-            <button type="button" data-atlas-terminal onClick={freight.onOpenTerminal}>
+            {freight.feeder && <button type="button" className="world-atlas-feeder-open" data-atlas-feeder aria-haspopup="dialog"
+              aria-label={`So sánh ${freight.feeder.stops.length} cảng nối chuyến`} onClick={() => freight.feeder?.open()}>
+              <Navigation aria-hidden="true" />Nối chuyến
+            </button>}
+            <button ref={terminalButton} type="button" data-atlas-terminal onClick={freight.onOpenTerminal}>
               {freight.actionLabel}<ChevronRight aria-hidden="true" />
             </button>
           </div>}

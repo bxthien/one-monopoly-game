@@ -1,5 +1,5 @@
 import React, { useLayoutEffect } from 'react';
-import { BOARD_TILES, GameAction, GameCard, GameState, getCargoOpportunity, getImportTruckReservation, getVoyagePayment, OneMonopolyEngine, Player } from '@one-monopoly/shared';
+import { BOARD_TILES, GameAction, GameCard, GameState, getCargoOpportunity, getFeederRoutes, getImportTruckReservation, getVoyagePayment, OneMonopolyEngine, Player } from '@one-monopoly/shared';
 import { LogisticsTile, TileView } from './TileView.js';
 import { TILE_CENTER_PERCENT } from './boardCoordinates.js';
 import { getPortTender } from './ports/portTender.js';
@@ -32,6 +32,8 @@ interface Props {
   myPlayerId: string | null;
   onAction: (action: GameAction, onFailure?: () => void, onSuccess?: () => void) => void;
   onOfferForTile: (tileId: number) => void;
+  onOpenFeederChart: (captainId: string, originTileId: number, initialTileId?: number) => void;
+  focusFeederTileId?: number;
   selectedTileId: number | null;
   onSelectTile: (tileId: number | null) => void;
   missionTargetIds?: readonly number[];
@@ -179,6 +181,8 @@ export const Board: React.FC<Props> = ({
   myPlayerId,
   onAction,
   onOfferForTile,
+  onOpenFeederChart,
+  focusFeederTileId,
   selectedTileId,
   onSelectTile,
   missionTargetIds,
@@ -213,11 +217,18 @@ export const Board: React.FC<Props> = ({
     ? getPortCallCargo(gameState, atlasTile.id, arrivalCaptain, portDischarge ?? undefined) : null,
   [gameState, atlasTile, arrivalCaptain, portDischarge]);
   const loadedHere = !!getPortCallLoad(arrivalCargo, portLoad);
+  const feederRoutes = React.useMemo(() => visibleAtlas?.playerId === activeCaptain?.id && activeCaptain &&
+    atlasTile?.id === activeCaptain.position ? getFeederRoutes(gameState, activeCaptain.id) : [],
+  [gameState, activeCaptain, visibleAtlas?.playerId, atlasTile]);
   const canPickUp = React.useMemo(() => arrivalCargo?.active && !arrivalCargo.booking && arrivalCargo.playerId === myPlayerId
     && getCargoOpportunity(gameState, arrivalCargo.playerId)?.action.type === 'LOAD_CARGO', [gameState, arrivalCargo, myPlayerId]);
   const atlasFreight = atlasTile && arrivalCargo ? {
     status: arrivalStatus(arrivalCargo, loadedHere),
     actionLabel: canPickUp ? 'Chọn lô để xếp' : loadedHere ? 'Xem vận đơn' : arrivalCargo.receipt ? 'Xem biên nhận' : 'Xem cầu cảng',
+    feeder: feederRoutes.length ? {
+      stops: feederRoutes.map(route => ({ tileId: route.tileId, code: BOARD_TILES[route.tileId].code, distanceNm: route.distanceNm })),
+      open: (tileId?: number) => onOpenFeederChart(arrivalCargo.playerId, atlasTile.id, tileId),
+    } : undefined,
     onOpenTerminal: () => {
       setTerminalArrival({ tileId: atlasTile.id, playerId: arrivalCargo.playerId });
       onSelectTile(atlasTile.id);
@@ -379,6 +390,7 @@ export const Board: React.FC<Props> = ({
             >
               {visibleAtlas ? (
                 <WorldPortAtlas arrival={visibleAtlas} is3D={is3D} onClose={returnToPortTile} freight={atlasFreight}
+                  focusTerminalOnArrival={focusFeederTileId !== undefined && focusFeederTileId === atlasTile?.id && visibleAtlas.playerId === myPlayerId}
                   dice={!isLogistics && gameState.hasRolled ? gameState.dice : undefined} />
               ) : (
                 <>

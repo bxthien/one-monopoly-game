@@ -37,3 +37,9 @@
   color: #365b54;
   font-size: 12px;
 }
+.freight-feeder-chart-link {
+  display: inline-flex; align-items: center; justify-self: start; gap: 5px;
+  padding: 3px 0; border: 0; background: transparent; color: #285960;
+  font: 650 12px/1.4 var(--chart-sans); text-decoration: underline; text-underline-offset: 3px; cursor: pointer;
+}
+.freight-feeder-chart-link:focus-visible { outline: 2px solid #9f265a; outline-offset: 2px; }

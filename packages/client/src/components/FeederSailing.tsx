@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, Navigation } from 'lucide-react';
+import { ChevronDown, Map, Navigation } from 'lucide-react';
 import { BOARD_TILES, FEEDER_RANGE_NM, getFeederRoutes, type GameAction, type GameState, type Player } from '@one-monopoly/shared';
 import { portGuide } from './ports/portGuide.js';
 import './feeder-sailing.css';
@@ -15,10 +15,11 @@ interface Props {
   state: GameState;
   captain: Player;
   busy: boolean;
+  onOpenChart: () => void;
   submit: (action: GameAction) => void;
 }
 
-export function FeederSailing({ state, captain, busy, submit }: Props) {
+export function FeederSailing({ state, captain, busy, submit, onOpenChart }: Props) {
   const [selected, setSelected] = useState<number>();
   const available = state.logistics?.feederAvailable?.[captain.id];
   if (available === undefined || !state.logistics?.hasSailed || state.phase !== 'END_OF_TURN') return null;
@@ -36,6 +37,9 @@ export function FeederSailing({ state, captain, busy, submit }: Props) {
       <summary><Navigation aria-hidden="true" />Chuyến nối cảng <small>Còn 1 lần</small><ChevronDown aria-hidden="true" /></summary>
       <div className="freight-feeder-body">
         <p>Từ {portName(captain.position)}, tàu có thể đi thêm tối đa {nm.format(FEEDER_RANGE_NM)} hải lý trong lượt này.</p>
+        <button type="button" className="freight-feeder-chart-link" data-desk-feeder-chart aria-haspopup="dialog" disabled={busy} onClick={onOpenChart}>
+          <Map aria-hidden="true" />So sánh cảng trên hải đồ
+        </button>
         <label className="freight-field"><span>Cảng nối chuyến</span>
           <select data-feeder-destination value={route.tileId} onChange={e => setSelected(Number(e.target.value))} disabled={busy}>
             {routes.map(r => <option key={r.tileId} value={r.tileId}>{portName(r.tileId)} · {nm.format(r.distanceNm)} hải lý</option>)}

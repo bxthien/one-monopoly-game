@@ -208,6 +208,11 @@
 }
 .world-atlas-freight button svg { width: 12px; height: 12px; flex: none; }
 .world-atlas-freight button:hover { background: #153e36; }
+.world-atlas-freight:has(.world-atlas-feeder-open) { flex-wrap: wrap; justify-content: start; }
+.world-atlas-freight:has(.world-atlas-feeder-open) [role="status"] { flex-basis: 100%; }
+.world-atlas-freight .world-atlas-feeder-open { border-color: #668984; background: #f5f3e3; color: #20535a; }
+.world-atlas-freight .world-atlas-feeder-open:hover { background: #dce9da; }
+.world-atlas-feeder-pin { cursor: pointer; pointer-events: all; }
 .world-atlas-freight button:focus-visible { outline: 2px solid #ffd47f; outline-offset: -3px; }
 .world-port-atlas-tilted[data-has-freight] .world-atlas-caption {
   left: 33%; top: 67%; width: 69%;

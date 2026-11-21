@@ -13,6 +13,7 @@ import { DiversionReceipt, type DiversionEvent } from './components/DiversionRec
 import { TruckCallReceipt, type TruckCallEvent } from './components/TruckCallReceipt.js';
 import { VoyageLog } from './components/VoyageLog.js';
 import { portGuide } from './components/ports/portGuide.js';
+import { FeederChartDialog } from './components/FeederChartDialog.js';
 import { SecretMissionCardView } from './components/SecretMissionCardView.js';
 import { ReactionFloatingBar } from './components/ReactionFloatingBar.js';
 import type { RentReceipt } from './components/useBoardPlayback.js';
@@ -65,7 +66,12 @@ export const App: React.FC = () => {
   const [eventLogs, setEventLogs] = useState<string[]>([]);
   const [boardNotice, setBoardNotice] = useState<BoardNotice | null>(null);
   const [tradeDesk, setTradeDesk] = useState<{ tileId: number | null } | null>(null);
-  const [freightTool, setFreightTool] = useState<'market' | 'voyages' | null>(null);
+  const [freightTool, setFreightTool] = useState<'market' | 'voyages' | { captainId: string; originTileId: number; initialTileId?: number } | null>(null);
+  const [feederFocus, setFeederFocus] = useState<{ room: string; round: number; captainId: string; tileId: number } | null>(null);
+  function openFeederChart(captainId: string, originTileId: number, initialTileId?: number) {
+    setFeederFocus(null);
+    setFreightTool({ captainId, originTileId, initialTileId });
+  }
   useEffect(() => { setFreightTool(null); }, [room?.id]);
   const [selectedTileId, setSelectedTileId] = useState<number | null>(null);
   const [showMissionTargets, setShowMissionTargets] = useState(false);
@@ -340,6 +346,9 @@ export const App: React.FC = () => {
                 missionTargetIds={missionTargetIds}
                 onAction={sendAction}
                 onOfferForTile={openTrades}
+                onOpenFeederChart={openFeederChart}
+                focusFeederTileId={feederFocus?.room === gameState.roomId && feederFocus.round === gameState.turnCount &&
+                  feederFocus.captainId === activePlayer?.id ? feederFocus.tileId : undefined}
                 isRolling={isRolling}
                 activeCard={activeCard}
                 onCloseCard={() => setActiveCard(null)}
@@ -367,7 +376,7 @@ export const App: React.FC = () => {
               {freightGame && <RivalDispatch state={gameState} myPlayerId={myPlayerId} subscribeBoard={subscribeBoard} onInspectPort={setSelectedTileId} />}
               {freightGame ? <FreightDesk key={`${gameState.roomId}/${myPlayerId}`} gameState={gameState} myPlayerId={myPlayerId} is3D={is3D} onAction={sendAction}
                 remainingSeconds={turnTimer?.playerId === activePlayer.id ? turnTimer.seconds : undefined}
-                marketOpen={freightTool === 'market'} onOpenMarket={() => setFreightTool('market')}
+                onOpenFeederChart={openFeederChart} marketOpen={freightTool === 'market'} onOpenMarket={() => setFreightTool('market')}
                 onCloseMarket={() => setFreightTool(null)} onInspectPort={setSelectedTileId} /> : <ActionControls
                 gameState={gameState}
                 myPlayerId={myPlayerId}
@@ -390,6 +399,12 @@ export const App: React.FC = () => {
           )}
           {freightGame && !gameState.winnerId && freightTool === 'voyages' &&
             <VoyageLog gameState={gameState} myPlayerId={myPlayerId} onClose={() => setFreightTool(null)} />}
+          {freightGame && !gameState.winnerId && freightTool && typeof freightTool === 'object' &&
+            <FeederChartDialog state={gameState} {...freightTool} myPlayerId={myPlayerId} is3D={is3D} onAction={sendAction}
+              onClose={() => setFreightTool(null)} onSailed={(tileId, keyboard) => {
+                if (keyboard) setFeederFocus({ room: gameState.roomId, round: gameState.turnCount, captainId: freightTool.captainId, tileId });
+                setFreightTool(null);
+              }} />}
           <GameOverModal gameState={gameState} myPlayerId={myPlayerId} onRestart={leaveRoom} />
         </main>
       )}
