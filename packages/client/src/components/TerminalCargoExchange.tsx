@@ -3,6 +3,7 @@ import { ArrowRight, Container, Snowflake } from 'lucide-react';
 import { BOARD_TILES, getEmptyNeed, isReeferPort, type GameAction, type GameState } from '@one-monopoly/shared';
 import { DiversionComparison } from './DiversionComparison.js';
 import { StreetTurnOption } from './StreetTurnOption.js';
+import { WaybillAmendment } from './WaybillAmendment.js';
 import { getPortCallCargo } from './ports/portCallCargo.js';
 import { portGuide } from './ports/portGuide.js';
 import './terminal-cargo-exchange.css';
@@ -71,6 +72,7 @@ export function TerminalCargoExchange({ state, tileId, playerId, myPlayerId, onA
     <div className="quay-booked-route"><span>Vận đơn</span>
       <strong>{portName(booking.originTileId)}</strong><ArrowRight aria-label="đến" /><strong>{portName(booking.destinationTileId)}</strong>
     </div>
+    <WaybillAmendment booking={booking} />
     {estimate?.total != null && <p className="quay-total"><span>{redirectAction ? 'Dự thu nếu đổi cảng' : 'Dự thu khi dỡ'}</span>
       <strong data-quay-total={estimate.total}>${estimate.total}M</strong></p>}
     {unloadAction && stockAfterUnload && <div className="quay-discharge">

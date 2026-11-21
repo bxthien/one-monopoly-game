@@ -6,6 +6,7 @@ import {
 } from '@one-monopoly/shared';
 import { portGuide } from './ports/portGuide.js';
 import { ReeferBookingTerms } from './ReeferCargo.js';
+import { EmptyYardImpact } from './EmptyYardImpact.js';
 import './cargo-manifest.css';
 
 export type BookingService = CargoKind | 'reefer';
@@ -139,6 +140,10 @@ export function CargoBooking({ state, player, busy, submit, draft, editDraft, on
         </div>}
         <div className="freight-terms"><span>Cước cơ bản</span>
           <Quote nm={choice.quote.distanceNm} reward={choice.quote.reward} /></div>
+        {kind === 'empty' && <div className="empty-yard-booking">
+          <span className="empty-yard-caption">Nếu giao 1 vỏ theo tồn bãi hiện tại</span>
+          <EmptyYardImpact stock={stocks[choice.tileId]} portId={choice.tileId} />
+        </div>}
         <ContractRate amount={getTenderBonus(state, player.id, choice.tileId, kind)} terminal={terminal} />
         <button type="button" className="chart-button freight-handling" disabled={busy} data-cargo-action={!terminal ? 'LOAD_CARGO' : undefined}
           data-terminal-load={terminal ? choice.tileId : undefined}

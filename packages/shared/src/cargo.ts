@@ -400,11 +400,19 @@ export function dispatchLogistics(state: GameState, action: GameAction, playerId
       if (!booking || booking.bookingId !== action.bookingId ||
           !getCargoRedirections(state, playerId).some(item => item.tileId === action.destinationTileId)) return unchanged;
       const result = next();
-      const updated = { ...booking, destinationTileId: action.destinationTileId };
+      const updated = result.players[state.activePlayerIndex].cargo!;
+      if (updated.destinationAmendment) {
+        updated.destinationAmendment.count++;
+      } else {
+        const originalQuote = getFreightQuote(booking.originTileId, booking.destinationTileId, booking.kind);
+        if (originalQuote) {
+          updated.destinationAmendment = { firstDestinationTileId: booking.destinationTileId, count: 1, originalQuote };
+        }
+      }
+      updated.destinationTileId = action.destinationTileId;
       releaseImportTruck(result.logistics!, playerId);
-      result.players[state.activePlayerIndex].cargo = updated;
       return { state: result, events: [{ type: 'CARGO_DESTINATION_CHANGED', playerId, tileId: at,
-        previousDestinationTileId: booking.destinationTileId, ...updated }] };
+        previousDestinationTileId: booking.destinationTileId, ...structuredClone(updated) }] };
     }
     case 'SAIL_TO_PORT':
     case 'SAIL_FEEDER': {
@@ -428,7 +436,7 @@ export function dispatchLogistics(state: GameState, action: GameAction, playerId
       const captain = result.players[state.activePlayerIndex];
       const logistics = result.logistics!;
       const stock = logistics.ports[at];
-      const receipt: DeliveryReceipt = { ...booking, tileId: at, ...offer.quote };
+      const receipt: DeliveryReceipt = { ...captain.cargo!, tileId: at, ...offer.quote };
       if (action.streetTurn) {
         logistics.streetTurnAvailable![playerId] = false;
         receipt.streetTurn = true;
@@ -448,7 +456,7 @@ export function dispatchLogistics(state: GameState, action: GameAction, playerId
       if (booking.kind === 'empty') logistics.emptyDeliveries[playerId]++;
       logistics.ports[at] = getPortStockAfterDischarge(stock, booking.kind, heldTruck, action.streetTurn);
       recordVoyage(logistics, playerId, result.turnCount, receipt);
-      const events: GameEvent[] = [{ type: 'CARGO_UNLOADED', playerId, ...receipt }];
+      const events: GameEvent[] = [{ type: 'CARGO_UNLOADED', playerId, ...structuredClone(receipt) }];
       if (contractEvent) events.push(contractEvent);
       if (backhaulEvent) events.push(backhaulEvent);
       events.push({ type: 'BALANCE_CHANGED', playerId, newBalance: captain.balance, delta: payment,

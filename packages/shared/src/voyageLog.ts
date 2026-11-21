@@ -17,6 +17,7 @@ export function recordVoyage(logistics: LogisticsState, playerId: string, round:
     kind: receipt.kind,
     distanceNm: receipt.distanceNm,
     baseFreight: receipt.reward,
+    ...(receipt.destinationAmendment && { destinationAmendment: structuredClone(receipt.destinationAmendment) }),
     ...(receipt.streetTurn && { streetTurn: true }),
     ...(receipt.reeferBonus !== undefined && { reeferBonus: receipt.reeferBonus }),
     ...(receipt.tenderBonus !== undefined && { tenderBonus: receipt.tenderBonus }),

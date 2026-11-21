@@ -127,7 +127,8 @@ describe('freight rates and the logistics game', () => {
     const change = alternatives.find(option => option.tileId === 3)!.action;
     const changed = dispatch(state, change, 'a');
     assert.deepEqual(changed.events, [{ type: 'CARGO_DESTINATION_CHANGED', playerId: 'a', tileId: 3,
-      ...booking, previousDestinationTileId: 1, destinationTileId: 3 }]);
+      ...booking, previousDestinationTileId: 1, destinationTileId: 3,
+      destinationAmendment: { firstDestinationTileId: 1, count: 1, originalQuote: { distanceNm: 596, reward: 12 } } }]);
     state = changed.state;
     rejected(state, change);
     const action = unload(state);

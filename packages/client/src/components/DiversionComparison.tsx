@@ -3,6 +3,7 @@ import {
   BOARD_TILES, getCargoDestinationEstimate, getImportTruckReservation, type CargoDestinationEstimate, type CargoKind, type GameState,
 } from '@one-monopoly/shared';
 import { portGuide } from './ports/portGuide.js';
+import { EmptyYardImpact } from './EmptyYardImpact.js';
 import './diversion-comparison.css';
 
 interface Props {
@@ -63,7 +64,7 @@ export function DiversionComparison({ state, playerId, currentId, proposedId }: 
   const conditional = current?.receiver === 'conditional' || proposed?.receiver === 'conditional';
   const difference = current?.total != null && proposed?.total != null ? proposed.total - current.total : null;
 
-  function row(id: string, label: string, left: ReactNode, right: ReactNode, trend?: number) {
+  function row(id: string, label: ReactNode, left: ReactNode, right: ReactNode, trend?: number) {
     return <tr key={id} data-diversion-row={id}>
       <th scope="row">{label}</th><td>{left}</td>
       <td data-change={trend ? (trend > 0 ? 'gain' : 'loss') : undefined}>{right}</td>
@@ -73,6 +74,12 @@ export function DiversionComparison({ state, playerId, currentId, proposedId }: 
     const a = current?.[field], b = proposed?.[field];
     return row(field, label, a === undefined ? unknown : money(a), b === undefined ? unknown : money(b),
       a !== undefined && b !== undefined ? b - a : 0);
+  }
+  function yardImpact(estimate: CargoDestinationEstimate | null) {
+    if (!estimate) return unknown;
+    if (estimate.receiver === 'unavailable') return 'Chưa thể giao';
+    const stock = state.logistics?.ports[estimate.tileId];
+    return stock ? <EmptyYardImpact stock={stock} portId={estimate.tileId} /> : unknown;
   }
 
   return <section className="diversion-comparison" data-diversion-comparison aria-label="So sánh cảng dỡ">
@@ -88,6 +95,8 @@ export function DiversionComparison({ state, playerId, currentId, proposedId }: 
           <RemainingLeg estimate={proposed} maxNm={maxNm} proposed />)}
         {row('arrival', 'Đến sớm nhất', arrivalLabel(current), arrivalLabel(proposed))}
         {row('receiver', 'Chỗ nhận', receiverLabel(current, player.cargo.kind, appointment?.throughRound), receiverLabel(proposed, player.cargo.kind))}
+        {player.cargo.kind === 'empty' && row('empty-yard', <>Nếu giao 1 vỏ <small className="empty-yard-caption">Theo tồn bãi hiện tại</small></>,
+          yardImpact(current), yardImpact(proposed))}
         {row('distance', 'Cự ly tính cước',
           current ? `${number.format(current.freightDistanceNm)} hải lý` : unknown,
           proposed ? `${number.format(proposed.freightDistanceNm)} hải lý` : unknown)}

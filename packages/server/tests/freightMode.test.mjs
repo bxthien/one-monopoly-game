@@ -20,7 +20,7 @@ test('a new room keeps an empty booking through reconnection and changes its des
   assert.equal(room.gameState.mode, 'logistics');
   const rival = room.players[1].id;
   assert.equal(send('original', playerId, { type: 'ROLL_DICE' }).success, false);
-  const load = getCargoBookings(room.gameState, playerId, 'empty').find(option => option.tileId === 3).action;
+  const { action: load, quote } = getCargoBookings(room.gameState, playerId, 'empty').find(option => option.tileId === 3);
   assert.equal(send('rival', playerId, load).success, false);
   assert.equal(send('rival', rival, load).success, false);
   assert.equal(send('original', playerId, load).success, true);
@@ -31,7 +31,8 @@ test('a new room keeps an empty booking through reconnection and changes its des
   assert.equal(send('original', playerId, cod).success, false);
   assert.equal(send('reconnected', playerId, cod).success, true);
   assert.equal(send('reconnected', playerId, cod).success, false);
-  assert.deepEqual(room.gameState.players[0].cargo, { ...booking, destinationTileId: 1 });
+  const amendment = { firstDestinationTileId: booking.destinationTileId, count: 1, originalQuote: quote };
+  assert.deepEqual(room.gameState.players[0].cargo, { ...booking, destinationTileId: 1, destinationAmendment: amendment });
   assert.equal(room.gameState.players[0].position, 0);
   const sail = getLogisticsRoutes(room.gameState, playerId).find(option => option.tileId === 1).action;
   assert.equal(send('reconnected', playerId, sail).success, true);
@@ -40,6 +41,7 @@ test('a new room keeps an empty booking through reconnection and changes its des
   assert.equal(send('reconnected', playerId, unload).success, false);
   assert.equal(room.gameState.logistics.emptyDeliveries[playerId], 1);
   assert.equal(room.gameState.logistics.earnings[playerId], 6);
+  assert.deepEqual(room.gameState.logistics.voyageLog[0].destinationAmendment, amendment);
   manager.handleAFKTimeout(room.id);
   assert.equal(room.gameState.players[room.gameState.activePlayerIndex].id, rival);
 });

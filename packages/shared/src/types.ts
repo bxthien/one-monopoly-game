@@ -72,6 +72,7 @@ export interface SecretMissionCard {
 export type GameMode = 'classic' | 'logistics';
 export type CargoKind = 'laden' | 'empty';
 export interface CargoBooking {
+  destinationAmendment?: DestinationAmendment;
   reeferDueRound?: number;
   bookingId: number;
   kind: CargoKind;
@@ -79,6 +80,11 @@ export interface CargoBooking {
   destinationTileId: number;
 }
 export interface FreightQuote { distanceNm: number; reward: number }
+export interface DestinationAmendment {
+  firstDestinationTileId: number;
+  count: number;
+  originalQuote: FreightQuote;
+}
 export interface DeliveryReceipt extends CargoBooking, FreightQuote {
   streetTurn?: true;
   backhaulBonus?: number;
@@ -105,6 +111,7 @@ export interface VoyageLogEntry {
   kind: CargoKind;
   distanceNm: number;
   baseFreight: number;
+  destinationAmendment?: DestinationAmendment;
   streetTurn?: true;
   reeferBonus?: number;
   tenderBonus?: number;

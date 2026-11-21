@@ -21,6 +21,7 @@ import { ReeferDeadline, ReeferReceipt } from './ReeferCargo.js';
 import { FinalPortCallEnd } from './FinalPortCallEnd.js';
 import { PortDeliverySlip } from './PortDeliverySlip.js';
 import { StreetTurnOption } from './StreetTurnOption.js';
+import { WaybillAmendment } from './WaybillAmendment.js';
 import { WatchPlanCard } from './WatchPlanCard.js';
 import { useWatchPlan } from '../hooks/useWatchPlan.js';
 
@@ -131,6 +132,7 @@ function CargoTicket({ state, player }: { state: GameState; player: Player }) {
       <span>Trên tàu · {cargo.reeferDueRound !== undefined ? 'Hàng lạnh' : typeName(cargo.kind)}</span></div>
     <div className="freight-ticket-route"><strong>{port(cargo.originTileId).name}</strong><ArrowRight aria-label="đến" />
       <strong>{port(cargo.destinationTileId).name}</strong></div>
+    <WaybillAmendment booking={cargo} />
     {quote && <Quote nm={quote.distanceNm} reward={quote.reward} />}
     <ReeferDeadline booking={cargo} round={state.turnCount} />
     <ContractRate amount={getTenderBonus(state, player.id, cargo.destinationTileId, cargo.kind)} />
@@ -217,6 +219,7 @@ function CaptainDesk({ gameState, myPlayerId, is3D, remainingSeconds, onAction, 
     <BackhaulDesk state={gameState} viewerId={myPlayerId} busy={busy} submit={submit} />
     {receipt && !showSettlement && <div className="freight-receipt-wrap"><p className="freight-receipt"><Check aria-hidden="true" /><span>Đã giao {receipt.reeferDueRound !== undefined ? 'hàng lạnh' : typeName(receipt.kind).toLocaleLowerCase('vi')} · {port(receipt.originTileId).name} → {port(receipt.tileId).name}</span><strong>Tổng +${getVoyagePayment(receipt)}M</strong></p>
       {receipt.streetTurn && <p className="freight-note" data-street-turn-summary>Đã chuyển thẳng vỏ để đóng thêm 1 lô hàng xuất tại {port(receipt.tileId).name}.</p>}
+      <WaybillAmendment booking={receipt} />
       <ReeferReceipt bonus={receipt.reeferBonus} />
       {!!receipt.tenderBonus && <span className="freight-contract-paid" data-paid-contract-bonus={receipt.tenderBonus}>Đã nhận phụ phí hợp đồng <strong>+${receipt.tenderBonus}M</strong></span>}
       {!!receipt.backhaulBonus && <span className="freight-contract-paid">Đã nhận phụ phí chiều về <strong>+${receipt.backhaulBonus}M</strong></span>}
