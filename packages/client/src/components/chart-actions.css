@@ -119,6 +119,13 @@
   background: #f4f1e3;
 }
 .chart-storm-choice > svg:first-child { color: #28646c; }
+.chart-storm-tug-choice { grid-template-columns: 68px minmax(0, 1fr) 14px; }
+.storm-tug-portrait {
+  width: 68px;
+  height: 51px;
+  object-fit: contain;
+  background: radial-gradient(ellipse at 50% 67%, #9ccbbf 0%, #dce8d8 46%, transparent 65%);
+}
 .chart-storm-choice > svg:last-child { width: 14px; color: #49626a; }
 .chart-storm-choice strong, .chart-storm-choice small { display: block; }
 .chart-storm-choice strong { font-size: 14px; }

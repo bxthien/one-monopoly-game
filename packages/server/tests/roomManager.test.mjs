@@ -7,7 +7,7 @@ test('an unanswered slot charter charges full rent when the timer expires', (t) 
   const { room, playerId: visitorId } = manager.createRoom('Visitor', 'ONE_APUS', 'visitor-socket');
   const { playerId: ownerId } = manager.joinRoom(room.id, 'Owner', 'GANTRY_CRANE', 'owner-socket');
   assert.ok(ownerId);
-  assert.ok(manager.startGame(room.id, visitorId).success);
+  assert.ok(manager.startGame(room.id, visitorId, 'classic').success);
   t.after(() => room.timer?.stop());
 
   room.gameState.properties[4].ownerId = visitorId;

@@ -1,25 +1,45 @@
 import React, { useState, useEffect } from 'react';
-import { BOARD_TILES, GameCard, STORM_DRIFT_STEPS, STORM_TUG_FEE } from '@one-monopoly/shared';
+import { BOARD_TILES, GameCard, getMissionProgress, getVoyagePayment, STORM_DRIFT_STEPS, STORM_TUG_FEE, type PortStock } from '@one-monopoly/shared';
 import { useSocket } from './hooks/useSocket.js';
 import { Lobby } from './components/Lobby.js';
 import { Board } from './components/Board.js';
 import { getBoardLighting } from './components/boardLighting.js';
 import { PlayerSidebar } from './components/PlayerSidebar.js';
+import { TradeDesk } from './components/TradeDesk.js';
 import { ActionControls } from './components/ActionControls.js';
+import { FreightDesk } from './components/CargoManifest.js';
+import { RivalDispatch } from './components/RivalDispatch.js';
+import { DiversionReceipt, type DiversionEvent } from './components/DiversionReceipt.js';
+import { TruckCallReceipt, type TruckCallEvent } from './components/TruckCallReceipt.js';
+import { VoyageLog } from './components/VoyageLog.js';
+import { portGuide } from './components/ports/portGuide.js';
+import { FeederChartDialog } from './components/FeederChartDialog.js';
+import { SecretMissionCardView } from './components/SecretMissionCardView.js';
 import { ReactionFloatingBar } from './components/ReactionFloatingBar.js';
 import type { RentReceipt } from './components/useBoardPlayback.js';
 import { GameOverModal } from './components/GameOverModal.js';
-import { AlertCircle, BookOpen, Box, Compass, LogOut, Map, MapPin, Radio, X } from 'lucide-react';
+import { AlertCircle, BookOpen, Box, CloudLightning, CloudRain, Compass, Gavel, Handshake, LifeBuoy, LogOut, Map, MapPin, Moon, Radio, Route, Store, Sun, Truck, X } from 'lucide-react';
+
+const noticeIcons = { auction: Gavel, trade: Handshake, debt: LifeBuoy, freight: Truck };
+type BoardNotice = { type: keyof typeof noticeIcons; text: string }
+  | { type: 'truckCall'; call: TruckCallEvent; captain: string; stock: PortStock; revision: number }
+  | { type: 'diversion'; change: DiversionEvent; captain: string; revision: number };
+const weatherReadouts = {
+  sun: { Icon: Sun, label: 'Nắng' },
+  moon: { Icon: Moon, label: 'Trời quang' },
+  showers: { Icon: CloudRain, label: 'Mưa rào' },
+  storm: { Icon: CloudLightning, label: 'Bão' },
+};
 
 export const App: React.FC = () => {
   const {
     isConnected,
+    isStarting,
     subscribeBoard,
     room,
     gameState,
     myPlayerId,
     turnTimer,
-    latestEvents,
     reactions,
     errorMsg,
     isRolling,
@@ -35,28 +55,58 @@ export const App: React.FC = () => {
 
   const [activeCard, setActiveCard] = useState<GameCard | null>(null);
   const [isPawnMoving, setIsPawnMoving] = useState(false);
-  const [rentReceipts, setRentReceipts] = useState<Record<number, RentReceipt>>({});
+  const [rent, setRent] = useState<{
+    visible: Record<number, RentReceipt>;
+    pending: Record<number, RentReceipt>;
+  }>({ visible: {}, pending: {} });
+  const updateRent = React.useCallback((visible: Record<number, RentReceipt>, pending: Record<number, RentReceipt>) => {
+    setRent({ visible, pending });
+  }, []);
   const pendingCardRef = React.useRef<GameCard | null>(null);
   const [eventLogs, setEventLogs] = useState<string[]>([]);
+  const [boardNotice, setBoardNotice] = useState<BoardNotice | null>(null);
+  const [tradeDesk, setTradeDesk] = useState<{ tileId: number | null } | null>(null);
+  const [freightTool, setFreightTool] = useState<'market' | 'voyages' | { captainId: string; originTileId: number; initialTileId?: number } | null>(null);
+  const [feederFocus, setFeederFocus] = useState<{ room: string; round: number; captainId: string; tileId: number } | null>(null);
+  function openFeederChart(captainId: string, originTileId: number, initialTileId?: number) {
+    setFeederFocus(null);
+    setFreightTool({ captainId, originTileId, initialTileId });
+  }
+  useEffect(() => { setFreightTool(null); }, [room?.id]);
+  const [selectedTileId, setSelectedTileId] = useState<number | null>(null);
+  const [showMissionTargets, setShowMissionTargets] = useState(false);
+  const openTrades = (tileId: number | null = null) => setTradeDesk({ tileId });
   const [is3D, setIs3D] = useState(true);
 
   // Khi xúc xắc đã dừng và nhân vật đã lướt tới bến đích -> Mới hiển thị thẻ bài (Chance/Chest)
   useEffect(() => {
-    if (!isRolling && !isPawnMoving && pendingCardRef.current) {
+    if (!tradeDesk && selectedTileId === null && !isRolling && !isPawnMoving && pendingCardRef.current) {
       const card = pendingCardRef.current;
       const timer = setTimeout(() => {
+        if (pendingCardRef.current !== card) return;
         pendingCardRef.current = null;
         setActiveCard(card);
       }, 300);
       return () => clearTimeout(timer);
     }
-  }, [isRolling, isPawnMoving]);
+  }, [isRolling, isPawnMoving, tradeDesk, selectedTileId]);
 
-  // Listen to new events and process animation & log
-  useEffect(() => {
-    if (latestEvents.length === 0) return;
-
-    for (const evt of latestEvents) {
+  // Pair each event with the exact board snapshot that produced it.
+  useEffect(() => subscribeBoard((state, events) => {
+    if (!events) {
+      pendingCardRef.current = null;
+      setActiveCard(null);
+      setBoardNotice(null);
+      return;
+    }
+    const sale = events.find(event => event.type === 'AUCTION_ENDED');
+    const tradeSettled = events.some(event => event.type === 'TRADE_CLOSED' && event.result === 'ACCEPTED');
+    for (const evt of events) {
+      if (evt.type === 'AUCTION_STARTED') {
+        pendingCardRef.current = null;
+        setActiveCard(null);
+        setBoardNotice(null);
+      }
       if (evt.type === 'CARD_DRAWN') {
         if (evt.card.effect.type === 'STORM_CHOICE') {
           // The action panel is the storm card. Keep its two routes directly accessible.
@@ -69,18 +119,94 @@ export const App: React.FC = () => {
 
       // Add to event logs
       let logMsg = '';
-      if (evt.type === 'DICE_ROLLED') {
+      if (evt.type === 'BACKHAUL_ACCEPTED' || evt.type === 'BACKHAUL_EXPIRED' || evt.type === 'BACKHAUL_FULFILLED') {
+        const who = state.players.find(player => player.id === evt.playerId)?.name ?? 'Đội tàu';
+        const port = portGuide[BOARD_TILES[evt.job.destinationTileId].code].name;
+        if (evt.type === 'BACKHAUL_ACCEPTED') logMsg = `${who} nhận chuyến về ${port}, hạn vòng ${evt.job.deadlineRound}.`;
+        else if (evt.type === 'BACKHAUL_FULFILLED') logMsg = `${who} hoàn thành chuyến về ${port}.`;
+        else logMsg = `Chuyến về ${port} của ${who} đã hết hiệu lực.`;
+        setBoardNotice({ type: 'freight', text: logMsg });
+      } else if (evt.type === 'FREIGHT_TENDER_BID' || evt.type === 'FREIGHT_TENDER_BID_WITHDRAWN') {
+        const who = state.players.find(player => player.id === evt.playerId)?.name ?? 'Một đội tàu';
+        logMsg = evt.type === 'FREIGHT_TENDER_BID' ? `${who} đã gửi chào giá kín cho chủ hàng.` : `${who} đã rút báo giá kín.`;
+      } else if (evt.type === 'FREIGHT_TENDER_AWARDED' || evt.type === 'FREIGHT_CONTRACT_FULFILLED' || evt.type === 'FREIGHT_CONTRACT_EXPIRED') {
+        const who = state.players.find(player => player.id === evt.playerId)?.name ?? 'Đội tàu';
+        const port = portGuide[BOARD_TILES[evt.destinationTileId].code].name;
+        if (evt.type === 'FREIGHT_TENDER_AWARDED') logMsg = `${who} trúng thầu giao tại ${port} trong vòng ${evt.deliveryRound}, thưởng $${evt.amount}M nếu đúng hạn.`;
+        else if (evt.type === 'FREIGHT_CONTRACT_FULFILLED') logMsg = `${who} đã giao đúng hạn tại ${port} và nhận thêm $${evt.amount}M tiền thưởng hợp đồng.`;
+        else logMsg = `Hợp đồng giao tại ${port} của ${who} đã hết hạn.`;
+        setBoardNotice({ type: 'freight', text: logMsg });
+      } else if (evt.type === 'PORT_TRUCK_CALLED') {
+        const who = state.players.find(player => player.id === evt.playerId)?.name ?? 'Thuyền trưởng';
+        const port = portGuide[BOARD_TILES[evt.tileId].code].name;
+        const stock = state.logistics?.ports[evt.tileId];
+        logMsg = `${who} gọi sớm ${evt.operation === 'export' ? 'xe xuất' : 'xe nhận hàng'} của vòng ${evt.scheduledRound} tại ${port}.`;
+        if (stock) setBoardNotice({ type: 'truckCall', call: evt, captain: who, stock, revision: state.cargoRevision ?? 0 });
+      } else if (evt.type === 'CARGO_LOADED' || evt.type === 'CARGO_UNLOADED' || evt.type === 'CARGO_DESTINATION_CHANGED') {
+        const who = state.players.find(p => p.id === evt.playerId)?.name ?? 'Thuyền trưởng';
+        const to = portGuide[BOARD_TILES[evt.destinationTileId].code].name;
+        const box = evt.reeferDueRound !== undefined ? 'container lạnh' : evt.kind === 'empty' ? 'container rỗng' : 'container hàng';
+        if (evt.type === 'CARGO_LOADED') logMsg = `${who} đã xếp ${box} lên tàu đi ${to}.`;
+        else if (evt.type === 'CARGO_UNLOADED') {
+          logMsg = `${who} giao ${box} cho xe tại ${to}, nhận $${getVoyagePayment(evt)}M.`;
+          if (evt.streetTurn) logMsg += ' Vỏ được chuyển thẳng để đóng thêm 1 lô hàng xuất tại bến.';
+        }
+        else logMsg = `${who} đổi cảng đích của ${box} từ ${portGuide[BOARD_TILES[evt.previousDestinationTileId].code].name} sang ${to}.`;
+        setBoardNotice(evt.type === 'CARGO_DESTINATION_CHANGED'
+          ? { type: 'diversion', change: evt, captain: who, revision: state.cargoRevision ?? 0 }
+          : { type: 'freight', text: logMsg });
+      } else if (state.mode === 'logistics' && evt.type === 'SHIP_STEPPED') {
+        const who = state.players.find(p => p.id === evt.playerId)?.name ?? 'Thuyền trưởng';
+        logMsg = evt.feeder
+          ? `${who} dùng chuyến trung chuyển để cập cảng ${portGuide[BOARD_TILES[evt.to].code].name}.`
+          : `${who} cập cảng ${portGuide[BOARD_TILES[evt.to].code].name}.`;
+        setBoardNotice(null);
+      } else if (evt.type === 'LOGISTICS_TURN_ENDED') {
+        setBoardNotice(null);
+      } else if (evt.type === 'DICE_ROLLED') {
+        setBoardNotice(null);
         logMsg = `🎲 Đổ được ${evt.dice[0]} + ${evt.dice[1]} = ${evt.dice[0] + evt.dice[1]}`;
+      } else if (evt.type === 'AUCTION_STARTED') {
+        logMsg = `Mở đấu giá ${BOARD_TILES[evt.tileId].name}.`;
+      } else if (evt.type === 'AUCTION_ENDED') {
+        const property = BOARD_TILES[evt.tileId].name;
+        const winner = state.players.find(player => player.id === evt.winnerId);
+        logMsg = winner
+          ? `${winner.name} thắng đấu giá ${property} với giá $${evt.price}M.`
+          : `${property} chưa có người mua.`;
+        setBoardNotice({ type: 'auction', text: logMsg });
+      } else if (evt.type === 'TRADE_OFFERED' && evt.offer.sellerId === myPlayerId) {
+        const buyer = state.players.find(player => player.id === evt.offer.buyerId);
+        logMsg = `${buyer?.name ?? 'Một thuyền trưởng'} đề nghị mua ${BOARD_TILES[evt.offer.tileId].name} với giá $${evt.offer.price}M.`;
+        setBoardNotice({ type: 'trade', text: logMsg });
+      } else if (evt.type === 'TRADE_CLOSED') {
+        const { buyerId, sellerId, price, tileId } = evt.offer;
+        const property = BOARD_TILES[tileId].name;
+        if (evt.result === 'ACCEPTED') {
+          const buyer = state.players.find(player => player.id === buyerId);
+          const seller = state.players.find(player => player.id === sellerId);
+          logMsg = `${buyer?.name} mua ${property} từ ${seller?.name} với giá $${price}M.`;
+        } else if (myPlayerId === buyerId || myPlayerId === sellerId) {
+          const status = { DECLINED: 'đã bị từ chối', WITHDRAWN: 'đã được rút lại', EXPIRED: 'đã hết hiệu lực' };
+          logMsg = `Đề nghị mua ${property} với giá $${price}M ${status[evt.result]}.`;
+        }
+        if (logMsg && (evt.result === 'ACCEPTED' || !tradeSettled)) setBoardNotice({ type: 'trade', text: logMsg });
       } else if (evt.type === 'STORM_RESOLVED') {
         logMsg = evt.choice === 'TUG'
           ? `⚓ Thuê tàu kéo giữ vị trí với phí $${STORM_TUG_FEE}M`
           : `🌊 Tàu trôi lùi ${Math.abs(STORM_DRIFT_STEPS)} ô trong bão`;
       } else if (evt.type === 'PASSED_GO') {
         logMsg = `🏁 Đi qua Singapore Hub nhận $${evt.reward}M`;
-      } else if (evt.type === 'TILE_PURCHASED') {
+      } else if (evt.type === 'TILE_PURCHASED' && sale?.tileId !== evt.tileId) {
         logMsg = `🏗️ Đã mua ô #${evt.tileId} với giá $${evt.price}M`;
       } else if (evt.type === 'DEMURRAGE_PAID') {
         logMsg = `💸 Nộp $${evt.amount}M phí lưu bãi`;
+      } else if (evt.type === 'DEBT_SETTLED') {
+        const debtor = state.players.find(player => player.id === evt.debtorId);
+        logMsg = `${debtor?.name ?? 'Thuyền trưởng'} đã thanh toán khoản nợ $${evt.amount}M.`;
+        setBoardNotice({ type: 'debt', text: logMsg });
+      } else if (evt.type === 'TILE_MORTGAGED') {
+        logMsg = `⚓ Thế chấp ${BOARD_TILES[evt.tileId].name}, nhận $${evt.amount}M.`;
       } else if (evt.type === 'SENT_TO_HOLD') {
         logMsg = `⚓ Bị giữ tàu kiểm hóa: ${evt.reason}`;
       } else if (evt.type === 'RELEASED_FROM_HOLD') {
@@ -96,7 +222,8 @@ export const App: React.FC = () => {
       } else if (evt.type === 'SLOT_CHARTER_RENT_SPLIT') {
         logMsg = `⚓ Chủ cảng nhận $${evt.ownerAmount ?? evt.splitAmount}M, đối tác nhận $${evt.splitAmount}M`;
       } else if (evt.type === 'MISSION_COMPLETED') {
-        logMsg = `🎯 Hoàn thành ${evt.mission.title} (+${evt.reward}M)!`;
+        const captain = state.players.find(player => player.id === evt.playerId);
+        logMsg = `🎯 ${captain?.name ?? 'Thuyền trưởng'} hoàn thành ${evt.mission.title} (+$${evt.reward}M)!`;
       } else if (evt.type === 'CARBON_TAX_EXEMPTED') {
         logMsg = `🌱 Miễn 100% Thuế Carbon nhờ Tàu Nhiên Liệu Xanh`;
       } else if (evt.type === 'PLAYER_BANKRUPT') {
@@ -107,15 +234,26 @@ export const App: React.FC = () => {
         setEventLogs((prev) => [logMsg, ...prev.slice(0, 15)]);
       }
     }
-  }, [latestEvents]);
+  }), [subscribeBoard, myPlayerId]);
 
   const activePlayer = gameState?.players[gameState.activePlayerIndex];
+  const NoticeIcon = boardNotice && 'text' in boardNotice ? noticeIcons[boardNotice.type] : MapPin;
+  const captain = gameState?.players.find(player => player.id === myPlayerId);
+  const freightGame = gameState?.mode === 'logistics';
+  const canOpenTrades = !freightGame && captain && !captain.isBankrupt && !gameState?.winnerId;
+  const mission = React.useMemo(() => gameState && gameState.mode !== 'logistics' && myPlayerId ? getMissionProgress(gameState, myPlayerId) : null,
+    [gameState, myPlayerId]);
+  const missionTargetIds = showMissionTargets && mission && !captain?.secretMission?.isCompleted && !captain?.isBankrupt
+    ? mission.objectives.flatMap(objective => !objective.achieved && objective.tileId !== undefined ? [objective.tileId] : [])
+    : [];
+  const incoming = gameState?.tradeOffers?.filter(offer => offer.sellerId === myPlayerId).length ?? 0;
   const sky = gameState && getBoardLighting({
     turnCount: gameState.turnCount,
     activePlayerIndex: gameState.activePlayerIndex,
     playerCount: gameState.players.length,
     stormActive: gameState.stormActive,
   });
+  const conditions = weatherReadouts[sky && sky.weather !== 'clear' ? sky.weather : sky?.body ?? 'sun'];
 
   return (
     <div className="chart-app">
@@ -157,6 +295,7 @@ export const App: React.FC = () => {
         <main className="chart-lobby-main">
           <Lobby
             room={room}
+            isStarting={isStarting}
             myPlayerId={myPlayerId}
             onCreateRoom={createRoom}
             onJoinRoom={joinRoom}
@@ -173,9 +312,24 @@ export const App: React.FC = () => {
                 <h1>Hải đồ</h1>
                 <div className="chart-voyage-meta">
                   <span>Vòng {gameState.turnCount}</span>
-                  <span className="chart-weather-readout" role="status">{sky.label}{sky.weather === 'storm' && ' · Bão'}</span>
+                  <span className="chart-weather-readout" role="status"><conditions.Icon size={13} aria-hidden="true" />{sky.label} · {conditions.label}</span>
                 </div>
               </div>
+              {freightGame && <div className="freight-chart-tools" role="group" aria-label="Công cụ vận tải">
+                <button type="button" data-freight-tool="market" aria-haspopup="dialog" onClick={() => setFreightTool('market')}>
+                  <Store size={15} aria-hidden="true" />Thị trường cảng
+                </button>
+                <button type="button" data-freight-tool="voyages" aria-haspopup="dialog" onClick={() => setFreightTool('voyages')}>
+                  <Route size={15} aria-hidden="true" />Sổ chuyến
+                </button>
+              </div>}
+              {canOpenTrades && (
+                <button type="button" className="chart-trade-open" onClick={() => openTrades()} aria-haspopup="dialog"
+                  aria-label={incoming ? `Giao dịch, ${incoming} đề nghị đang chờ` : 'Giao dịch'} aria-expanded={!!tradeDesk}>
+                  <Handshake size={16} aria-hidden="true" /> Giao dịch
+                  {incoming > 0 && <strong className="chart-trade-count">{incoming}</strong>}
+                </button>
+              )}
               <div className="chart-view-picker" role="group" aria-label="Góc nhìn bàn cờ">
                 <button type="button" aria-pressed={!is3D} onClick={() => setIs3D(false)}><Map size={15} />2D</button>
                 <button type="button" aria-pressed={is3D} onClick={() => setIs3D(true)}><Box size={15} />3D</button>
@@ -187,37 +341,71 @@ export const App: React.FC = () => {
                 sky={sky}
                 subscribeBoard={subscribeBoard}
                 myPlayerId={myPlayerId}
+                selectedTileId={selectedTileId}
+                onSelectTile={setSelectedTileId}
+                missionTargetIds={missionTargetIds}
                 onAction={sendAction}
+                onOfferForTile={openTrades}
+                onOpenFeederChart={openFeederChart}
+                focusFeederTileId={feederFocus?.room === gameState.roomId && feederFocus.round === gameState.turnCount &&
+                  feederFocus.captainId === activePlayer?.id ? feederFocus.tileId : undefined}
                 isRolling={isRolling}
                 activeCard={activeCard}
                 onCloseCard={() => setActiveCard(null)}
                 is3D={is3D}
                 onPawnMovingChange={setIsPawnMoving}
-                onRentReceiptsChange={setRentReceipts}
+                onRentReceiptsChange={updateRent}
               />
             </div>
-            <div className="chart-position"><MapPin size={14} /><span>Vị trí tàu</span><strong>{BOARD_TILES[activePlayer.position].name}</strong></div>
+            <div className="chart-position" role="status">
+              {boardNotice?.type === 'truckCall' ? (
+                <TruckCallReceipt key={boardNotice.revision} call={boardNotice.call} captain={boardNotice.captain} stock={boardNotice.stock} is3D={is3D} />
+              ) : boardNotice?.type === 'diversion' ? (
+                <DiversionReceipt key={boardNotice.revision} change={boardNotice.change} captain={boardNotice.captain} />
+              ) : boardNotice ? (
+                <><NoticeIcon size={14} aria-hidden="true" /><strong>{boardNotice.text}</strong></>
+              ) : (
+                <><MapPin size={14} aria-hidden="true" /><span>Vị trí tàu</span><strong>{BOARD_TILES[activePlayer.position].name}</strong></>
+              )}
+            </div>
           </section>
           <aside className="table-controls">
-            <PlayerSidebar
-              gameState={gameState}
-              myPlayerId={myPlayerId}
-              turnTimer={turnTimer}
-              latestEvents={latestEvents}
-              rentReceipts={rentReceipts}
-            />
+            <PlayerSidebar gameState={gameState} myPlayerId={myPlayerId} turnTimer={turnTimer}
+              onOfferForTile={openTrades} rentReceipts={rent.visible} pendingRent={rent.pending} reactions={reactions} />
             <div className="table-actions">
-              <ActionControls
+              {freightGame && <RivalDispatch state={gameState} myPlayerId={myPlayerId} subscribeBoard={subscribeBoard} onInspectPort={setSelectedTileId} />}
+              {freightGame ? <FreightDesk key={`${gameState.roomId}/${myPlayerId}`} gameState={gameState} myPlayerId={myPlayerId} is3D={is3D} onAction={sendAction}
+                remainingSeconds={turnTimer?.playerId === activePlayer.id ? turnTimer.seconds : undefined}
+                onOpenFeederChart={openFeederChart} marketOpen={freightTool === 'market'} onOpenMarket={() => setFreightTool('market')}
+                onCloseMarket={() => setFreightTool(null)} onInspectPort={setSelectedTileId} /> : <ActionControls
                 gameState={gameState}
                 myPlayerId={myPlayerId}
                 onAction={sendAction}
+                onOpenTrades={() => openTrades()}
                 isRolling={isRolling}
                 isPawnMoving={isPawnMoving}
-              />
+              />}
+              {captain && mission && (!captain.isBankrupt || captain.secretMission?.isCompleted) && (
+                <SecretMissionCardView gameState={gameState} player={captain} progress={mission}
+                  showTargets={showMissionTargets} onToggleTargets={() => setShowMissionTargets(value => !value)}
+                  onInspectTile={setSelectedTileId} />
+              )}
             </div>
-            <ReactionFloatingBar reactions={reactions} onSendReaction={sendReaction} />
+            <ReactionFloatingBar onSendReaction={sendReaction} />
           </aside>
-          <GameOverModal gameState={gameState} onRestart={leaveRoom} />
+          {tradeDesk && myPlayerId && canOpenTrades && (
+            <TradeDesk gameState={gameState} myPlayerId={myPlayerId} initialTileId={tradeDesk.tileId}
+              onAction={sendAction} onClose={() => setTradeDesk(null)} />
+          )}
+          {freightGame && !gameState.winnerId && freightTool === 'voyages' &&
+            <VoyageLog gameState={gameState} myPlayerId={myPlayerId} onClose={() => setFreightTool(null)} />}
+          {freightGame && !gameState.winnerId && freightTool && typeof freightTool === 'object' &&
+            <FeederChartDialog state={gameState} {...freightTool} myPlayerId={myPlayerId} is3D={is3D} onAction={sendAction}
+              onClose={() => setFreightTool(null)} onSailed={(tileId, keyboard) => {
+                if (keyboard) setFeederFocus({ room: gameState.roomId, round: gameState.turnCount, captainId: freightTool.captainId, tileId });
+                setFreightTool(null);
+              }} />}
+          <GameOverModal gameState={gameState} myPlayerId={myPlayerId} onRestart={leaveRoom} />
         </main>
       )}
     </div>

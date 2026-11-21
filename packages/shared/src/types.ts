@@ -1,3 +1,5 @@
+import type { FreightRivalStyle } from './freightRivals.js';
+
 export const VESSEL_TOKENS = [
   'ONE_APUS',
   'ONE_MAGENTA',
@@ -67,10 +69,138 @@ export interface SecretMissionCard {
   isCompleted: boolean;
 }
 
+export type GameMode = 'classic' | 'logistics';
+export type CargoKind = 'laden' | 'empty';
+export interface CargoBooking {
+  destinationAmendment?: DestinationAmendment;
+  reeferDueRound?: number;
+  bookingId: number;
+  kind: CargoKind;
+  originTileId: number;
+  destinationTileId: number;
+}
+export interface FreightQuote { distanceNm: number; reward: number }
+export interface DestinationAmendment {
+  firstDestinationTileId: number;
+  count: number;
+  originalQuote: FreightQuote;
+}
+export interface DeliveryReceipt extends CargoBooking, FreightQuote {
+  streetTurn?: true;
+  backhaulBonus?: number;
+  reeferBonus?: number;
+  tileId: number;
+  tenderId?: number;
+  tenderBonus?: number;
+}
+export interface BackhaulJob {
+  bookingId: number;
+  originTileId: number;
+  destinationTileId: number;
+  offeredRound: number;
+  deadlineRound: number;
+  status: 'offered' | 'active' | 'fulfilled' | 'expired';
+}
+export interface BackhaulAccept { type: 'ACCEPT_BACKHAUL'; bookingId: number; revision: number }
+export interface VoyageLogEntry {
+  bookingId: number;
+  playerId: string;
+  round: number;
+  originTileId: number;
+  destinationTileId: number;
+  kind: CargoKind;
+  distanceNm: number;
+  baseFreight: number;
+  destinationAmendment?: DestinationAmendment;
+  streetTurn?: true;
+  reeferBonus?: number;
+  tenderBonus?: number;
+  backhaulBonus?: number;
+}
+export interface FreightTender {
+  id: number;
+  round: number;
+  kind: CargoKind;
+  destinationTileId: number;
+  priorityPlayerId: string;
+  bidderIds: string[];
+  bidCount: number;
+  // The room stores every quote. Client projections include only the viewer's entry.
+  bids: Record<string, number>;
+}
+export interface FreightAward {
+  tenderId: number;
+  deliveryRound: number;
+  playerId: string;
+  kind: CargoKind;
+  destinationTileId: number;
+  amount: number;
+}
+export interface FreightContract extends FreightAward { status: 'active' | 'fulfilled' | 'expired' }
+export interface FreightMarket {
+  tender: FreightTender | null;
+  contract: FreightContract | null;
+  history: FreightContract[];
+  bonusEarnings: Record<string, number>;
+}
+export interface FreightTenderBid { type: 'BID_FREIGHT_TENDER'; tenderId: number; amount: number; revision: number }
+export interface FreightTenderWithdrawal { type: 'WITHDRAW_FREIGHT_TENDER_BID'; tenderId: number; revision: number }
+export interface PortStock { supply: number; demand: number; empties: number; emptyTarget: number }
+export type TruckOperation = 'export' | 'import';
+export interface PortTruckCall {
+  type: 'CALL_PORT_TRUCK'; tileId: number; operation: TruckOperation; revision: number;
+}
+export interface TruckScheduleEntry {
+  operation: TruckOperation;
+  consumed: boolean;
+  /** The yard can run this operation now. A captain still needs their own unused call. */
+  available: boolean;
+  /** Yard stock immediately after advancing this operation alone. */
+  after: PortStock;
+}
+export interface PortTruckSchedule {
+  tileId: number;
+  scheduledRound: number;
+  /** Appointments expiring before this round opens, releasing trucks into the public queue. */
+  returningImportTrucks?: number;
+  before: PortStock;
+  /** Next round's opening yard if no other captain changes the current stock. */
+  projected: PortStock;
+  operations: TruckScheduleEntry[];
+}
+export interface EarlyTruckChoice { operation: TruckOperation; after: PortStock; action: PortTruckCall }
+export interface ImportTruckReservation { bookingId: number; destinationTileId: number; throughRound: number }
+export interface ReserveImportTruckAction {
+  type: 'RESERVE_IMPORT_TRUCK'; bookingId: number; destinationTileId: number; revision: number;
+}
+export interface LogisticsState {
+  /** One direct transfer from a dry import to a public export per captain in new freight games. */
+  streetTurnAvailable?: Record<string, boolean>;
+  /** Ports report public demand; held import trucks are recorded separately by captain. */
+  importTruckAvailable?: Record<string, boolean>;
+  importTruckReservations?: Record<string, ImportTruckReservation>;
+  /** Absent in freight rooms created before early truck calls were introduced. */
+  earlyTruckAvailable?: Record<string, boolean>;
+  /** Advanced operations for the upcoming rollover, grouped by terminal. */
+  calledTrucks?: Record<number, TruckOperation[]>;
+  voyageLog?: VoyageLogEntry[];
+  /** New freight games grant each captain one short second sail for the whole match. */
+  feederAvailable?: Record<string, boolean>;
+  backhaulEnabled?: true;
+  reeferSlots?: Record<number, number>; // Origin tile to most recent cold-chain pickup round.
+  market?: FreightMarket; // Logistics saves created before tenders have no market.
+  ports: Record<number, PortStock>;
+  deliveries: Record<string, number>;
+  emptyDeliveries: Record<string, number>;
+  earnings: Record<string, number>;
+  hasSailed: boolean;
+}
+
 export interface Player {
   id: string;
   name: string;
   token: VesselToken;
+  freightRivalStyle?: FreightRivalStyle;
   balance: number;
   position: number;
   inHold: boolean;
@@ -80,6 +210,11 @@ export interface Player {
   bankruptTo?: string | 'BANK';
   isOnline: boolean;
   secretMission?: SecretMissionCard;
+  cargo?: CargoBooking;
+  lastDelivery?: DeliveryReceipt;
+  backhaul?: BackhaulJob;
+  lastBackhaul?: BackhaulJob;
+  lastBackhaulPaidRound?: number;
 }
 
 export type CardType = 'MARKET' | 'OPS';
@@ -113,8 +248,10 @@ export interface GameCard {
 }
 
 export type TurnPhase =
+  | 'AWAITING_SAIL'
   | 'WAIT_FOR_ROLL'
   | 'AWAITING_BUY_DECISION'
+  | 'AWAITING_AUCTION'
   | 'AWAITING_STORM_DECISION'
   | 'AWAITING_SLOT_CHARTER_RESPONSE'
   | 'AWAITING_DEBT_RESOLUTION'
@@ -140,7 +277,28 @@ export interface PendingSlotCharter {
   discountedRent: number;
 }
 
+export interface PropertyAuction {
+  id: number;
+  revision: number;
+  tileId: number;
+  bidderId: string;
+  leaderId: string | null;
+  highestBid: number;
+  passedIds: string[];
+}
+
+export interface TradeOffer {
+  id: number;
+  buyerId: string;
+  sellerId: string;
+  tileId: number;
+  price: number;
+}
+
 export interface GameState {
+  mode?: GameMode; // Snapshots without a mode use the original board rules.
+  logistics?: LogisticsState;
+  cargoRevision?: number;
   roomId: string;
   players: Player[];
   activePlayerIndex: number;
@@ -152,6 +310,10 @@ export interface GameState {
   marketDeck: string[]; // Card IDs
   opsDeck: string[]; // Card IDs
   stormActive?: boolean; // OPS-02 visual for the current turn. Absent in older snapshots.
+  auction?: PropertyAuction | null;
+  auctionSequence?: number;
+  tradeOffers?: TradeOffer[];
+  tradeSequence?: number;
   canUpgradeCurrentPort?: boolean; // True when landing on an already-owned port (allows at most 1 upgrade on this visit)
   pendingDebt: DebtInfo | null;
   pendingSlotCharter: PendingSlotCharter | null;
@@ -162,13 +324,30 @@ export interface GameState {
 
 export type StormChoice = 'TUG' | 'DRIFT';
 
+export type CargoAction =
+  | { type: 'LOAD_CARGO'; tileId: number; kind: CargoKind; reefer?: true; destinationTileId: number; revision: number }
+  | { type: 'UNLOAD_CARGO'; tileId: number; originTileId: number; bookingId: number; revision: number; streetTurn?: true };
+export type StreetTurnAction = Extract<CargoAction, { type: 'UNLOAD_CARGO' }> & { streetTurn: true };
+export type DestinationChange = { type: 'CHANGE_DESTINATION'; bookingId: number; destinationTileId: number; revision: number };
+export type SailAction = { type: 'SAIL_TO_PORT'; tileId: number; revision: number };
+export type FeederSailAction = { type: 'SAIL_FEEDER'; tileId: number; revision: number };
+
 export type GameAction =
+  | ReserveImportTruckAction
+  | PortTruckCall
+  | BackhaulAccept
+  | CargoAction | DestinationChange | SailAction | FeederSailAction | FreightTenderBid | FreightTenderWithdrawal
+  | { type: 'OFFER_TRADE'; tileId: number; sellerId: string; price: number }
+  | { type: 'RESPOND_TRADE'; offerId: number; accept: boolean }
+  | { type: 'CANCEL_TRADE'; offerId: number }
+  | { type: 'AUCTION_BID'; auctionId: number; revision: number; amount: number }
+  | { type: 'AUCTION_PASS'; auctionId: number; revision: number }
   | { type: 'RESOLVE_STORM'; choice: StormChoice }
   | { type: 'ROLL_DICE'; forcedDice?: [number, number] }
   | { type: 'BUY_PROPERTY' }
   | { type: 'SKIP_BUY' }
   | { type: 'BUILD_CONTAINER'; tileId: number }
-  | { type: 'SELL_CONTAINER'; tileId: number }
+  | { type: 'SELL_CONTAINER'; tileId: number; expectedLevel?: number }
   | { type: 'UPGRADE_GREEN_FLEET'; tileId: number }
   | { type: 'PROPOSE_SLOT_CHARTER'; tileId: number }
   | { type: 'RESPOND_SLOT_CHARTER'; accept: boolean }
@@ -182,9 +361,25 @@ export type GameAction =
   | { type: 'END_TURN' };
 
 export type GameEvent =
+  | ({ type: 'IMPORT_TRUCK_RESERVED'; playerId: string } & ImportTruckReservation)
+  | { type: 'PORT_TRUCK_CALLED'; operation: TruckOperation; tileId: number; playerId: string; scheduledRound: number }
+  | { type: 'BACKHAUL_ACCEPTED' | 'BACKHAUL_EXPIRED' | 'BACKHAUL_FULFILLED'; playerId: string; job: BackhaulJob }
+  | { type: 'FREIGHT_TENDER_BID'; tenderId: number; playerId: string }
+  | { type: 'FREIGHT_TENDER_BID_WITHDRAWN'; tenderId: number; playerId: string }
+  | ({ type: 'FREIGHT_TENDER_AWARDED' } & FreightAward)
+  | ({ type: 'FREIGHT_CONTRACT_EXPIRED' } & FreightAward)
+  | ({ type: 'FREIGHT_CONTRACT_FULFILLED'; bookingId: number } & FreightAward)
+  | { type: 'LOGISTICS_TURN_ENDED'; playerId: string; sailed: boolean }
+  | ({ type: 'CARGO_LOADED'; playerId: string; tileId: number } & CargoBooking)
+  | ({ type: 'CARGO_UNLOADED'; playerId: string } & DeliveryReceipt)
+  | ({ type: 'CARGO_DESTINATION_CHANGED'; playerId: string; tileId: number; previousDestinationTileId: number } & CargoBooking)
+  | { type: 'TRADE_OFFERED'; offer: TradeOffer }
+  | { type: 'TRADE_CLOSED'; offer: TradeOffer; result: 'ACCEPTED' | 'DECLINED' | 'WITHDRAWN' | 'EXPIRED' }
+  | { type: 'AUCTION_STARTED'; tileId: number }
+  | { type: 'AUCTION_ENDED'; tileId: number; winnerId: string | null; price: number }
   | { type: 'STORM_RESOLVED'; playerId: string; choice: StormChoice }
   | { type: 'DICE_ROLLED'; playerId: string; dice: [number, number]; isDouble: boolean }
-  | { type: 'SHIP_STEPPED'; playerId: string; from: number; to: number }
+  | { type: 'SHIP_STEPPED'; playerId: string; from: number; to: number; feeder?: true }
   | { type: 'PASSED_GO'; playerId: string; reward: number }
   | { type: 'SENT_TO_HOLD'; playerId: string; reason: string }
   | { type: 'RELEASED_FROM_HOLD'; playerId: string; method: 'DICE_DOUBLE' | 'FINE' | 'PASS' }

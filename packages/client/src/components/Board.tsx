@@ -1,11 +1,22 @@
-import React, { useState, useLayoutEffect } from 'react';
-import { BOARD_TILES, GameAction, GameCard, GameState, OneMonopolyEngine, Player } from '@one-monopoly/shared';
-import { TileView } from './TileView.js';
+import React, { useLayoutEffect } from 'react';
+import { BOARD_TILES, GameAction, GameCard, GameState, getCargoOpportunity, getFeederRoutes, getImportTruckReservation, getVoyagePayment, OneMonopolyEngine, Player } from '@one-monopoly/shared';
+import { LogisticsTile, TileView } from './TileView.js';
+import { TILE_CENTER_PERCENT } from './boardCoordinates.js';
+import { getPortTender } from './ports/portTender.js';
 import { DiceView } from './DiceView.js';
 import { PropertyModal } from './PropertyModal.js';
 import { CardModal } from './CardModal.js';
 import { Pawn3D } from './Pawn3D.js';
+import { StormTugRescue } from './StormTugRescue.js';
+import { CargoTransfer, useCargoTransfer } from './CargoTransfer.js';
+import { useStormTugRescue } from './stormTugPlayback.js';
 import { BoardSky } from './BoardSky.js';
+import { getPortCallCargo, getPortCallLoad } from './ports/portCallCargo.js';
+import { portGuide } from './ports/portGuide.js';
+import { WorldPortAtlas } from './WorldPortAtlas.js';
+import { ChartTerrainContours } from './ChartTerrainContours.js';
+import { TerrainRelief } from './TerrainRelief.js';
+import { TERRAIN_RANGES } from './terrainMesh.js';
 import type { BoardLighting } from './boardLighting.js';
 import { forwardHeading, type TravelFrame } from './boardTravel.js';
 import { useBoardPlayback, type RentReceipt } from './useBoardPlayback.js';
@@ -19,55 +30,28 @@ interface Props {
   sky: BoardLighting;
   subscribeBoard: SubscribeBoard;
   myPlayerId: string | null;
-  onAction: (action: GameAction) => void;
+  onAction: (action: GameAction, onFailure?: () => void, onSuccess?: () => void) => void;
+  onOfferForTile: (tileId: number) => void;
+  onOpenFeederChart: (captainId: string, originTileId: number, initialTileId?: number) => void;
+  focusFeederTileId?: number;
+  selectedTileId: number | null;
+  onSelectTile: (tileId: number | null) => void;
+  missionTargetIds?: readonly number[];
   isRolling: boolean;
   activeCard: GameCard | null;
   onCloseCard: () => void;
   is3D?: boolean;
   onPawnMovingChange?: (isMoving: boolean) => void;
-  onRentReceiptsChange?: (receipts: Record<number, RentReceipt>) => void;
+  onRentReceiptsChange?: (visible: Record<number, RentReceipt>, pending: Record<number, RentReceipt>) => void;
 }
 
-// Bảng toạ độ phần trăm chính xác theo tâm từng ô cờ (0..31) trên lưới 9x9 (1.35fr + 7*1fr + 1.35fr)
-const TILE_CENTER_PERCENT: Record<number, { x: number; y: number }> = {
-  0: { x: 6.96, y: 93.04 }, // Cảng Singapore SGSIN (Xuất phát)
-  1: { x: 6.96, y: 80.93 },
-  2: { x: 6.96, y: 70.62 },
-  3: { x: 6.96, y: 60.31 },
-  4: { x: 6.96, y: 50.00 },
-  5: { x: 6.96, y: 39.69 },
-  6: { x: 6.96, y: 29.38 },
-  7: { x: 6.96, y: 19.07 },
-  8: { x: 6.96, y: 6.96 }, // Giữ Hàng Hải Quan CUSTOMS_HOLD
-  9: { x: 19.07, y: 6.96 },
-  10: { x: 29.38, y: 6.96 },
-  11: { x: 39.69, y: 6.96 },
-  12: { x: 50.00, y: 6.96 },
-  13: { x: 60.31, y: 6.96 },
-  14: { x: 70.62, y: 6.96 },
-  15: { x: 80.93, y: 6.96 },
-  16: { x: 93.04, y: 6.96 }, // Cảng Neo Đậu FREE_ANCHOR
-  17: { x: 93.04, y: 19.07 },
-  18: { x: 93.04, y: 29.38 },
-  19: { x: 93.04, y: 39.69 },
-  20: { x: 93.04, y: 50.00 },
-  21: { x: 93.04, y: 60.31 },
-  22: { x: 93.04, y: 70.62 },
-  23: { x: 93.04, y: 80.93 },
-  24: { x: 93.04, y: 93.04 }, // Vào Khu Hải Quan GO_TO_HOLD
-  25: { x: 80.93, y: 93.04 },
-  26: { x: 70.62, y: 93.04 },
-  27: { x: 60.31, y: 93.04 },
-  28: { x: 50.00, y: 93.04 },
-  29: { x: 39.69, y: 93.04 },
-  30: { x: 29.38, y: 93.04 },
-  31: { x: 19.07, y: 93.04 },
-};
-
 // Original schematic of the Pacific basin. The open ocean is the dice landing area.
-const PacificChart = React.memo(function PacificChart() {
+const PacificChart = React.memo(function PacificChart({ is3D }: { is3D: boolean }) {
+  const descriptionId = React.useId();
   return (
-    <svg className="pacific-chart" viewBox="0 0 480 480" aria-hidden="true" focusable="false">
+    <svg className="pacific-chart" viewBox="0 0 480 480" role="img" focusable="false"
+      aria-describedby={descriptionId} aria-label={is3D ? 'Hải đồ Thái Bình Dương với các dãy núi nổi' : 'Hải đồ Thái Bình Dương với đường đồng mức và đỉnh núi'}>
+      <desc id={descriptionId}>{TERRAIN_RANGES.map(range => range.name).join(', ')}.</desc>
       <defs>
         <pattern id="chart-graticule" width="40" height="40" patternUnits="userSpaceOnUse">
           <path d="M40 0H0V40" fill="none" stroke="#75a7a0" strokeWidth="1" />
@@ -95,6 +79,7 @@ const PacificChart = React.memo(function PacificChart() {
         <use key={width} href="#chart-coasts" fill="none" stroke="#80b3a9" strokeOpacity=".22" strokeWidth={width} />
       ))}
       <use href="#chart-coasts" fill="url(#chart-land)" stroke="#7f9d88" strokeWidth="1.3" />
+      {!is3D && <ChartTerrainContours />}
       <g fill="none" strokeLinecap="round" strokeDasharray="5 4">
         <path d="M43 174Q188 12 404 107" stroke="#b92d67" strokeWidth="1.9" />
         <path d="M112 127Q286 37 422 150Q452 202 431 274" stroke="#417e80" strokeWidth="1.6" />
@@ -126,6 +111,7 @@ const PacificChart = React.memo(function PacificChart() {
 });
 
 interface MovingPawnProps {
+  children?: React.ReactNode;
   player: Player;
   frame?: TravelFrame;
   allowIdle: boolean;
@@ -139,7 +125,7 @@ interface MovingPawnProps {
   advance: (id: string, frame: TravelFrame) => void;
 }
 
-function MovingPawn({ player, frame, allowIdle, exposure, tile, heading, is3D, zIndex, stackIndex, stackSize, advance }: MovingPawnProps) {
+function MovingPawn({ player, frame, allowIdle, exposure, tile, heading, is3D, zIndex, stackIndex, stackSize, advance, children }: MovingPawnProps) {
   useLayoutEffect(() => {
     if (!frame) return;
     if (frame.duration === 0) {
@@ -160,9 +146,32 @@ function MovingPawn({ player, frame, allowIdle, exposure, tile, heading, is3D, z
       transformStyle: is3D ? 'preserve-3d' : undefined,
       zIndex,
     }}>
-      <Pawn3D player={player} idle={allowIdle && !frame} exposure={exposure} is3D={is3D} heading={heading} stackIndex={stackIndex} stackSize={stackSize} />
+      <Pawn3D player={player} idle={allowIdle && !frame} exposure={exposure} is3D={is3D} heading={heading} stackIndex={stackIndex} stackSize={stackSize}>
+        {children}
+      </Pawn3D>
     </div>
   );
+}
+
+function arrivalStatus(call: NonNullable<ReturnType<typeof getPortCallCargo>>, loadedHere: boolean) {
+  if (call.receipt) {
+    const type = call.receipt.kind === 'empty' ? 'vỏ rỗng' : call.receipt.reeferDueRound !== undefined ? 'hàng lạnh' : 'hàng xuất';
+    return `Đã giao ${type} · +$${getVoyagePayment(call.receipt)}M${call.receipt.streetTurn ? ' · thêm 1 lô xuất' : ''}`;
+  }
+  if (!call.booking) {
+    const excess = Math.max(0, call.stock.empties - call.stock.emptyTarget);
+    return `Khoang trống · ${call.stock.supply} lô xuất · ${excess} vỏ dư`;
+  }
+  const service = call.cargoType === 'reefer' ? 'Hàng lạnh' : call.cargoType === 'empty' ? 'Vỏ rỗng' : 'Hàng xuất';
+  if (!call.bookedHere) {
+    const destination = portGuide[BOARD_TILES[call.booking.destinationTileId].code].name;
+    return loadedHere ? `Đã xếp ${service.toLocaleLowerCase('vi')} → ${destination}` : `${service} còn trên tàu → ${destination}`;
+  }
+  if (!call.active) return `${service} · chờ lượt dỡ`;
+  if (call.receiver === 'unavailable') return call.cargoType === 'empty' ? 'Bến đã đủ vỏ rỗng' : 'Chưa có xe trống nhận hàng';
+  const total = call.estimate?.total;
+  if (call.receiver === 'appointment') return `${service} · xe đã giữ${total != null ? ` · $${total}M` : ''}`;
+  return `${service} · có thể dỡ tại bến${total != null ? ` · $${total}M` : ''}`;
 }
 
 export const Board: React.FC<Props> = ({
@@ -171,6 +180,12 @@ export const Board: React.FC<Props> = ({
   subscribeBoard,
   myPlayerId,
   onAction,
+  onOfferForTile,
+  onOpenFeederChart,
+  focusFeederTileId,
+  selectedTileId,
+  onSelectTile,
+  missionTargetIds,
   isRolling,
   activeCard,
   onCloseCard,
@@ -178,14 +193,58 @@ export const Board: React.FC<Props> = ({
   onPawnMovingChange,
   onRentReceiptsChange,
 }) => {
-  const [selectedTileId, setSelectedTileId] = useState<number | null>(null);
-
   const idleMotion = useIdleMotion();
+  const isLogistics = gameState.mode === 'logistics';
+  const heldTrucks = React.useMemo(() => {
+    const counts: Record<number, number> = {};
+    for (const player of gameState.players) {
+      const hold = getImportTruckReservation(gameState, player.id);
+      if (hold) counts[hold.destinationTileId] = (counts[hold.destinationTileId] ?? 0) + 1;
+    }
+    return counts;
+  }, [gameState]);
   const allowIdle = idleMotion && selectedTileId === null && !activeCard && !gameState.winnerId;
-  const { tracks, claims, rentReceipts, advance } = useBoardPlayback(gameState, subscribeBoard);
+  const { tracks, claims, rentReceipts, pendingRentReceipts, advance, atlas, showPort, closeAtlas, portDischarge, portLoad } = useBoardPlayback(gameState, subscribeBoard);
+  const { rescue, finishRescue } = useStormTugRescue(subscribeBoard);
+  const { transfer, finishTransfer } = useCargoTransfer(subscribeBoard);
   const moving = gameState.players.some((player) => !player.isBankrupt && tracks[player.id]?.frames.length);
+  const visibleAtlas = !moving && !isRolling && !gameState.winnerId ? atlas : null;
+  const [terminalArrival, setTerminalArrival] = React.useState<{ tileId: number; playerId: string } | null>(null);
+  const activeCaptain = gameState.players[gameState.activePlayerIndex];
+  const atlasTile = isLogistics && visibleAtlas ? BOARD_TILES.find(tile => tile.code === visibleAtlas.port.code) : undefined;
+  const arrivalCaptain = visibleAtlas?.playerId ?? activeCaptain?.id;
+  const arrivalCargo = React.useMemo(() => atlasTile && arrivalCaptain
+    ? getPortCallCargo(gameState, atlasTile.id, arrivalCaptain, portDischarge ?? undefined) : null,
+  [gameState, atlasTile, arrivalCaptain, portDischarge]);
+  const loadedHere = !!getPortCallLoad(arrivalCargo, portLoad);
+  const feederRoutes = React.useMemo(() => visibleAtlas?.playerId === activeCaptain?.id && activeCaptain &&
+    atlasTile?.id === activeCaptain.position ? getFeederRoutes(gameState, activeCaptain.id) : [],
+  [gameState, activeCaptain, visibleAtlas?.playerId, atlasTile]);
+  const canPickUp = React.useMemo(() => arrivalCargo?.active && !arrivalCargo.booking && arrivalCargo.playerId === myPlayerId
+    && getCargoOpportunity(gameState, arrivalCargo.playerId)?.action.type === 'LOAD_CARGO', [gameState, arrivalCargo, myPlayerId]);
+  const atlasFreight = atlasTile && arrivalCargo ? {
+    status: arrivalStatus(arrivalCargo, loadedHere),
+    actionLabel: canPickUp ? 'Chọn lô để xếp' : loadedHere ? 'Xem vận đơn' : arrivalCargo.receipt ? 'Xem biên nhận' : 'Xem cầu cảng',
+    feeder: feederRoutes.length ? {
+      stops: feederRoutes.map(route => ({ tileId: route.tileId, code: BOARD_TILES[route.tileId].code, distanceNm: route.distanceNm })),
+      open: (tileId?: number) => onOpenFeederChart(arrivalCargo.playerId, atlasTile.id, tileId),
+    } : undefined,
+    onOpenTerminal: () => {
+      setTerminalArrival({ tileId: atlasTile.id, playerId: arrivalCargo.playerId });
+      onSelectTile(atlasTile.id);
+    },
+  } : undefined;
+  const boardRoot = React.useRef<HTMLDivElement>(null);
+  const returnToPortTile = () => {
+    if (visibleAtlas) boardRoot.current?.querySelector<HTMLButtonElement>(
+      `button[data-port-tile="${visibleAtlas.port.code}"]`,
+    )?.focus({ preventScroll: true });
+    closeAtlas();
+  };
   useLayoutEffect(() => { onPawnMovingChange?.(moving); }, [moving, onPawnMovingChange]);
-  useLayoutEffect(() => { onRentReceiptsChange?.(rentReceipts); }, [rentReceipts, onRentReceiptsChange]);
+  useLayoutEffect(() => {
+    onRentReceiptsChange?.(rentReceipts, pendingRentReceipts);
+  }, [rentReceipts, pendingRentReceipts, onRentReceiptsChange]);
 
   // Helper to determine orientation cho bàn cờ 32 ô (9 ô mỗi cạnh)
   const getTileOrientation = (
@@ -240,7 +299,7 @@ export const Board: React.FC<Props> = ({
   const livePlayers = gameState.players.filter((player) => !player.isBankrupt);
 
   return (
-    <div className="relative flex items-center justify-center">
+    <div ref={boardRoot} className="relative flex items-center justify-center">
       {/* 3D Perspective Scene Container */}
       <div
         className="w-full flex items-center justify-center overflow-visible transition-all duration-700"
@@ -254,9 +313,11 @@ export const Board: React.FC<Props> = ({
           className={`chart-slab relative ${
             is3D ? 'board-tilted' : 'board-flat'
           } aspect-square origin-center border-4 p-2 select-none transition-all duration-700 ease-out`}
+          data-mode={gameState.mode ?? 'classic'}
           data-sky-phase={sky.phase}
           data-light={sky.body}
           data-weather={sky.weather}
+          data-weather-motion={idleMotion ? 'active' : 'still'}
           style={{
             '--cast-x': `${sky.shadowX.toFixed(2)}px`,
             '--cast-y': `${sky.shadowY.toFixed(2)}px`,
@@ -280,6 +341,14 @@ export const Board: React.FC<Props> = ({
           >
             {/* 32 Ô Bàn Cờ */}
             {BOARD_TILES.map((tile) => {
+              if (isLogistics) {
+                return (
+                  <LogisticsTile key={tile.id} tile={tile} placement={getTileGridStyle(tile.id)}
+                    stock={gameState.logistics?.ports[tile.id]} tender={getPortTender(gameState, tile.id)}
+                    heldTrucks={heldTrucks[tile.id]}
+                    is3D={is3D} onClick={() => onSelectTile(tile.id)} />
+                );
+              }
               const prop = gameState.properties[tile.id];
               const owner = prop?.ownerId
                 ? gameState.players.find((p) => p.id === prop.ownerId)
@@ -296,13 +365,15 @@ export const Board: React.FC<Props> = ({
                     tile={tile}
                     property={prop}
                     claim={claims[tile.id]}
+                    auctioned={gameState.auction?.tileId === tile.id}
+                    missionTarget={missionTargetIds?.includes(tile.id)}
                     receipt={rentReceipts[tile.id]}
                     owner={owner}
                     currentRent={currentRent}
                     orientation={getTileOrientation(tile.id)}
                     is3D={is3D}
                     myPlayerId={myPlayerId}
-                    onClick={() => setSelectedTileId(tile.id)}
+                    onClick={() => onSelectTile(tile.id)}
                   />
                 </div>
               );
@@ -317,20 +388,35 @@ export const Board: React.FC<Props> = ({
               }}
               className="chart-water pointer-events-none relative flex items-center justify-center p-3"
             >
-              <PacificChart />
-              <BoardSky sky={sky} />
-
-              {/* Khối xúc xắc 3D khối hộp Magenta & Navy - Billboard counter-rotate để không bị cấn móp, giống y chang 2D */}
-              <div
-                className="w-full h-full flex items-center justify-center select-none z-10"
-                style={{
-                  transform: is3D ? 'var(--board-billboard) translateZ(38px) scale(var(--model-scale))' : undefined,
-                  transformStyle: is3D ? 'preserve-3d' : undefined,
-                  transformOrigin: 'center center',
-                }}
-              >
-                <DiceView is3D={is3D} dice={gameState.dice} isRolling={isRolling} hasRolled={gameState.hasRolled} />
-              </div>
+              {visibleAtlas ? (
+                <WorldPortAtlas arrival={visibleAtlas} is3D={is3D} onClose={returnToPortTile} freight={atlasFreight}
+                  focusTerminalOnArrival={focusFeederTileId !== undefined && focusFeederTileId === atlasTile?.id && visibleAtlas.playerId === myPlayerId}
+                  dice={!isLogistics && gameState.hasRolled ? gameState.dice : undefined} />
+              ) : (
+                <>
+                  <PacificChart is3D={is3D} />
+                  {is3D && <TerrainRelief sky={sky} />}
+                  <BoardSky sky={sky} />
+                  {isLogistics ? (
+                    <div className="logistics-chart-key" aria-label="Chú giải hoạt động cảng">
+                      <span className="stock-out">↑ Hàng xuất</span>
+                      <span className="stock-in">↓ Xe chờ nhập</span>
+                      <span className="stock-empty">□ Vỏ rỗng</span>
+                      {gameState.logistics?.market?.tender && <span className="stock-tender">⚑ Mời thầu</span>}
+                      {gameState.logistics?.market?.contract?.status === 'active' && <span className="stock-award">✓ Bến hợp đồng</span>}
+                    </div>
+                  ) : <div
+                    className="w-full h-full flex items-center justify-center select-none z-10"
+                    style={{
+                      transform: is3D ? 'var(--board-billboard) translateZ(38px) scale(var(--model-scale))' : undefined,
+                      transformStyle: is3D ? 'preserve-3d' : undefined,
+                      transformOrigin: 'center center',
+                    }}
+                  >
+                    <DiceView is3D={is3D} dice={gameState.dice} isRolling={isRolling} hasRolled={gameState.hasRolled} />
+                  </div>}
+                </>
+              )}
             </div>
           </div>
 
@@ -363,7 +449,21 @@ export const Board: React.FC<Props> = ({
                   stackIndex={Math.max(0, occupants.indexOf(player))}
                   stackSize={occupants.length || 1}
                   advance={advance}
-                />
+                >
+                  {player.cargo && transfer?.playerId !== player.id && (
+                    <span className="cargo-box cargo-manifest-box" data-cargo-kind={player.cargo.reeferDueRound !== undefined ? 'reefer' : player.cargo.kind}
+                      data-cargo-origin={player.cargo.originTileId} aria-hidden="true" />
+                  )}
+                  {transfer?.playerId === player.id && transfer.tileId === tile && !frame && (
+                    <CargoTransfer key={transfer.revision} transfer={transfer} is3D={is3D} motion={idleMotion}
+                      faceLeft={TILE_CENTER_PERCENT[tile].x > 50} finish={finishTransfer} />
+                  )}
+                  {rescue?.playerId === player.id && rescue.tileId === tile && !frame && (
+                    <StormTugRescue key={rescue.sequence} rescue={rescue} is3D={is3D}
+                      motion={idleMotion} exposure={sky.exposure} faceLeft={TILE_CENTER_PERCENT[tile].x > 50}
+                      finish={finishRescue} />
+                  )}
+                </MovingPawn>
               );
             })}
           </div>
@@ -423,14 +523,25 @@ export const Board: React.FC<Props> = ({
 
       {/* Property Details Modal */}
       <PropertyModal
+        subscribeBoard={subscribeBoard}
         tileId={selectedTileId}
         gameState={gameState}
         myPlayerId={myPlayerId}
-        onClose={() => setSelectedTileId(null)}
-        onAction={(action) => {
-          onAction(action);
-          setSelectedTileId(null);
+        is3D={is3D}
+        arrivalCaptainId={terminalArrival?.tileId === selectedTileId ? terminalArrival.playerId : undefined}
+        portDischarge={portDischarge}
+        portLoad={portLoad}
+        onClose={() => { setTerminalArrival(null); onSelectTile(null); }}
+        onShowPort={(port) => {
+          setTerminalArrival(null);
+          onSelectTile(null);
+          showPort(port);
         }}
+        onOfferForTile={(id) => {
+          onSelectTile(null);
+          onOfferForTile(id);
+        }}
+        onAction={onAction}
       />
 
       {/* Card Modal */}

@@ -1,5 +1,7 @@
 import { BoardTile, GameCard, LoopGroup, SecretMissionCard } from './types.js';
 
+export const AUCTION_INCREMENT = 10;
+export const AUCTION_BID_SECONDS = 20;
 export const STARTING_BALANCE = 1500;
 export const GO_REWARD = 200;
 export const HOLD_TILE_INDEX = 8;
@@ -529,7 +531,7 @@ export const SECRET_MISSIONS: SecretMissionCard[] = [
   },
   {
     id: 'MISSION-2',
-    title: 'Hợp Đồng 2: Di Sản Nhật – Singapore',
+    title: 'Hợp Đồng 2: Di Sản Nhật – Hàn',
     description: 'Sở hữu Tokyo Flagship Hub (JPTYO), Cảng Busan (KRPUS) và 1 Siêu tàu ONE Innovation (Mức 5).',
     reward: 500,
     isCompleted: false,

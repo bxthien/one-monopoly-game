@@ -30,3 +30,16 @@ it('softens the same light source for a storm during the day or night', () => {
     assert.ok(Math.hypot(storm.shadowX, storm.shadowY) < Math.hypot(clear.shadowX, clear.shadowY));
   }
 });
+
+it('recreates passing showers from the shared turn and lets a drawn storm take precedence', () => {
+  const turn = { turnCount: 3, activePlayerIndex: 0, playerCount: 2 };
+  const rain = getBoardLighting(turn);
+  assert.equal(rain.weather, 'showers');
+  assert.deepEqual(getBoardLighting({ ...turn }), rain);
+  const storm = getBoardLighting({ ...turn, stormActive: true });
+  assert.equal(storm.weather, 'storm');
+  assert.equal(storm.phase, rain.phase);
+  assert.ok(rain.shadowOpacity > storm.shadowOpacity);
+  assert.ok(rain.shadowBlur < storm.shadowBlur);
+  assert.equal(getBoardLighting({ ...turn, turnCount: 4 }).weather, 'clear');
+});

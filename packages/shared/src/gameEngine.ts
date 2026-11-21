@@ -6,15 +6,18 @@ import {
   GameAction,
   GameCard,
   GameEvent,
+  GameMode,
   GameState,
   LoopGroup,
   PendingSlotCharter,
   Player,
+  PropertyAuction,
   PropertyState,
   SecretMissionCard,
   VesselToken,
 } from './types.js';
 import {
+  AUCTION_INCREMENT,
   BOARD_TILES,
   GAME_CARDS,
   GO_REWARD,
@@ -32,6 +35,10 @@ import {
   STORM_DRIFT_STEPS,
   STORM_TUG_FEE,
 } from './boardData.js';
+import { createLogisticsState, dispatchLogistics } from './cargo.js';
+import { dispatchTrade, expireTradeOffers } from './trade.js';
+import { getMissionProgress } from './missionProgress.js';
+import { getMortgageValue, getPropertyCashOption } from './debtRecovery.js';
 
 function shuffle<T>(array: T[]): T[] {
   const result = [...array];
@@ -45,24 +52,24 @@ function shuffle<T>(array: T[]): T[] {
 export class OneMonopolyEngine {
   public static createGame(
     roomId: string,
-    playersData: Array<{ id: string; name: string; token: VesselToken }>
+    playersData: Array<{ id: string; name: string; token: VesselToken }>,
+    mode: GameMode = 'classic'
   ): GameState {
-    const shuffledMissions = shuffle(SECRET_MISSIONS);
+    const freight = mode === 'logistics';
+    const shuffledMissions = freight ? [] : shuffle(SECRET_MISSIONS);
 
     const players: Player[] = playersData.map((p, idx) => ({
       id: p.id,
       name: p.name,
       token: p.token,
-      balance: STARTING_BALANCE,
+      balance: freight ? 0 : STARTING_BALANCE,
       position: 0,
       inHold: false,
       holdTurns: 0,
       customsClearancePasses: 0,
       isBankrupt: false,
       isOnline: true,
-      secretMission: JSON.parse(
-        JSON.stringify(shuffledMissions[idx % shuffledMissions.length])
-      ),
+      ...(freight ? {} : { secretMission: structuredClone(shuffledMissions[idx % shuffledMissions.length]) }),
     }));
 
     const properties: Record<number, PropertyState> = {};
@@ -78,25 +85,31 @@ export class OneMonopolyEngine {
       }
     }
 
-    const marketCardIds = shuffle(
+    const marketCardIds = freight ? [] : shuffle(
       GAME_CARDS.filter((c) => c.type === 'MARKET').map((c) => c.id)
     );
-    const opsCardIds = shuffle(
+    const opsCardIds = freight ? [] : shuffle(
       GAME_CARDS.filter((c) => c.type === 'OPS').map((c) => c.id)
     );
 
     return {
       roomId,
+      mode,
+      ...(freight ? { logistics: createLogisticsState(players), cargoRevision: 0 } : {}),
       players,
       activePlayerIndex: 0,
       properties,
-      phase: 'WAIT_FOR_ROLL',
+      phase: freight ? 'AWAITING_SAIL' : 'WAIT_FOR_ROLL',
       dice: [1, 1],
       consecutiveDoubles: 0,
       hasRolled: false,
       marketDeck: marketCardIds,
       opsDeck: opsCardIds,
       stormActive: false,
+      auction: null,
+      auctionSequence: 0,
+      tradeOffers: [],
+      tradeSequence: 0,
       canUpgradeCurrentPort: false,
       pendingDebt: null,
       pendingSlotCharter: null,
@@ -106,11 +119,42 @@ export class OneMonopolyEngine {
     };
   }
 
-  public static dispatch(state: GameState, action: GameAction): EngineResult {
-    if (!action || state.winnerId !== null ||
-        (state.phase === 'AWAITING_STORM_DECISION' && action.type !== 'RESOLVE_STORM')) {
+  public static dispatch(state: GameState, action: GameAction, actorId?: string): EngineResult {
+    if (!action || state.winnerId !== null) return { state, events: [] };
+    if (state.mode === 'logistics') {
+      return dispatchLogistics(state, action, actorId ?? state.players[state.activePlayerIndex]?.id);
+    }
+    if (action.type === 'LOAD_CARGO' || action.type === 'UNLOAD_CARGO' || action.type === 'CALL_PORT_TRUCK' ||
+        action.type === 'RESERVE_IMPORT_TRUCK' ||
+        action.type === 'SAIL_TO_PORT' || action.type === 'SAIL_FEEDER' || action.type === 'ACCEPT_BACKHAUL' ||
+        action.type === 'CHANGE_DESTINATION' || action.type === 'BID_FREIGHT_TENDER' ||
+        action.type === 'WITHDRAW_FREIGHT_TENDER_BID') return { state, events: [] };
+    const result = action.type === 'OFFER_TRADE' || action.type === 'RESPOND_TRADE' || action.type === 'CANCEL_TRADE'
+      ? dispatchTrade(state, action, actorId, OneMonopolyEngine.checkMissionCompletion)
+      : OneMonopolyEngine.dispatchTurnAction(state, action);
+    if (result.state === state) return result;
+    if (result.state.canUpgradeCurrentPort) {
+      // Selling the port ends this visit's upgrade opportunity, even if the captain later buys it back.
+      const captain = result.state.players[result.state.activePlayerIndex];
+      result.state.canUpgradeCurrentPort = result.state.properties[captain.position]?.ownerId === captain.id;
+    }
+    expireTradeOffers(result.state, result.events);
+    return result;
+  }
+
+  private static dispatchTurnAction(state: GameState, action: GameAction): EngineResult {
+    if ((action.type === 'DECLARE_BANKRUPTCY' || action.type === 'SETTLE_DEBT') &&
+        (state.phase !== 'AWAITING_DEBT_RESOLUTION' || !state.pendingDebt)) {
       return { state, events: [] };
     }
+    if ((state.phase === 'AWAITING_STORM_DECISION' && action.type !== 'RESOLVE_STORM') ||
+        (state.phase === 'AWAITING_BUY_DECISION' && action.type === 'END_TURN')) {
+      return { state, events: [] };
+    }
+    if (action.type === 'AUCTION_BID' || action.type === 'AUCTION_PASS') {
+      return OneMonopolyEngine.answerAuction(state, action);
+    }
+    if (state.phase === 'AWAITING_AUCTION') return { state, events: [] };
 
     const nextState: GameState = JSON.parse(JSON.stringify(state));
     const events: GameEvent[] = [];
@@ -149,7 +193,9 @@ export class OneMonopolyEngine {
         break;
 
       case 'SKIP_BUY':
-        OneMonopolyEngine.handleSkipBuy(nextState, events, activePlayer);
+        if (nextState.phase === 'AWAITING_BUY_DECISION') {
+          OneMonopolyEngine.startAuction(nextState, events, activePlayer.position);
+        }
         break;
 
       case 'BUILD_CONTAINER':
@@ -157,7 +203,7 @@ export class OneMonopolyEngine {
         break;
 
       case 'SELL_CONTAINER':
-        OneMonopolyEngine.handleSellContainer(nextState, events, activePlayer, action.tileId);
+        OneMonopolyEngine.handleSellContainer(nextState, events, activePlayer, action.tileId, action.expectedLevel);
         break;
 
       case 'UPGRADE_GREEN_FLEET':
@@ -426,12 +472,15 @@ export class OneMonopolyEngine {
       case 'SERVICE_LINE':
       case 'INFRA': {
         const prop = state.properties[tileId];
-        if (!prop || prop.ownerId === null) {
-          // Unowned: allow buy decision
-          if (tile.price && player.balance >= tile.price) {
+        if (!prop) {
+          OneMonopolyEngine.finishStepPhase(state);
+          return;
+        }
+        if (prop.ownerId === null) {
+          if (tile.price !== undefined && player.balance >= tile.price) {
             state.phase = 'AWAITING_BUY_DECISION';
           } else {
-            OneMonopolyEngine.finishStepPhase(state);
+            OneMonopolyEngine.startAuction(state, events, tileId);
           }
           return;
         }
@@ -903,32 +952,100 @@ export class OneMonopolyEngine {
 
     if (player.balance < tile.price) return;
 
-    player.balance -= tile.price;
-    prop.ownerId = player.id;
+    OneMonopolyEngine.purchaseProperty(state, events, player, tile, tile.price);
+    OneMonopolyEngine.finishStepPhase(state);
+  }
 
+  private static purchaseProperty(
+    state: GameState, events: GameEvent[], player: Player, tile: BoardTile, price: number
+  ): void {
+    player.balance -= price;
+    state.properties[tile.id].ownerId = player.id;
     events.push({
       type: 'TILE_PURCHASED',
       playerId: player.id,
       tileId: tile.id,
-      price: tile.price,
+      price,
     });
     events.push({
       type: 'BALANCE_CHANGED',
       playerId: player.id,
       newBalance: player.balance,
-      delta: -tile.price,
+      delta: -price,
       reason: `Mua cảng/tuyến ${tile.name}`,
     });
-
-    OneMonopolyEngine.finishStepPhase(state);
   }
 
-  private static handleSkipBuy(
-    state: GameState,
-    _events: GameEvent[],
-    _player: Player
+  private static startAuction(state: GameState, events: GameEvent[], tileId: number): void {
+    if (state.properties[tileId]?.ownerId !== null) return;
+    const id = (state.auctionSequence ?? 0) + 1;
+    const auction: PropertyAuction = {
+      id, revision: 0, tileId, bidderId: state.players[state.activePlayerIndex].id,
+      leaderId: null, highestBid: 0, passedIds: [],
+    };
+    state.auctionSequence = id;
+    state.auction = auction;
+    state.phase = 'AWAITING_AUCTION';
+    events.push({ type: 'AUCTION_STARTED', tileId });
+    OneMonopolyEngine.advanceAuction(state, events, auction);
+  }
+
+  private static answerAuction(
+    state: GameState, action: Extract<GameAction, { type: 'AUCTION_BID' | 'AUCTION_PASS' }>
+  ): EngineResult {
+    const auction = state.auction;
+    if (state.phase !== 'AWAITING_AUCTION' || !auction ||
+        auction.id !== action.auctionId || auction.revision !== action.revision) {
+      return { state, events: [] };
+    }
+    const bidder = state.players.find(player => player.id === auction.bidderId);
+    if (!bidder || bidder.isBankrupt || bidder.id === auction.leaderId || auction.passedIds.includes(bidder.id)) {
+      return { state, events: [] };
+    }
+    if (action.type === 'AUCTION_BID') {
+      const { amount } = action;
+      if (!Number.isSafeInteger(amount) || amount % AUCTION_INCREMENT !== 0 ||
+          amount < auction.highestBid + AUCTION_INCREMENT || amount > bidder.balance) {
+        return { state, events: [] };
+      }
+    }
+
+    const nextState: GameState = JSON.parse(JSON.stringify(state));
+    const nextAuction = nextState.auction!;
+    if (action.type === 'AUCTION_PASS') {
+      nextAuction.passedIds.push(bidder.id);
+    } else {
+      nextAuction.highestBid = action.amount;
+      nextAuction.leaderId = bidder.id;
+    }
+    nextAuction.revision++;
+    const events: GameEvent[] = [];
+    OneMonopolyEngine.advanceAuction(nextState, events, nextAuction);
+    return { state: nextState, events };
+  }
+
+  private static advanceAuction(
+    state: GameState, events: GameEvent[], auction: PropertyAuction
   ): void {
-    if (state.phase !== 'AWAITING_BUY_DECISION') return;
+    const players = state.players;
+    const currentIndex = players.findIndex(player => player.id === auction.bidderId);
+    for (let offset = 1; offset <= players.length; offset++) {
+      const next = players[(currentIndex + offset) % players.length];
+      if (!next.isBankrupt && next.id !== auction.leaderId && !auction.passedIds.includes(next.id) &&
+          next.balance >= auction.highestBid + AUCTION_INCREMENT) {
+        auction.bidderId = next.id;
+        return;
+      }
+    }
+
+    const { tileId, leaderId, highestBid } = auction;
+    state.auction = null;
+    events.push({ type: 'AUCTION_ENDED', tileId, winnerId: leaderId, price: highestBid });
+    if (leaderId !== null) {
+      const winner = players.find(player => player.id === leaderId)!;
+      OneMonopolyEngine.purchaseProperty(state, events, winner, BOARD_TILES[tileId], highestBid);
+      OneMonopolyEngine.checkMissionCompletion(state, events, winner);
+    }
     OneMonopolyEngine.finishStepPhase(state);
   }
 
@@ -978,18 +1095,15 @@ export class OneMonopolyEngine {
     state: GameState,
     events: GameEvent[],
     player: Player,
-    tileId: number
+    tileId: number,
+    expectedLevel?: number
   ): void {
-    const tile = BOARD_TILES[tileId];
+    const option = getPropertyCashOption(state, player.id, tileId);
+    if (option?.action.type !== 'SELL_CONTAINER') return;
     const prop = state.properties[tileId];
-    if (!tile || !prop || prop.ownerId !== player.id || tile.type !== 'PORT') return;
-    if (prop.containerLevel <= 0) return;
-
-    const groupConfig = LOOP_GROUPS_CONFIG[tile.group!];
-    if (!groupConfig) return;
-
-    const cost = tile.buildCost || groupConfig.buildCost;
-    const refund = Math.floor(cost * 0.5);
+    if (expectedLevel !== undefined && prop.containerLevel !== expectedLevel) return;
+    const tile = BOARD_TILES[tileId];
+    const refund = option.proceeds;
 
     prop.containerLevel--;
     // If downgraded from level 5, also remove green fleet
@@ -1107,69 +1221,24 @@ export class OneMonopolyEngine {
     if (!player.secretMission || player.secretMission.isCompleted || player.isBankrupt) return;
 
     const mission = player.secretMission;
-    let completed = false;
+    const progress = getMissionProgress(state, player.id);
+    if (!progress || progress.current < progress.target) return;
 
-    switch (mission.id) {
-      case 'MISSION-1':
-        // Cái Mép (3), Los Angeles (23), Tuyến PS3 (28)
-        completed =
-          state.properties[3]?.ownerId === player.id &&
-          state.properties[23]?.ownerId === player.id &&
-          state.properties[28]?.ownerId === player.id;
-        break;
-
-      case 'MISSION-2':
-        // Tokyo (31), Busan (17), and 1 Siêu tàu ONE Innovation (level 5)
-        completed =
-          state.properties[31]?.ownerId === player.id &&
-          state.properties[17]?.ownerId === player.id &&
-          Object.values(state.properties).some(
-            (p) => p.ownerId === player.id && p.containerLevel === 5
-          );
-        break;
-
-      case 'MISSION-3':
-        // ONE QUOTE (10), ONE Eco Calculator (22), and at least 1 Green Fleet
-        completed =
-          state.properties[10]?.ownerId === player.id &&
-          state.properties[22]?.ownerId === player.id &&
-          Object.values(state.properties).some(
-            (p) => p.ownerId === player.id && p.hasGreenFleet
-          );
-        break;
-
-      case 'MISSION-4':
-        // At least 3 of 4 service lines (4, 13, 20, 28)
-        completed =
-          SERVICE_LINES.filter((id) => state.properties[id]?.ownerId === player.id).length >= 3;
-        break;
-
-      case 'MISSION-5':
-        // Intra-Asia (1, 3) and Tuyến VSS (4)
-        completed =
-          state.properties[1]?.ownerId === player.id &&
-          state.properties[3]?.ownerId === player.id &&
-          state.properties[4]?.ownerId === player.id;
-        break;
-    }
-
-    if (completed) {
-      mission.isCompleted = true;
-      player.balance += mission.reward;
-      events.push({
-        type: 'MISSION_COMPLETED',
-        playerId: player.id,
-        mission,
-        reward: mission.reward,
-      });
-      events.push({
-        type: 'BALANCE_CHANGED',
-        playerId: player.id,
-        newBalance: player.balance,
-        delta: mission.reward,
-        reason: `Hoàn thành ${mission.title}`,
-      });
-    }
+    mission.isCompleted = true;
+    player.balance += mission.reward;
+    events.push({
+      type: 'MISSION_COMPLETED',
+      playerId: player.id,
+      mission,
+      reward: mission.reward,
+    });
+    events.push({
+      type: 'BALANCE_CHANGED',
+      playerId: player.id,
+      newBalance: player.balance,
+      delta: mission.reward,
+      reason: `Hoàn thành ${mission.title}`,
+    });
   }
 
   private static handleMortgageTile(
@@ -1178,16 +1247,11 @@ export class OneMonopolyEngine {
     player: Player,
     tileId: number
   ): void {
+    const option = getPropertyCashOption(state, player.id, tileId);
+    if (option?.action.type !== 'MORTGAGE_TILE') return;
     const tile = BOARD_TILES[tileId];
     const prop = state.properties[tileId];
-    if (!tile || !prop || prop.ownerId !== player.id || prop.isMortgaged) return;
-
-    // Cannot mortgage if this tile still has containers
-    if (tile.type === 'PORT' && (prop.containerLevel || 0) > 0) {
-      return;
-    }
-
-    const mortgageValue = tile.mortgageValue || Math.floor((tile.price || 0) * 0.5);
+    const mortgageValue = option.proceeds;
     prop.isMortgaged = true;
     if (player.position === tileId) {
       state.canUpgradeCurrentPort = false;
@@ -1219,7 +1283,7 @@ export class OneMonopolyEngine {
     const prop = state.properties[tileId];
     if (!tile || !prop || prop.ownerId !== player.id || !prop.isMortgaged) return;
 
-    const mortgageValue = tile.mortgageValue || Math.floor((tile.price || 0) * 0.5);
+    const mortgageValue = getMortgageValue(tile);
     const unmortgageCost = Math.ceil(mortgageValue * 1.1); // 10% interest
 
     if (player.balance < unmortgageCost) return;
@@ -1355,6 +1419,7 @@ export class OneMonopolyEngine {
             prop.slotCharter = null;
           }
         }
+        OneMonopolyEngine.checkMissionCompletion(state, events, creditor);
       }
     } else {
       // Bank liquidation: reset all properties to unowned

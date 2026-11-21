@@ -19,6 +19,10 @@ async function loadRenderer() {
   return true;
 }
 
+export function loadVesselRenderer() {
+  return rendererReady ??= loadRenderer().catch(() => false);
+}
+
 interface Props {
   token: VesselToken;
   interactive?: boolean;
@@ -36,9 +40,7 @@ export const TokenModel: React.FC<Props> = ({ token, interactive = false, camera
     const mount = slot.current!;
     let current = true;
     setReady(false);
-    rendererReady ??= loadRenderer().catch(() => false);
-
-    void rendererReady.then((supported) => {
+    void loadVesselRenderer().then((supported) => {
       if (!current || !supported) return;
       const viewer = document.createElement('model-viewer');
       viewer.setAttribute('src', tokenAsset(token, 'glb'));

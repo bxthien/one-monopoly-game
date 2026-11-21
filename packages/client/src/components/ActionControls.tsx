@@ -1,13 +1,16 @@
 import React from 'react';
-import { BOARD_TILES, GameAction, GameState, GREEN_FLEET_COST, LOOP_GROUPS_CONFIG } from '@one-monopoly/shared';
-import { Dices, Check, X, DollarSign, Ticket, AlertTriangle, Handshake, Ship, Flag, Building2, Leaf } from 'lucide-react';
+import { BOARD_TILES, GREEN_FLEET_COST, LOOP_GROUPS_CONFIG, getTradeRestriction, type GameAction, type GameState } from '@one-monopoly/shared';
+import { Building2, Check, Dices, DollarSign, Flag, Gavel, Handshake, Leaf, Ship, Ticket } from 'lucide-react';
+import { DebtRescuePanel } from './DebtRescuePanel.js';
 import { StormDecision } from './StormDecision.js';
+import { PropertyAuctionPanel } from './PropertyAuctionPanel.js';
 import './chart-actions.css';
 
 interface Props {
   gameState: GameState;
   myPlayerId: string | null;
-  onAction: (action: GameAction) => void;
+  onAction: (action: GameAction, onFailure?: () => void, onSuccess?: () => void) => void;
+  onOpenTrades: () => void;
   isRolling: boolean;
   isPawnMoving?: boolean;
 }
@@ -16,12 +19,20 @@ export const ActionControls: React.FC<Props> = ({
   gameState,
   myPlayerId,
   onAction,
+  onOpenTrades,
   isRolling,
   isPawnMoving = false,
 }) => {
   const activePlayer = gameState.players[gameState.activePlayerIndex];
   const isMyTurn = activePlayer.id === myPlayerId;
   const currentTile = BOARD_TILES[activePlayer.position];
+
+  // Another captain's bid clock can already be running while the landing ship is moving.
+  if (gameState.phase === 'AWAITING_AUCTION' && gameState.auction) {
+    const auction = gameState.auction;
+    return <PropertyAuctionPanel key={`${auction.id}-${auction.revision}`} auction={auction}
+      players={gameState.players} myPlayerId={myPlayerId} onAction={onAction} />;
+  }
 
   if (isRolling) {
     return (
@@ -107,11 +118,28 @@ export const ActionControls: React.FC<Props> = ({
     );
   }
 
+  const debt = gameState.phase === 'AWAITING_DEBT_RESOLUTION' && gameState.pendingDebt;
+  const debtPanel = debt && (
+    <DebtRescuePanel key={JSON.stringify([activePlayer.id, debt.creditorId, debt.tileId, debt.amount, debt.reason])}
+      gameState={gameState} debt={debt} canAct={isMyTurn} onAction={onAction} />
+  );
+  if (isMyTurn && debtPanel) return debtPanel;
+
   if (!isMyTurn) {
+    const offers = gameState.tradeOffers ?? [];
+    const hasOffers = offers.some(offer => offer.sellerId === myPlayerId || offer.buyerId === myPlayerId);
+    const canShop = myPlayerId && BOARD_TILES.some(tile => !getTradeRestriction(gameState, myPlayerId, tile.id));
+    const shopButton = (hasOffers || canShop) && (
+      <button className="chart-button chart-button-navy" type="button" onClick={onOpenTrades}>
+        <Handshake aria-hidden="true" />{hasOffers ? 'Xem đề nghị giao dịch' : 'Tìm tài sản để mua'}
+      </button>
+    );
+    if (debtPanel) return <>{debtPanel}{shopButton}</>;
     return (
-      <div role="status" className="chart-action-panel chart-action-status">
-        <Flag size={18} aria-hidden="true" />
-        <span>Đang chờ <strong>{activePlayer.name}</strong> thực hiện lượt...</span>
+      <div className="chart-action-panel">
+        <p role="status" className="chart-waiting-turn"><Flag size={18} aria-hidden="true" />
+          <span>Đang chờ <strong>{activePlayer.name}</strong> thực hiện lượt...</span></p>
+        {shopButton}
       </div>
     );
   }
@@ -132,51 +160,22 @@ export const ActionControls: React.FC<Props> = ({
           <div className="chart-action-price">${price}M</div>
         </div>
 
+        <p className="chart-action-copy">Nếu bạn không mua, tài sản sẽ được đưa ra đấu giá.</p>
         <div className="chart-action-row">
           <button
+            type="button"
             onClick={() => onAction({ type: 'BUY_PROPERTY' })}
             disabled={!canAfford}
             className="chart-button chart-button-primary"
           >
-            <Check size={18} aria-hidden="true" /> MUA CẢNG NÀY
+            <Check size={18} aria-hidden="true" /> Mua ngay
           </button>
           <button
+            type="button"
             onClick={() => onAction({ type: 'SKIP_BUY' })}
             className="chart-button"
           >
-            <X size={18} aria-hidden="true" /> BỎ QUA
-          </button>
-        </div>
-      </section>
-    );
-  }
-
-  if (gameState.phase === 'AWAITING_DEBT_RESOLUTION' && gameState.pendingDebt) {
-    const debt = gameState.pendingDebt;
-    const canSettle = activePlayer.balance >= debt.amount;
-
-    return (
-      <section className="chart-action-panel">
-        <h3 className="chart-action-title">
-          <AlertTriangle size={18} aria-hidden="true" /> BẠN ĐANG MẮC NỢ ${debt.amount}M
-        </h3>
-        <p className="chart-action-copy">
-          Lý do: {debt.reason}. Bạn có thể thế chấp tài sản hoặc bán bớt container để gom tiền.
-        </p>
-
-        <div className="chart-action-row">
-          <button
-            onClick={() => onAction({ type: 'SETTLE_DEBT' })}
-            disabled={!canSettle}
-            className="chart-button chart-button-primary"
-          >
-            <DollarSign size={18} aria-hidden="true" /> THANH TOÁN NỢ (${debt.amount}M)
-          </button>
-          <button
-            onClick={() => onAction({ type: 'DECLARE_BANKRUPTCY' })}
-            className="chart-button chart-button-danger"
-          >
-            PHÁ SẢN
+            <Gavel size={18} aria-hidden="true" /> Mở đấu giá
           </button>
         </div>
       </section>

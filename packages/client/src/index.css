@@ -113,14 +113,55 @@
 }
 .chart-sheet-heading span { color: var(--chart-muted); border-left: 1px solid var(--chart-rule); padding-left: 14px; }
 .chart-voyage-meta { display: flex; align-items: center; gap: 12px; }
-.chart-voyage-meta .chart-weather-readout { color: var(--chart-ink); }
+.chart-voyage-meta .chart-weather-readout { display: inline-flex; align-items: center; gap: 4px; color: var(--chart-ink); }
+.chart-weather-readout svg { flex-shrink: 0; }
 .chart-view-picker { border: 1px solid #77918b; border-radius: 4px; overflow: hidden; }
+.chart-sheet-header { flex-wrap: wrap; }
+.chart-trade-open {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid #77918b;
+  border-radius: 4px;
+  color: var(--chart-ink);
+  background: #faf8ee;
+  font: 650 12px var(--chart-sans);
+}
+.chart-trade-open:hover { background: #eff1df; }
+.freight-chart-tools { display: flex; margin-left: auto; gap: 4px; }
+.freight-chart-tools button {
+  display: inline-flex; align-items: center; gap: 5px; padding: 5px 8px; min-height: 34px;
+  border: 1px solid #a2afa0; border-radius: 3px; background: #faf8ee; color: var(--chart-ink);
+  font: 650 12px var(--chart-sans); white-space: nowrap;
+}
+.freight-chart-tools button:hover { background: #e9ecde; }
+.freight-chart-tools button:focus-visible { outline: 2px solid var(--chart-magenta); outline-offset: 2px; }
+@media (max-width: 620px) {
+  .freight-chart-tools { order: 1; width: 100%; margin: 0; }
+}
+.chart-trade-count {
+  padding: 1px 5px;
+  border-radius: 1em;
+  color: #fff9ea;
+  background: #a2275e;
+  font: 700 11px var(--chart-mono);
+}
+.chart-waiting-turn { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.chart-waiting-turn svg { flex: none; }
+@media (max-width: 480px) {
+  .chart-sheet-header { column-gap: 5px; }
+  .chart-trade-open { min-height: 32px; gap: 3px; padding: 0 5px; }
+}
 .chart-view-picker button { gap: 5px; min-height: 36px; padding: 0 11px; background: #faf8ee; font: 600 12px var(--chart-mono); }
 .chart-view-picker button[aria-pressed="true"] { color: #fff8e9; background: var(--chart-ink); }
 .chart-view-picker button:focus-visible { outline: 2px solid #ec65a1; outline-offset: -3px; }
 .chart-position { gap: 8px; min-height: 36px; padding: 6px 18px; border-top: 1px solid var(--chart-rule); background: #faf8eeed; }
 .chart-position span { color: var(--chart-muted); }
-.chart-position strong { font-size: 12px; }
+.chart-position strong { min-width: 0; overflow-wrap: anywhere; font-size: 12px; }
+.chart-position svg { flex: none; }
 
 .table-scoreboard { min-width: 0; }
 .chart-turn { padding: 15px 18px; color: #fffaee; background: var(--chart-ink); border-left: 4px solid #e33d88; }

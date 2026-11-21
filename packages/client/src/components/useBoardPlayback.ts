@@ -1,7 +1,9 @@
-import { useCallback, useLayoutEffect, useState } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import type { GameEvent, GameState } from '@one-monopoly/shared';
 import type { SubscribeBoard } from '../hooks/useSocket.js';
 import { buildTravelFrames, restingPose, type Pose, type TravelFrame } from './boardTravel.js';
+import { readPortLanding, updatePortDischarge, updatePortLoad, type PortDischarge, type PortLoad } from './ports/portArrival.js';
+import type { PortArrival, PortGuide } from './ports/portGuide.js';
 
 export interface RentLine {
   playerId: string;
@@ -73,7 +75,7 @@ export function parseRentReceiptFromEvent(
   return null;
 }
 
-type Claim = Extract<GameEvent, { type: 'TILE_PURCHASED' }>;
+type Claim = Pick<Extract<GameEvent, { type: 'TILE_PURCHASED' }>, 'tileId' | 'playerId' | 'price'>;
 interface Track {
   settled: Pose;
   frames: TravelFrame[];
@@ -86,13 +88,22 @@ function snapshot(state: GameState): Record<string, Track> {
 
 export function useBoardPlayback(initialState: GameState, subscribe: SubscribeBoard) {
   const [tracks, setTracks] = useState(() => snapshot(initialState));
+  const [atlas, setAtlas] = useState<PortArrival | null>(null);
+  const [portDischarge, setPortDischarge] = useState<PortDischarge | null>(null);
+  const [portLoad, setPortLoad] = useState<PortLoad | null>(null);
+  const atlasSequence = useRef(0);
+  const showPort = (port: PortGuide) => setAtlas({ id: ++atlasSequence.current, port });
+  const closeAtlas = () => setAtlas(null);
   const [claims, setClaims] = useState<Record<number, Claim>>({});
   const [rentReceipts, setRentReceipts] = useState<Record<number, RentReceipt>>({});
+  const [pendingRentReceipts, setPendingRentReceipts] = useState<Record<number, RentReceipt>>({});
+  const rentExpiry = useRef(new Map<number, ReturnType<typeof setTimeout>>()).current;
 
   useLayoutEffect(() => {
     const preference = window.matchMedia('(prefers-reduced-motion: reduce)');
     const skipTravel = () => preference.matches || document.hidden;
     const settlePending = () => {
+      if (document.hidden) { setAtlas(null); setPortDischarge(null); setPortLoad(null); }
       if (!skipTravel()) return;
       setTracks((tracks) => Object.fromEntries(Object.entries(tracks).map(([id, track]) => [
         id, { settled: track.frames.at(-1) ?? track.settled, frames: [] },
@@ -101,7 +112,6 @@ export function useBoardPlayback(initialState: GameState, subscribe: SubscribeBo
     preference.addEventListener('change', settlePending);
     document.addEventListener('visibilitychange', settlePending);
     const claimExpiry = new Map<number, ReturnType<typeof setTimeout>>();
-    const rentExpiry = new Map<number, ReturnType<typeof setTimeout>>();
 
     const resetTimers = () => {
       claimExpiry.forEach(clearTimeout);
@@ -111,15 +121,21 @@ export function useBoardPlayback(initialState: GameState, subscribe: SubscribeBo
     };
 
     const unsubscribe = subscribe((state, events) => {
+      const freightEvents = state.mode === 'logistics' && !document.hidden ? events : null;
+      setPortDischarge(previous => updatePortDischarge(previous, freightEvents));
+      setPortLoad(previous => updatePortLoad(previous, freightEvents));
       if (events === null) {
         resetTimers();
+        setAtlas(null);
         setClaims({});
         setRentReceipts({});
+        setPendingRentReceipts({});
         setTracks(snapshot(state));
         return;
       }
 
-      const playerTravelTimes: Record<string, number> = {};
+      const landing = document.hidden ? null : readPortLanding(state, events);
+      if (landing !== undefined) setAtlas(landing ? { id: ++atlasSequence.current, ...landing } : null);
 
       setTracks((prev) => {
         const next = { ...prev };
@@ -130,8 +146,7 @@ export function useBoardPlayback(initialState: GameState, subscribe: SubscribeBo
             continue;
           }
           const projected = existing.frames.at(-1) ?? existing.settled;
-          const additions = buildTravelFrames(projected, player.id, events);
-          playerTravelTimes[player.id] = additions.reduce((acc, f) => acc + (f.duration || 0), 0);
+          const additions = buildTravelFrames(projected, player.id, events, state.mode === 'logistics');
           const arrival = additions.at(-1) ?? projected;
           if (arrival.tile !== player.position) {
             next[player.id] = { settled: restingPose(player.position), frames: [] };
@@ -145,41 +160,29 @@ export function useBoardPlayback(initialState: GameState, subscribe: SubscribeBo
       });
 
       for (const event of events) {
-        if (event.type === 'TILE_PURCHASED') {
-          clearTimeout(claimExpiry.get(event.tileId));
-          setClaims((prev) => ({ ...prev, [event.tileId]: event }));
-          claimExpiry.set(event.tileId, setTimeout(() => {
+        let claim: Claim | undefined;
+        if (event.type === 'TILE_PURCHASED') claim = event;
+        else if (event.type === 'TRADE_CLOSED' && event.result === 'ACCEPTED') {
+          const { tileId, buyerId, price } = event.offer;
+          claim = { tileId, playerId: buyerId, price };
+        }
+        if (claim) {
+          const entry = claim;
+          const { tileId } = entry;
+          clearTimeout(claimExpiry.get(tileId));
+          setClaims((prev) => ({ ...prev, [tileId]: entry }));
+          claimExpiry.set(tileId, setTimeout(() => {
             setClaims((prev) => {
               const next = { ...prev };
-              delete next[event.tileId];
+              delete next[tileId];
               return next;
             });
-            claimExpiry.delete(event.tileId);
+            claimExpiry.delete(tileId);
           }, 1800));
         }
 
         const receipt = parseRentReceiptFromEvent(event, state.players);
-        if (receipt) {
-          clearTimeout(rentExpiry.get(receipt.tileId));
-          const debtorId = receipt.lines[0]?.playerId;
-          const travelDuration = debtorId ? (playerTravelTimes[debtorId] || 0) : 0;
-          const delayMs = skipTravel() ? 0 : travelDuration;
-
-          const showTimer = setTimeout(() => {
-            setRentReceipts((prev) => ({ ...prev, [receipt.tileId]: receipt }));
-            const hideTimer = setTimeout(() => {
-              setRentReceipts((prev) => {
-                const next = { ...prev };
-                delete next[receipt.tileId];
-                return next;
-              });
-              rentExpiry.delete(receipt.tileId);
-            }, 2500);
-            rentExpiry.set(receipt.tileId, hideTimer);
-          }, delayMs);
-
-          rentExpiry.set(receipt.tileId, showTimer);
-        }
+        if (receipt) setPendingRentReceipts((prev) => ({ ...prev, [receipt.tileId]: receipt }));
       }
     });
     return () => {
@@ -188,7 +191,39 @@ export function useBoardPlayback(initialState: GameState, subscribe: SubscribeBo
       preference.removeEventListener('change', settlePending);
       document.removeEventListener('visibilitychange', settlePending);
     };
-  }, [subscribe]);
+  }, [subscribe, rentExpiry]);
+
+  // Wait for the actual dice and pawn queue, including travel already in progress
+  // when a follow-up event (such as a charter decision) collects the rent.
+  useLayoutEffect(() => {
+    const arrived = Object.values(pendingRentReceipts).filter(receipt =>
+      !tracks[receipt.lines[0].playerId]?.frames.length);
+    if (arrived.length === 0) return;
+
+    setPendingRentReceipts((prev) => {
+      const next = { ...prev };
+      for (const receipt of arrived) {
+        if (next[receipt.tileId] === receipt) delete next[receipt.tileId];
+      }
+      return next;
+    });
+    setRentReceipts((prev) => {
+      const next = { ...prev };
+      for (const receipt of arrived) next[receipt.tileId] = receipt;
+      return next;
+    });
+    for (const { tileId } of arrived) {
+      clearTimeout(rentExpiry.get(tileId));
+      rentExpiry.set(tileId, setTimeout(() => {
+        setRentReceipts((prev) => {
+          const next = { ...prev };
+          delete next[tileId];
+          return next;
+        });
+        rentExpiry.delete(tileId);
+      }, 2500));
+    }
+  }, [pendingRentReceipts, tracks, rentExpiry]);
 
   const advance = useCallback((id: string, frame: TravelFrame) => {
     setTracks((prev) => {
@@ -198,5 +233,5 @@ export function useBoardPlayback(initialState: GameState, subscribe: SubscribeBo
     });
   }, []);
 
-  return { tracks, claims, rentReceipts, advance };
+  return { tracks, claims, rentReceipts, pendingRentReceipts, advance, atlas, showPort, closeAtlas, portDischarge, portLoad };
 }

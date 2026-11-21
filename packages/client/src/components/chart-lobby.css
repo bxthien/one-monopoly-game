@@ -132,6 +132,13 @@
   color: var(--lobby-navy);
 }
 
+.chart-lobby-panel h2:has(+ .chart-lobby-freight-intro) { margin-bottom: 6px; }
+.chart-lobby-freight-intro {
+  max-width: 51ch;
+  margin: 0 0 20px;
+  color: #415962;
+  font: 500 .85rem/1.52 var(--chart-sans, system-ui, sans-serif);
+}
 .chart-lobby button { cursor: pointer; }
 .chart-lobby button:focus-visible,
 .chart-lobby input:focus-visible {

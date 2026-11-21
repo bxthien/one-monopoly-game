@@ -63,3 +63,14 @@ describe('board travel playback', () => {
     assert.deepEqual(buildTravelFrames({ tile: 21, heading: 90 }, 'pilot', roll(21, [1, 2]).events), []);
   });
 });
+
+it('turns toward the booked sailing leg, then crosses the chart directly to the destination', () => {
+  const leg = buildTravelFrames({ tile: 0, heading: 270 }, 'captain', [
+    { type: 'SHIP_STEPPED', playerId: 'captain', from: 0, to: 17 },
+  ], true);
+  assert.deepEqual(leg.map(frame => frame.tile), [0, 17]);
+  assert.ok(leg[0].heading > 270 && leg[0].heading < 360);
+  assert.equal(leg[1].heading, leg[0].heading);
+  assert.equal(leg[1].gliding, true);
+  assert.ok(leg[1].duration > 400);
+});

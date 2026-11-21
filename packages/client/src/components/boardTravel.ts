@@ -1,5 +1,6 @@
 import { BOARD_TILES, HOLD_TILE_INDEX, STORM_DRIFT_STEPS } from '@one-monopoly/shared';
 import type { GameEvent } from '@one-monopoly/shared';
+import { TILE_CENTER_PERCENT } from './boardCoordinates.js';
 
 export const DICE_ROLL_MS = 950;
 const TILE_MS = 240;
@@ -25,7 +26,7 @@ export function restingPose(tile: number): Pose {
   return { tile, heading: forwardHeading(tile) };
 }
 
-export function buildTravelFrames(start: Pose, playerId: string, events: GameEvent[]): TravelFrame[] {
+export function buildTravelFrames(start: Pose, playerId: string, events: GameEvent[], directSailing = false): TravelFrame[] {
   const frames: TravelFrame[] = [];
   let pose = start;
   let steps: number | undefined;
@@ -51,6 +52,14 @@ export function buildTravelFrames(start: Pose, playerId: string, events: GameEve
         add({ ...restingPose(HOLD_TILE_INDEX), duration: 0 });
         break;
       case 'SHIP_STEPPED': {
+        if (directSailing && pose.tile === event.from && event.from !== event.to) {
+          const from = TILE_CENTER_PERCENT[event.from], to = TILE_CENTER_PERCENT[event.to];
+          const dx = to.x - from.x, dy = to.y - from.y;
+          const heading = (Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360;
+          if (pose.heading !== heading) add({ ...pose, heading, duration: TURN_MS });
+          add({ tile: event.to, heading, duration: Math.round(400 + Math.hypot(dx, dy) * 5), gliding: true });
+          break;
+        }
         // A destination card, or an update with no matching route, is an immediate relocation.
         if (steps === undefined || pose.tile !== event.from ||
             (event.from + steps + tileCount) % tileCount !== event.to) {

@@ -1,67 +1,83 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { RoomManager } from '../dist/roomManager.js';
+import { getTimerPlayerId, RoomManager } from '../dist/roomManager.js';
 
-test('AI Bot acts decisively and completes its turn promptly', async (t) => {
+function startSoloGame(t) {
+  t.mock.timers.enable({ apis: ['setInterval', 'setTimeout'] });
   const events = [];
   const manager = new RoomManager({
     onBroadcastUpdate: (_id, _state, emitted) => events.push(...emitted),
   });
-
-  // Host starts single-player room -> Bot (ai-mate-1) is automatically added
-  const { room, playerId: humanId } = manager.createRoom('Captain ONE', 'ONE_APUS', 'human-socket');
-  const startResult = manager.startGame(room.id, humanId);
-  assert.equal(startResult.success, true);
+  const { room, playerId: human } = manager.createRoom('Captain ONE', 'ONE_APUS', 'human-socket');
+  assert.ok(manager.startGame(room.id, human, 'classic').success);
+  const bot = room.players.find((p) => manager.isBot(room, p.id)).id;
   assert.equal(room.players.length, 2);
-
-  const bot = room.players.find((p) => p.id === 'ai-mate-1');
-  assert.ok(bot);
-  assert.equal(manager.isBot(room, bot.id), true);
-  assert.equal(manager.isBot(room, humanId), false);
-
+  assert.equal(manager.isBot(room, human), false);
   t.after(() => {
-    room.timer?.stop();
+    room.timer.stop();
     manager.clearBotTimer(room);
   });
 
-  // Human player takes turn 1
-  assert.equal(room.gameState.activePlayerIndex, 0); // Human
-  const humanRoll = manager.dispatchAction(room.id, humanId, {
-    type: 'ROLL_DICE',
-    forcedDice: [1, 2], // Lands on tile 3 (Port)
-  });
-  assert.equal(humanRoll.success, true);
+  function send(action) {
+    const reply = manager.dispatchSocketAction('human-socket', { roomId: room.id, playerId: human, action });
+    assert.ok(reply.success, reply.error);
+    return reply;
+  }
+  send({ type: 'ROLL_DICE', forcedDice: [1, 2] });
+  send({ type: 'SKIP_BUY' });
+  assert.equal(room.gameState.phase, 'AWAITING_AUCTION');
+  assert.equal(getTimerPlayerId(room.gameState), bot);
+  return { room, send, human, bot, events };
+}
 
-  // Human skips buy and ends turn
-  manager.dispatchAction(room.id, humanId, { type: 'SKIP_BUY' });
-  const endTurn = manager.dispatchAction(room.id, humanId, { type: 'END_TURN' });
-  assert.equal(endTurn.success, true);
+test('a bot bids during the human turn, collects the port on timeout, and plays its next turn', (t) => {
+  const { room, send, human, bot, events } = startSoloGame(t);
+  room.gameState.properties[9].ownerId = bot;
+  t.mock.timers.tick(500);
+  const request = send({ type: 'OFFER_TRADE', tileId: 9, sellerId: bot, price: 75 });
+  assert.equal(room.gameState.auction.revision, 0);
+  t.mock.timers.tick(200);
+  assert.equal(room.gameState.auction.highestBid, 10);
+  assert.equal(room.gameState.auction.leaderId, bot);
+  assert.equal(getTimerPlayerId(room.gameState), human);
+  assert.equal(room.botTimer, null);
 
-  // Now it is the Bot's turn!
-  assert.equal(room.gameState.activePlayerIndex, 1);
-  assert.equal(room.gameState.players[1].id, bot.id);
+  t.mock.timers.tick(5_000);
+  send({ type: 'CANCEL_TRADE', offerId: request.state.tradeOffers[0].id });
+  assert.equal(room.timer.getRemainingSeconds(), 15);
+  t.mock.timers.tick(15_000);
+  assert.equal(room.gameState.phase, 'END_OF_TURN');
+  assert.equal(room.gameState.properties[3].ownerId, bot);
+  assert.equal(getTimerPlayerId(room.gameState), human);
+  assert.equal(room.timer.getRemainingSeconds(), 45);
+
+  send({ type: 'END_TURN' });
+  const dice = [0.2, 0.4]; // A normal bot roll of 2 + 3 lands on an unowned port.
+  t.mock.method(Math, 'random', () => dice.shift());
+  t.mock.timers.tick(1_000);
+  assert.ok(events.some((e) => e.type === 'DICE_ROLLED' && e.playerId === bot));
+  assert.equal(room.gameState.phase, 'AWAITING_BUY_DECISION');
+  t.mock.timers.tick(2_750);
+  assert.equal(room.gameState.properties[5].ownerId, bot);
+  assert.equal(room.gameState.properties[5].containerLevel, 0);
+  t.mock.timers.tick(700);
   assert.equal(room.gameState.phase, 'WAIT_FOR_ROLL');
+  assert.equal(getTimerPlayerId(room.gameState), human);
+  assert.equal(room.botTimer, null);
+});
 
-  // Bot timer should be scheduled (not relying on 45s AFK timer)
-  assert.ok(room.botTimer);
-
-  // Wait for bot to execute roll, travel, buy decision, and end turn
-  // Pacing: ~1.0s to roll + ~2.0s travel + ~0.7s end turn = ~3.7s
-  await new Promise((resolve) => {
-    const checkInterval = setInterval(() => {
-      // Check if turn returned to human player or bot completed actions
-      if (room.gameState.activePlayerIndex === 0 || events.some((e) => e.type === 'DICE_ROLLED' && e.playerId === bot.id)) {
-        clearInterval(checkInterval);
-        resolve(null);
-      }
-    }, 200);
-    setTimeout(() => {
-      clearInterval(checkInterval);
-      resolve(null);
-    }, 5000);
-  });
-
-  // Verify that the bot rolled dice without waiting 45s AFK
-  const botRollEvent = events.find((e) => e.type === 'DICE_ROLLED' && e.playerId === bot.id);
-  assert.ok(botRollEvent, 'Bot should have rolled dice automatically');
+test('a bot passes when the next bid would spend its cash reserve', (t) => {
+  const { room, human, bot, send, events } = startSoloGame(t);
+  room.gameState.players.find((p) => p.id === bot).balance = 100;
+  t.mock.timers.tick(700);
+  const { id, revision } = room.gameState.auction;
+  send({ type: 'AUCTION_BID', auctionId: id, revision, amount: 20 });
+  assert.equal(getTimerPlayerId(room.gameState), bot);
+  t.mock.timers.tick(700);
+  assert.equal(room.gameState.auction, null);
+  assert.equal(room.gameState.properties[3].ownerId, human);
+  assert.ok(events.some((e) => e.type === 'AUCTION_ENDED' && e.winnerId === human && e.price === 20));
+  assert.equal(room.gameState.players.find((p) => p.id === bot).balance, 100);
+  assert.equal(room.timer.getRemainingSeconds(), 45);
+  assert.equal(room.botTimer, null);
 });

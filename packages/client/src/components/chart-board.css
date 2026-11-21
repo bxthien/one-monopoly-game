@@ -41,6 +41,11 @@
   border-color: #af3765;
 }
 
+.chart-slab .board-tile[data-auction] {
+  border: 2px dashed #a52a60;
+  background: #fff1db;
+}
+
 .chart-slab .tile-code,
 .chart-slab .tile-amount {
   font-family: var(--chart-mono, 'IBM Plex Mono', ui-monospace, monospace);

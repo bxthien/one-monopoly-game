@@ -50,6 +50,16 @@
   --water-deep: #405767;
 }
 
+.chart-water:has(> .board-sky[data-body='sun'][data-weather='showers']) {
+  --water-center: #d4dfd1;
+  --water-shallow: #adc8bd;
+  --water-deep: #81a6a5;
+  --sky-glow: #f4e9b54a;
+}
+
+.board-sky[data-weather='showers'] .board-sky-showers { opacity: .29; }
+.board-sky[data-weather='showers'] .board-sky-cloud { transform: translate(-11px, 9px) scale(.75); }
+
 .board-sky {
   position: absolute;
   inset: 0;
