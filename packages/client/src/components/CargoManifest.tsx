@@ -20,6 +20,8 @@ import { FeederSailing } from './FeederSailing.js';
 import { ReeferDeadline, ReeferReceipt } from './ReeferCargo.js';
 import { FinalPortCallEnd } from './FinalPortCallEnd.js';
 import { PortDeliverySlip } from './PortDeliverySlip.js';
+import { WatchPlanCard } from './WatchPlanCard.js';
+import { useWatchPlan } from '../hooks/useWatchPlan.js';
 
 interface DeskProps {
   gameState: GameState;
@@ -122,7 +124,8 @@ function Sailing({ state, player, busy, routes, submit }: {
 function CargoTicket({ state, player }: { state: GameState; player: Player }) {
   const cargo = player.cargo!;
   const quote = getFreightQuote(cargo.originTileId, cargo.destinationTileId, cargo.kind);
-  return <div className="freight-ticket" data-booked-port={cargo.destinationTileId} data-cargo-kind={cargo.kind}>
+  return <div className="freight-ticket" role="group" aria-label="Vận đơn đang chở" tabIndex={-1}
+    data-booked-port={cargo.destinationTileId} data-cargo-kind={cargo.kind}>
     <div className="freight-ticket-type">{cargo.reeferDueRound !== undefined ? <Snowflake aria-hidden="true" /> : <Container aria-hidden="true" />}
       <span>Trên tàu · {cargo.reeferDueRound !== undefined ? 'Hàng lạnh' : typeName(cargo.kind)}</span></div>
     <div className="freight-ticket-route"><strong>{port(cargo.originTileId).name}</strong><ArrowRight aria-label="đến" />
@@ -229,21 +232,62 @@ export function FreightDesk({ marketOpen, onOpenMarket, onCloseMarket, onInspect
   const { gameState, myPlayerId } = props;
   const player = gameState.players[gameState.activePlayerIndex];
   const [saved, setSaved] = useState<{ scope: string; draft: DestinationDraft }>();
+  const watch = useWatchPlan(gameState, myPlayerId ?? '');
+  const [marketFromCard, setMarketFromCard] = useState(false);
+  const focusSaved = useRef(false);
+  useLayoutEffect(() => {
+    if (!focusSaved.current || marketOpen) return;
+    focusSaved.current = false;
+    if (!document.hidden) document.querySelector<HTMLElement>('[data-watch-card][tabindex="-1"]')?.focus();
+  }, [marketOpen, watch.drawing]);
   if (!gameState.logistics || !player) return null;
   // Drafts belong to a particular turn, berth and manifest, including a newly emptied hold.
   const scope = [gameState.roomId, gameState.turnCount, player.id, player.position, player.lastDelivery?.bookingId,
     player.cargo?.bookingId, player.cargo?.destinationTileId].join('/');
   const draft = saved?.scope === scope ? saved.draft : { service: getDefaultBookingService(gameState, player.id) };
   const editDraft = (next: DestinationDraft) => setSaved({ scope, draft: next });
+  const marketService = marketFromCard && watch.plan && watch.plan.service !== 'redirect' ? watch.plan.service : draft.service;
+  function closeMarket() {
+    setMarketFromCard(false);
+    onCloseMarket();
+  }
+  function clearWatchPlan() {
+    watch.clear();
+    requestAnimationFrame(() => {
+      if (document.activeElement === document.body && !document.hidden) {
+        document.querySelector<HTMLElement>('[data-watch-market], .freight-desk [data-cargo-market]')?.focus();
+      }
+    });
+  }
+  function confirmWatchPlan() {
+    const destination = watch.plan?.tileId;
+    watch.confirm(props.onAction, () => requestAnimationFrame(() => {
+      if (document.hidden || document.activeElement !== document.body || document.querySelector('dialog[open]')) return;
+      const desk = document.querySelector<HTMLElement>('.freight-desk');
+      const ticket = desk?.querySelector<HTMLElement>('.freight-ticket');
+      if (desk?.dataset.captain === myPlayerId && ticket?.dataset.bookedPort === String(destination)) ticket.focus();
+    }));
+  }
 
   return <>
+    {myPlayerId && <WatchPlanCard key={watch.drawing} state={gameState} playerId={myPlayerId}
+      plan={watch.plan} resolution={watch.resolution} animate={watch.drawing > 0 && watch.resolution?.status === 'waiting'}
+      busy={watch.busy} onClear={clearWatchPlan} onConfirm={confirmWatchPlan}
+      onOpenMarket={() => { setMarketFromCard(true); onOpenMarket(); }} />}
     <CaptainDesk key={player.id} {...props} player={player} draft={draft} editDraft={editDraft} onOpenMarket={onOpenMarket} />
     {marketOpen && !gameState.winnerId && <FreightMarketBoard gameState={gameState} myPlayerId={myPlayerId}
-      onClose={onCloseMarket} onSelectPort={onInspectPort} service={draft.service}
+      onClose={closeMarket} onSelectPort={onInspectPort} service={marketService} savedWatchPlan={watch.plan}
+      onSaveWatchPlan={(service, tileId) => {
+        if (watch.save(service, tileId)) {
+          focusSaved.current = true;
+          closeMarket();
+        }
+      }}
       onPlanPort={(tileId, service) => {
+        if (watch.plan) watch.clear();
         const redirectOpen = service === 'redirect';
         editDraft({ service: service === 'redirect' ? draft.service : service, redirectOpen, tileId, fromMarket: true });
-        onCloseMarket();
+        closeMarket();
       }} />}
   </>;
 }

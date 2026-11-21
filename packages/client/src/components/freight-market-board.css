@@ -121,3 +121,40 @@
 @media (pointer: coarse) {
   .market-plan-button { min-height: 44px; }
 }
+
+.market-watch, .market-watch-handoff {
+  margin: 7px 21px 0;
+  padding: 7px 10px;
+  border-left: 3px solid #738e88;
+  background: #edf1e6;
+  color: #254a49;
+}
+.market-watch-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 7px; }
+.market-watch-head h3 { margin: 0; font: 700 16px/1.2 var(--chart-display, Georgia); }
+.market-watch-head > span { color: #4d635c; font: 600 11px var(--chart-mono, monospace); }
+.market-watch p { margin: 3px 0; color: #405b55; font-size: 12px; }
+.market-watch-services { display: flex; flex-wrap: wrap; gap: 3px 9px; border: 0; margin: 0; padding: 0; }
+.market-watch-services label {
+  display: inline-flex; align-items: center; gap: 4px; min-height: 30px;
+  color: #2d5550; font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.market-watch-services input { width: 15px; height: 15px; margin: 0; accent-color: #235b55; }
+.market-watch-services input:focus-visible { outline: 2px solid #a72770; outline-offset: 2px; }
+.market-watch-cod { display: block; margin: 4px 0 1px; font-size: 12px; }
+.market-plan-button[data-watch-saved] { background: #dbe9db; border-color: #597f6a; }
+.market-watch-handoff { display: flex; align-items: center; flex-wrap: wrap; gap: 5px 9px; font-size: 12px; }
+.market-watch-handoff button {
+  min-height: 32px; padding: 4px 8px; border: 1px solid #789687; border-radius: 3px;
+  color: #24534a; background: #fffdf3; font: 650 12px var(--chart-sans, system-ui); cursor: pointer;
+}
+@media (max-width: 650px) {
+  .market-watch, .market-watch-handoff { margin: 5px 12px 0; }
+}
+@media (max-height: 490px) {
+  .chart-dialog:has(.market-watch, .market-watch-handoff) { overflow-y: auto; }
+  .freight-market-board:has(.market-watch, .market-watch-handoff) { max-height: none; }
+  .freight-market-board:has(.market-watch, .market-watch-handoff) .market-board-list { max-height: 65dvh; }
+}
+@media (pointer: coarse) {
+  .market-watch-services label, .market-watch-handoff button { min-height: 44px; }
+}

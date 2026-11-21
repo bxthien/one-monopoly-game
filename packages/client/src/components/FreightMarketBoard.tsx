@@ -1,9 +1,10 @@
-import { useId, useMemo, useState } from 'react';
+import { Component, createRef, useId, useMemo, useState, type ReactNode } from 'react';
 import { ArrowUpRight, Award, Container, CalendarDays, MapPin, Ship, Truck, X } from 'lucide-react';
 import { BOARD_TILES, isFinalLogisticsRound, type CargoKind, type GameState } from '@one-monopoly/shared';
 import { BoardDialog } from './BoardDialog.js';
 import { freightMarketRows, type MarketFilter, type MarketSort } from './freightMarketRows.js';
 import { marketPlanRates, marketRowsByRate, type MarketPlanService } from './marketPlanRates.js';
+import { getWatchRates, getWatchTurn, type WatchPlan, type WatchService } from './watchPlan.js';
 import { portGuide } from './ports/portGuide.js';
 import { TruckTimetable } from './TruckTimetable.js';
 import './freight-market-board.css';
@@ -19,6 +20,8 @@ interface Props {
   onSelectPort: (tileId: number) => void;
   service?: Service;
   onPlanPort?: (tileId: number, service: MarketPlanService) => void;
+  onSaveWatchPlan?: (service: WatchService, tileId: number) => void;
+  savedWatchPlan?: WatchPlan | null;
 }
 
 const filters: { key: MarketFilter; label: string }[] = [
@@ -32,24 +35,70 @@ const columns = [
   { key: 'shortage', label: 'Thiếu vỏ' }, { key: 'demand', label: 'Xe nhận trống' },
 ] as const;
 
-export function FreightMarketBoard({ gameState, myPlayerId, onClose, onSelectPort, service = 'laden', onPlanPort }: Props) {
-  const heading = useId(), sortId = useId();
+interface MarketContentProps { focusScope: string; children: ReactNode }
+
+class MarketContent extends Component<MarketContentProps> {
+  private readonly section = createRef<HTMLElement>();
+
+  // Capture the real focus before React removes or reorders rows during a turn handoff.
+  getSnapshotBeforeUpdate(previous: MarketContentProps) {
+    const focused = document.activeElement;
+    return previous.focusScope !== this.props.focusScope && focused instanceof HTMLElement && this.section.current?.contains(focused)
+      ? focused : null;
+  }
+
+  componentDidUpdate(_props: MarketContentProps, _state: unknown, previousFocus: HTMLElement | null) {
+    const market = this.section.current;
+    const dialog = market?.closest('dialog');
+    if (!previousFocus || !market || !dialog?.open) return;
+    const focused = document.activeElement;
+    if (focused !== document.body && focused !== dialog) return;
+    const target = market.contains(previousFocus) ? previousFocus
+      : market.querySelector<HTMLElement>('[data-watch-handoff]') ?? market.querySelector('h2');
+    if (target?.tagName === 'H2') target.tabIndex = -1;
+    target?.focus({ preventScroll: true });
+  }
+
+  render() {
+    return <section ref={this.section} className="freight-market-board">{this.props.children}</section>;
+  }
+}
+
+export function FreightMarketBoard({ gameState, myPlayerId, onClose, onSelectPort, service = 'laden', onPlanPort, onSaveWatchPlan, savedWatchPlan }: Props) {
+  const heading = useId(), sortId = useId(), watchGroup = useId();
   const [showSchedule, setShowSchedule] = useState(false);
   const hasSchedule = !!gameState.logistics?.earlyTruckAvailable && !gameState.winnerId && !isFinalLogisticsRound(gameState);
   const timetableOpen = hasSchedule && showSchedule;
   const [filter, setFilter] = useState<MarketFilter>('all');
-  const [sort, setSort] = useState<PlanSort>('opportunity');
   const captain = gameState.players.find(p => p.id === myPlayerId) ?? gameState.players[gameState.activePlayerIndex];
   const berth = captain && portGuide[BOARD_TILES[captain.position]?.code];
-  const canPlan = !!onPlanPort && !!myPlayerId && !gameState.winnerId && gameState.players[gameState.activePlayerIndex]?.id === myPlayerId;
+  const active = !!onPlanPort && !!myPlayerId && !gameState.winnerId && gameState.players[gameState.activePlayerIndex]?.id === myPlayerId;
+  const watchRound = onSaveWatchPlan && myPlayerId ? getWatchTurn(gameState, myPlayerId) : null;
+  const mode = active ? 'active' : watchRound !== null ? 'watch' : 'inspect';
+  const sessionKey = [gameState.roomId, myPlayerId, mode, active ? gameState.turnCount : watchRound].join('/');
+  const [session, setSession] = useState({ key: sessionKey, mode });
+  const [sort, setSort] = useState<PlanSort>(mode === 'watch' ? 'baseRate' : 'opportunity');
+  const saved = savedWatchPlan?.roomId === gameState.roomId && savedWatchPlan.playerId === myPlayerId &&
+    savedWatchPlan.turnRound === watchRound ? savedWatchPlan : null;
+  const initialService = saved && saved.service !== 'redirect' ? saved.service : 'laden';
+  const [watchService, setWatchService] = useState<Service>(initialService);
+  // A live handoff must never change a private save button into a captain's booking control.
+  const sameSession = session.key === sessionKey;
+  const watching = sameSession && mode === 'watch';
+  const canPlan = sameSession && active;
   const planType = captain?.cargo ? 'redirect' : service;
   const cargoService = captain?.cargo
     ? captain.cargo.reeferDueRound !== undefined ? 'reefer' : captain.cargo.kind
     : service;
-  const baseRates = useMemo(() => canPlan && myPlayerId
-    ? marketPlanRates(gameState, myPlayerId, planType) : new Map<number, number>(),
-  [canPlan, gameState, myPlayerId, planType]);
-  const effectiveSort = sort === 'baseRate' && !baseRates.size ? 'opportunity' : sort;
+  const watchType: WatchService = captain?.cargo ? 'redirect' : watchService === 'reefer' && !gameState.logistics?.reeferSlots ? 'laden' : watchService;
+  const priceOrigin = captain && BOARD_TILES[captain.cargo?.originTileId ?? captain.position];
+  const baseRates = useMemo(() => {
+    if (myPlayerId && watching) return getWatchRates(gameState, myPlayerId, watchType);
+    if (myPlayerId && canPlan) return marketPlanRates(gameState, myPlayerId, planType);
+    return new Map<number, number>();
+  }, [myPlayerId, watching, gameState, watchType, canPlan, planType]);
+  const hasRateSort = watching || baseRates.size > 0;
+  const effectiveSort = sort === 'baseRate' && !hasRateSort ? 'opportunity' : sort;
   const rows = useMemo(() => effectiveSort === 'baseRate'
     ? marketRowsByRate(gameState, myPlayerId, filter, baseRates)
     : freightMarketRows(gameState, myPlayerId, filter, effectiveSort),
@@ -60,9 +109,15 @@ export function FreightMarketBoard({ gameState, myPlayerId, onClose, onSelectPor
     onClose();
     onSelectPort(tileId);
   }
+  function enterCurrentMarket() {
+    setSession({ key: sessionKey, mode });
+    setSort(mode === 'watch' ? 'baseRate' : 'opportunity');
+    setWatchService(initialService);
+    setShowSchedule(false);
+  }
 
   return <BoardDialog onClose={onClose} labelledBy={heading}>
-    <section className="freight-market-board">
+    <MarketContent focusScope={`${sessionKey}:${sameSession}`}>
       <header className="market-board-heading">
         <div><h2 id={heading}>Thị trường cảng</h2>
           {berth && <p><MapPin aria-hidden="true" />Khoảng cách từ {captain.id === myPlayerId ? 'tàu của bạn' : `tàu của ${captain.name}`} tại <strong>{berth.name}</strong></p>}</div>
@@ -74,7 +129,29 @@ export function FreightMarketBoard({ gameState, myPlayerId, onClose, onSelectPor
           <CalendarDays size={15} aria-hidden="true" />Lịch xe vòng {gameState.turnCount + 1}
         </button>
       </div>}
+      {!sameSession && (session.mode !== 'inspect' || mode !== 'inspect') && <div className="market-watch-handoff" data-watch-notice>
+        <span role="status">{active ? session.mode === 'watch' ? 'Đã đến lượt bạn. Đã hết thời gian lưu kế hoạch cho lượt này.' : 'Đã đến lượt bạn điều độ tàu.'
+          : mode === 'watch' ? 'Lượt điều độ đã đổi. Bạn có thể lập kế hoạch cho lượt tới.'
+            : 'Không còn lượt tới để lưu kế hoạch.'}</span>
+        {mode !== 'inspect' && <button type="button" data-watch-handoff onClick={enterCurrentMarket}>
+          {active ? 'Xem lựa chọn trong lượt' : 'Lập kế hoạch lượt tới'}
+        </button>}
+      </div>}
       {timetableOpen ? <TruckTimetable state={gameState} viewerId={myPlayerId} inspect={inspect} /> : <>
+      {watching && <section className="market-watch" data-market-watch={watchRound} aria-label="Kế hoạch lượt tới">
+        <div className="market-watch-head"><h3>Kế hoạch lượt tới</h3><span>Vòng {watchRound}</span></div>
+        <p>Chỉ bạn thấy kế hoạch. Cước cơ bản tính từ <strong>{priceOrigin && (portGuide[priceOrigin.code]?.name ?? priceOrigin.name)}</strong>.
+          {' '}Lưu kế hoạch không giữ hàng hoặc chỗ nhận.</p>
+        {captain.cargo ? <strong data-watch-service="redirect" className="market-watch-cod">
+          Đổi cảng dỡ · {serviceLabels[cargoService]}
+        </strong> : <fieldset className="market-watch-services">
+          <legend className="sr-only">Loại lô hàng dự kiến</legend>
+          {(['laden', 'empty', 'reefer'] as const).filter(kind => kind !== 'reefer' || gameState.logistics?.reeferSlots).map(kind =>
+            <label key={kind}><input type="radio" name={watchGroup} value={kind} checked={watchType === kind}
+              data-watch-service={kind} onChange={() => setWatchService(kind)} /><span>{serviceLabels[kind]}</span></label>)}
+        </fieldset>}
+        {!hasPlans && <p className="market-watch-empty">Không có đích phù hợp trong danh sách này.</p>}
+      </section>}
       <div className="market-board-toolbar">
         <div className="market-board-filters" role="group" aria-label="Lọc theo nhu cầu tại cảng">
           {filters.map(({ key, label }) => <button type="button" key={key} data-market-filter={key}
@@ -83,7 +160,7 @@ export function FreightMarketBoard({ gameState, myPlayerId, onClose, onSelectPor
         <label htmlFor={sortId} className="market-board-sort">Sắp xếp
           <select id={sortId} data-market-sort value={effectiveSort} onChange={event => setSort(event.target.value as PlanSort)}>
             <option value="opportunity">Theo cơ hội</option><option value="distance">Gần tàu nhất</option>
-            {baseRates.size > 0 && <option value="baseRate">Cước cơ bản cao nhất</option>}
+            {hasRateSort && <option value="baseRate">Cước cơ bản cao nhất</option>}
           </select>
         </label>
       </div>
@@ -106,6 +183,7 @@ export function FreightMarketBoard({ gameState, myPlayerId, onClose, onSelectPor
         </tr></thead>
         <tbody>{rows.map(row => {
           const rate = baseRates.get(row.tileId);
+          const savedHere = watching && saved?.service === watchType && saved.tileId === row.tileId;
           return <tr key={row.tileId} data-market-row={row.tileId} data-market-current={row.current || undefined}>
             <th scope="row" className="market-port-cell">
               <button type="button" data-market-port={row.tileId} aria-label={`Xem cảng ${row.name}, ${row.country}`} onClick={() => inspect(row.tileId)}>
@@ -128,7 +206,13 @@ export function FreightMarketBoard({ gameState, myPlayerId, onClose, onSelectPor
               {!row.award && !row.incoming.length && row.ownTruckThrough === undefined && <span aria-label="Chưa có lô đặt tại bến">—</span>}
             </td>}
             {hasPlans && <td className="market-plan-cell" data-empty={rate === undefined || undefined}>
-              {rate !== undefined && <button type="button" className="market-plan-button" data-market-plan={row.tileId}
+              {rate !== undefined && watching && <button type="button" className="market-plan-button" data-watch-save={row.tileId}
+                data-watch-saved={savedHere || undefined}
+                aria-label={`${savedHere ? 'Đã lưu' : 'Lưu'} kế hoạch ${watchType === 'redirect' ? 'đổi cảng dỡ' : serviceLabels[watchType]} đi ${row.name}, cước cơ bản $${rate}M`}
+                onClick={() => onSaveWatchPlan?.(watchType, row.tileId)}>
+                <span>{savedHere ? 'Đã lưu' : 'Lưu đích'}</span><strong>${rate}M</strong>
+              </button>}
+              {rate !== undefined && canPlan && <button type="button" className="market-plan-button" data-market-plan={row.tileId}
                 aria-label={`Chọn đích ${row.name} để ${planType === 'redirect' ? 'chuẩn bị đổi vận đơn' : 'chuẩn bị đặt chỗ'}, ${serviceLabels[cargoService]}, cước cơ bản $${rate}M`}
                 onClick={() => onPlanPort?.(row.tileId, planType)}>
                 <span>Chọn đích</span><strong>${rate}M</strong>
@@ -138,6 +222,6 @@ export function FreightMarketBoard({ gameState, myPlayerId, onClose, onSelectPor
         })}</tbody></table>
       </div> : <p className="market-board-empty">Hiện chưa có cảng đáp ứng bộ lọc này.</p>}
       </>}
-    </section>
+    </MarketContent>
   </BoardDialog>;
 }
