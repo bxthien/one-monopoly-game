@@ -18,6 +18,8 @@ import { SecretMissionCardView } from './components/SecretMissionCardView.js';
 import { ReactionFloatingBar } from './components/ReactionFloatingBar.js';
 import type { RentReceipt } from './components/useBoardPlayback.js';
 import { GameOverModal } from './components/GameOverModal.js';
+import { useI18n } from './i18n/I18nContext.js';
+import { LanguageToggle } from './components/LanguageToggle.js';
 import { AlertCircle, BookOpen, Box, CloudLightning, CloudRain, Compass, Gavel, Handshake, LifeBuoy, LogOut, Map, MapPin, Moon, Radio, Route, Store, Sun, Truck, X } from 'lucide-react';
 
 const noticeIcons = { auction: Gavel, trade: Handshake, debt: LifeBuoy, freight: Truck };
@@ -32,6 +34,7 @@ const weatherReadouts = {
 };
 
 export const App: React.FC = () => {
+  const { t, lang } = useI18n();
   const {
     isConnected,
     isStarting,
@@ -77,6 +80,19 @@ export const App: React.FC = () => {
   const [showMissionTargets, setShowMissionTargets] = useState(false);
   const openTrades = (tileId: number | null = null) => setTradeDesk({ tileId });
   const [is3D, setIs3D] = useState(true);
+  const [highlightedTileId, setHighlightedTileId] = useState<number | null>(null);
+
+  // Tự động đóng thẻ bài của đối thủ/bot sau 2.5s để bàn cờ tự tiếp tục
+  useEffect(() => {
+    if (!activeCard) return;
+    const active = gameState?.players[gameState.activePlayerIndex];
+    if (active && active.id !== myPlayerId) {
+      const timer = setTimeout(() => {
+        setActiveCard(null);
+      }, 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [activeCard, gameState, myPlayerId]);
 
   // Khi xúc xắc đã dừng và nhân vật đã lướt tới bến đích -> Mới hiển thị thẻ bài (Chance/Chest)
   useEffect(() => {
@@ -226,6 +242,26 @@ export const App: React.FC = () => {
         logMsg = `🎯 ${captain?.name ?? 'Thuyền trưởng'} hoàn thành ${evt.mission.title} (+$${evt.reward}M)!`;
       } else if (evt.type === 'CARBON_TAX_EXEMPTED') {
         logMsg = `🌱 Miễn 100% Thuế Carbon nhờ Tàu Nhiên Liệu Xanh`;
+      } else if (evt.type === 'CANAL_TRANSITED') {
+        const captain = state.players.find(p => p.id === evt.playerId);
+        const name = captain?.name ?? (lang === 'vi' ? 'Thuyền trưởng' : 'Captain');
+        if (evt.choice === 'TRANSIT') {
+          const toTile = BOARD_TILES[evt.to];
+          const toName = (lang === 'vi' && toTile.nameVi) ? toTile.nameVi : toTile.name;
+          logMsg = `🚢 ${name} ${lang === 'vi' ? `quá cảnh qua kênh đào tới ${toName} (-$${evt.fee}M)` : `cruised via canal to ${toName} (-$${evt.fee}M)`}`;
+        } else if (evt.choice === 'ROLL_AGAIN') {
+          logMsg = `⚡ ${name} ${lang === 'vi' ? `nộp $${evt.fee}M để tăng tốc gieo xúc xắc tiếp` : `paid $${evt.fee}M to roll again immediately`}`;
+        } else {
+          logMsg = `⚓ ${name} ${lang === 'vi' ? 'neo đậu an toàn tại khu vực kênh đào' : 'anchored safely in canal harbor'}`;
+        }
+      } else if (evt.type === 'PROPERTY_TAKEOVER') {
+        const buyer = state.players.find(p => p.id === evt.newOwnerId);
+        const prev = state.players.find(p => p.id === evt.previousOwnerId);
+        const tile = BOARD_TILES[evt.tileId];
+        const tileName = (lang === 'vi' && tile.nameVi) ? tile.nameVi : tile.name;
+        const buyerName = buyer?.name ?? (lang === 'vi' ? 'Thuyền trưởng' : 'Captain');
+        const prevName = prev?.name ?? (lang === 'vi' ? 'đối thủ' : 'Rival');
+        logMsg = `🏴‍☠️ ${buyerName} ${lang === 'vi' ? `thâu tóm ${tileName} từ ${prevName} với giá $${evt.price}M!` : `acquired ${tileName} from ${prevName} for $${evt.price}M!`}`;
       } else if (evt.type === 'PLAYER_BANKRUPT') {
         logMsg = `💥 Người chơi đã tuyên bố phá sản!`;
       }
@@ -263,6 +299,7 @@ export const App: React.FC = () => {
           <div><strong>ONE</strong> <span>Monopoly</span></div>
         </div>
         <nav className="chart-nav" aria-label="Thông tin phòng">
+          <LanguageToggle />
           {room && <span className="chart-room">Phòng <b>{room.id}</b></span>}
           <span className={`chart-connection ${isConnected ? 'online' : ''}`} title={isConnected ? 'Đã kết nối' : 'Đang kết nối...'}>
             <Radio size={16} aria-hidden="true" />
@@ -355,6 +392,7 @@ export const App: React.FC = () => {
                 is3D={is3D}
                 onPawnMovingChange={setIsPawnMoving}
                 onRentReceiptsChange={updateRent}
+                highlightedTileId={highlightedTileId}
               />
             </div>
             <div className="chart-position" role="status">
@@ -384,6 +422,7 @@ export const App: React.FC = () => {
                 onOpenTrades={() => openTrades()}
                 isRolling={isRolling}
                 isPawnMoving={isPawnMoving}
+                onHighlightTile={setHighlightedTileId}
               />}
               {captain && mission && (!captain.isBankrupt || captain.secretMission?.isCompleted) && (
                 <SecretMissionCardView gameState={gameState} player={captain} progress={mission}

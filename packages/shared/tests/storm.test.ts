@@ -31,8 +31,10 @@ describe('OPS-02 storm', () => {
     assert.equal(buy.state.phase, 'WAIT_FOR_ROLL');
     const extraRoll = OneMonopolyEngine.dispatch(buy.state, { type: 'ROLL_DICE', forcedDice: [1, 2] });
     assert.equal(extraRoll.state.stormActive, true);
-    assert.equal(extraRoll.state.players[0].position, 16); // OPS-01 moves the ship to free anchorage.
-    const next = OneMonopolyEngine.dispatch(extraRoll.state, { type: 'END_TURN' });
+    assert.equal(extraRoll.state.players[0].position, 16); // OPS-01 moves the ship to canal transit.
+    assert.equal(extraRoll.state.phase, 'AWAITING_CANAL_CHOICE');
+    const canalSkip = OneMonopolyEngine.dispatch(extraRoll.state, { type: 'RESOLVE_CANAL_TRANSIT', choice: 'SKIP' });
+    const next = OneMonopolyEngine.dispatch(canalSkip.state, { type: 'END_TURN' });
     assert.equal(next.state.activePlayerIndex, 1);
     assert.equal(next.state.stormActive, false);
   });

@@ -285,3 +285,103 @@
   27% { rotate: var(--hoist-swing, 1.1deg); }
   73% { rotate: calc(0deg - var(--hoist-swing, 1.1deg)); }
 }
+
+/* ==========================================================================
+   Mission Target Indicators & Spotlight Highlight (Bên ngoài ô cờ)
+   ========================================================================== */
+.board-tile:has(.tile-mission-badge),
+.board-tile[data-has-mission='true'] {
+  overflow: visible !important;
+}
+
+.tile-mission-badge {
+  position: absolute;
+  z-index: 35;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+  pointer-events: none;
+  box-shadow: 0 2px 7px rgba(0, 0, 0, 0.45);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.tile-mission-badge.pending {
+  background: #e1007a;
+  color: #ffffff;
+  border: 2px solid #ffffff;
+  animation: tile-mission-pulse 2s infinite ease-in-out;
+}
+
+.tile-mission-badge.completed {
+  background: #059669;
+  color: #ffffff;
+  border: 2px solid #a7f3d0;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.8), 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+@keyframes tile-mission-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(225, 0, 122, 0.6), 0 2px 7px rgba(0, 0, 0, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 10px 4px rgba(225, 0, 122, 0.85), 0 2px 8px rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* Đặt hoàn toàn BÊN NGOÀI ô cờ (Outside the tile border) */
+.tile-mission-badge.bottom {
+  top: calc(100% + 5px);
+  left: 50%;
+  translate: -50% 0;
+}
+
+.tile-mission-badge.top {
+  bottom: calc(100% + 5px);
+  left: 50%;
+  translate: -50% 0;
+}
+
+.tile-mission-badge.left {
+  right: calc(100% + 5px);
+  top: 50%;
+  translate: 0 -50%;
+}
+
+.tile-mission-badge.right {
+  left: calc(100% + 5px);
+  top: 50%;
+  translate: 0 -50%;
+}
+
+.tile-mission-badge.corner {
+  bottom: calc(100% + 5px);
+  right: calc(100% + 5px);
+  translate: 0 0;
+}
+
+/* Spotlight Highlight khi click hoặc hover vào mục tiêu từ bảng nhiệm vụ */
+.board-tile.tile-spotlight {
+  position: relative;
+  z-index: 25 !important;
+  outline: 3px solid #e1007a !important;
+  outline-offset: -1px !important;
+  box-shadow: 0 0 16px 4px rgba(225, 0, 122, 0.85), inset 0 0 10px rgba(225, 0, 122, 0.35) !important;
+  animation: tile-spotlight-pulse 1s infinite alternate ease-in-out;
+}
+
+@keyframes tile-spotlight-pulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 12px 3px rgba(225, 0, 122, 0.75);
+  }
+  100% {
+    transform: scale(1.05);
+    box-shadow: 0 0 20px 6px rgba(225, 0, 122, 1);
+  }
+}

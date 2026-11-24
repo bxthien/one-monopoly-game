@@ -1,9 +1,11 @@
 import React from 'react';
 import { BOARD_TILES, GREEN_FLEET_COST, LOOP_GROUPS_CONFIG, getTradeRestriction, type GameAction, type GameState } from '@one-monopoly/shared';
-import { Building2, Check, Dices, DollarSign, Flag, Gavel, Handshake, Leaf, Ship, Ticket } from 'lucide-react';
+import { Building2, Check, Dices, DollarSign, Flag, Gavel, Handshake, Leaf, Ship, Ticket, X } from 'lucide-react';
 import { DebtRescuePanel } from './DebtRescuePanel.js';
 import { StormDecision } from './StormDecision.js';
+import { CanalDecision } from './CanalDecision.js';
 import { PropertyAuctionPanel } from './PropertyAuctionPanel.js';
+import { useI18n } from '../i18n/I18nContext.js';
 import './chart-actions.css';
 
 interface Props {
@@ -13,6 +15,7 @@ interface Props {
   onOpenTrades: () => void;
   isRolling: boolean;
   isPawnMoving?: boolean;
+  onHighlightTile?: (tileId: number | null) => void;
 }
 
 export const ActionControls: React.FC<Props> = ({
@@ -22,10 +25,13 @@ export const ActionControls: React.FC<Props> = ({
   onOpenTrades,
   isRolling,
   isPawnMoving = false,
+  onHighlightTile,
 }) => {
+  const { t, lang } = useI18n();
   const activePlayer = gameState.players[gameState.activePlayerIndex];
   const isMyTurn = activePlayer.id === myPlayerId;
   const currentTile = BOARD_TILES[activePlayer.position];
+  const currentTileName = (lang === 'vi' && currentTile.nameVi) ? currentTile.nameVi : currentTile.name;
 
   // Another captain's bid clock can already be running while the landing ship is moving.
   if (gameState.phase === 'AWAITING_AUCTION' && gameState.auction) {
@@ -38,7 +44,7 @@ export const ActionControls: React.FC<Props> = ({
     return (
       <div role="status" className="chart-action-panel chart-action-status">
         <Dices size={18} aria-hidden="true" />
-        <span>Đang lắc xúc xắc...</span>
+        <span>{t('actions.rolling')}</span>
       </div>
     );
   }
@@ -47,13 +53,24 @@ export const ActionControls: React.FC<Props> = ({
     return (
       <div role="status" className="chart-action-panel chart-action-status">
         <Ship size={18} aria-hidden="true" />
-        <span>Tàu đang di chuyển tới bến cảng...</span>
+        <span>{t('actions.moving')}</span>
       </div>
     );
   }
 
   if (gameState.phase === 'AWAITING_STORM_DECISION') {
     return <StormDecision gameState={gameState} isMyTurn={isMyTurn} onAction={onAction} />;
+  }
+
+  if (gameState.phase === 'AWAITING_CANAL_CHOICE') {
+    return (
+      <CanalDecision
+        gameState={gameState}
+        isMyTurn={isMyTurn}
+        onAction={onAction}
+        onHighlightTile={onHighlightTile}
+      />
+    );
   }
 
   if (gameState.phase === 'AWAITING_SLOT_CHARTER_RESPONSE' && gameState.pendingSlotCharter) {
@@ -126,6 +143,15 @@ export const ActionControls: React.FC<Props> = ({
   if (isMyTurn && debtPanel) return debtPanel;
 
   if (!isMyTurn) {
+    if (gameState.phase === 'AWAITING_TAKEOVER_DECISION') {
+      return (
+        <div role="status" className="chart-action-panel chart-action-status">
+          <Building2 size={18} aria-hidden="true" />
+          <span>{activePlayer.name} {t('actions.decidingTakeover')}</span>
+        </div>
+      );
+    }
+
     const offers = gameState.tradeOffers ?? [];
     const hasOffers = offers.some(offer => offer.sellerId === myPlayerId || offer.buyerId === myPlayerId);
     const canShop = myPlayerId && BOARD_TILES.some(tile => !getTradeRestriction(gameState, myPlayerId, tile.id));
@@ -141,6 +167,52 @@ export const ActionControls: React.FC<Props> = ({
           <span>Đang chờ <strong>{activePlayer.name}</strong> thực hiện lượt...</span></p>
         {shopButton}
       </div>
+    );
+  }
+
+  if (gameState.phase === 'AWAITING_TAKEOVER_DECISION' && gameState.pendingTakeover) {
+    const takeover = gameState.pendingTakeover;
+    const tile = BOARD_TILES[takeover.tileId];
+    const tileName = (lang === 'vi' && tile.nameVi) ? tile.nameVi : tile.name;
+    const previousOwner = gameState.players.find((p) => p.id === takeover.ownerId);
+    const canAfford = activePlayer.balance >= takeover.price;
+
+    return (
+      <section className="chart-action-panel">
+        <div className="chart-action-offer">
+          <div>
+            <p className="chart-action-copy text-[#E1007A] font-bold">{t('actions.takeoverTitle')}</p>
+            <h3 className="chart-action-title">
+              {tileName} ({tile?.code})
+            </h3>
+            <p className="text-xs text-gray-500 mt-0.5">
+              {t('property.owner')}: <strong>{previousOwner?.name || 'Rival'}</strong>
+            </p>
+          </div>
+          <div className="chart-action-price text-[#E1007A]">${takeover.price}M</div>
+        </div>
+
+        <p className="text-xs text-gray-600 bg-pink-50 p-2 rounded-lg border border-pink-100 my-2">
+          {t('actions.takeoverPrompt', { name: tileName, owner: previousOwner?.name || 'Rival' })}
+        </p>
+
+        <div className="chart-action-row">
+          <button
+            onClick={() => onAction({ type: 'TAKEOVER_PROPERTY', tileId: takeover.tileId })}
+            disabled={!canAfford}
+            className="chart-button chart-button-primary"
+            style={{ backgroundColor: '#E1007A' }}
+          >
+            <Check size={18} aria-hidden="true" /> {t('actions.takeoverButton', { price: takeover.price })}
+          </button>
+          <button
+            onClick={() => onAction({ type: 'SKIP_TAKEOVER' })}
+            className="chart-button"
+          >
+            <X size={18} aria-hidden="true" /> {t('actions.skipTakeoverButton')}
+          </button>
+        </div>
+      </section>
     );
   }
 
@@ -186,7 +258,7 @@ export const ActionControls: React.FC<Props> = ({
     return (
       <section className="chart-action-panel">
         <h3 className="chart-action-title">
-          BẠN ĐANG BỊ KẸT TẠI KHU NEO ĐẬU KIỂM HÓA ({activePlayer.holdTurns}/3 LƯỢT)
+          {t('actions.inCustomsHold')} ({activePlayer.holdTurns}/3 {lang === 'vi' ? 'LƯỢT' : 'TURNS'})
         </h3>
 
         <div className="chart-action-options">
@@ -195,7 +267,7 @@ export const ActionControls: React.FC<Props> = ({
             disabled={isRolling}
             className="chart-button chart-button-primary"
           >
-            <Dices size={18} aria-hidden="true" /> TUNG ĐÔI ĐỂ THOÁT
+            <Dices size={18} aria-hidden="true" /> {lang === 'vi' ? 'TUNG ĐÔI ĐỂ THOÁT' : 'ROLL DOUBLES TO ESCAPE'}
           </button>
 
           <button
@@ -203,7 +275,7 @@ export const ActionControls: React.FC<Props> = ({
             disabled={activePlayer.balance < 50}
             className="chart-button"
           >
-            <DollarSign size={18} aria-hidden="true" /> NỘP $50M PHÍ
+            <DollarSign size={18} aria-hidden="true" /> {lang === 'vi' ? 'NỘP $50M PHÍ' : 'PAY $50M FINE'}
           </button>
 
           <button
@@ -211,7 +283,7 @@ export const ActionControls: React.FC<Props> = ({
             disabled={activePlayer.customsClearancePasses <= 0}
             className="chart-button"
           >
-            <Ticket size={18} aria-hidden="true" /> DÙNG THẺ THÔNG QUAN
+            <Ticket size={18} aria-hidden="true" /> {t('actions.useCustomsPass')}
           </button>
         </div>
       </section>

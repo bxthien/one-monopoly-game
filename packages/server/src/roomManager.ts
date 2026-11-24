@@ -11,6 +11,7 @@ import {
   isFreightRivalStyle,
   LOOP_GROUPS_CONFIG,
   OneMonopolyEngine,
+  SERVICE_LINES,
   VesselToken,
   VESSEL_TOKENS,
 } from '@one-monopoly/shared';
@@ -367,6 +368,9 @@ export class RoomManager {
       action.type === 'ROLL_DICE' ||
       action.type === 'BUY_PROPERTY' ||
       action.type === 'SKIP_BUY' ||
+      action.type === 'TAKEOVER_PROPERTY' ||
+      action.type === 'SKIP_TAKEOVER' ||
+      action.type === 'RESOLVE_CANAL_TRANSIT' ||
       action.type === 'BUILD_CONTAINER' ||
       action.type === 'SELL_CONTAINER' ||
       action.type === 'MORTGAGE_TILE' ||
@@ -590,6 +594,47 @@ export class RoomManager {
         break;
       }
 
+      case 'AWAITING_CANAL_CHOICE': {
+        const delay = lastActionType === 'ROLL_DICE' ? computeTravelDelay() : 700;
+        room.botTimer = setTimeout(() => {
+          room.botTimer = null;
+          if (activePlayer.balance >= 200) {
+            const targetTileId = SERVICE_LINES[0]; // e.g. VSS (4)
+            this.dispatchAction(room.id, activePlayer.id, {
+              type: 'RESOLVE_CANAL_TRANSIT',
+              choice: 'TRANSIT',
+              targetTileId,
+            });
+          } else {
+            this.dispatchAction(room.id, activePlayer.id, {
+              type: 'RESOLVE_CANAL_TRANSIT',
+              choice: 'SKIP',
+            });
+          }
+        }, delay);
+        break;
+      }
+
+      case 'AWAITING_TAKEOVER_DECISION': {
+        const delay = lastActionType === 'ROLL_DICE' ? computeTravelDelay() : 450;
+        room.botTimer = setTimeout(() => {
+          room.botTimer = null;
+          const takeover = room.gameState?.pendingTakeover;
+          if (takeover) {
+            // Bot decides: buy out if cash remains >= $200M after takeover
+            if (activePlayer.balance >= takeover.price + 200) {
+              this.dispatchAction(room.id, activePlayer.id, {
+                type: 'TAKEOVER_PROPERTY',
+                tileId: takeover.tileId,
+              });
+            } else {
+              this.dispatchAction(room.id, activePlayer.id, { type: 'SKIP_TAKEOVER' });
+            }
+          }
+        }, delay);
+        break;
+      }
+
       case 'AWAITING_DEBT_RESOLUTION': {
         room.botTimer = setTimeout(() => {
           room.botTimer = null;
@@ -653,6 +698,12 @@ export class RoomManager {
         break;
       case 'AWAITING_BUY_DECISION':
         this.dispatchAction(roomId, activePlayer.id, { type: 'SKIP_BUY' });
+        break;
+      case 'AWAITING_TAKEOVER_DECISION':
+        this.dispatchAction(roomId, activePlayer.id, { type: 'SKIP_TAKEOVER' });
+        break;
+      case 'AWAITING_CANAL_CHOICE':
+        this.dispatchAction(roomId, activePlayer.id, { type: 'RESOLVE_CANAL_TRANSIT', choice: 'SKIP' });
         break;
       case 'AWAITING_AUCTION': {
         const auction = room.gameState.auction;

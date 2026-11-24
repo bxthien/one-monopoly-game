@@ -1,5 +1,5 @@
 import React, { useLayoutEffect } from 'react';
-import { BOARD_TILES, GameAction, GameCard, GameState, getCargoOpportunity, getFeederRoutes, getImportTruckReservation, getVoyagePayment, OneMonopolyEngine, Player } from '@one-monopoly/shared';
+import { BOARD_TILES, GameAction, GameCard, GameState, getCargoOpportunity, getFeederRoutes, getImportTruckReservation, getVoyagePayment, LOOP_GROUPS_CONFIG, OneMonopolyEngine, Player } from '@one-monopoly/shared';
 import { LogisticsTile, TileView } from './TileView.js';
 import { TILE_CENTER_PERCENT } from './boardCoordinates.js';
 import { getPortTender } from './ports/portTender.js';
@@ -43,6 +43,7 @@ interface Props {
   is3D?: boolean;
   onPawnMovingChange?: (isMoving: boolean) => void;
   onRentReceiptsChange?: (visible: Record<number, RentReceipt>, pending: Record<number, RentReceipt>) => void;
+  highlightedTileId?: number | null;
 }
 
 // Original schematic of the Pacific basin. The open ocean is the dice landing area.
@@ -192,6 +193,7 @@ export const Board: React.FC<Props> = ({
   is3D = true,
   onPawnMovingChange,
   onRentReceiptsChange,
+  highlightedTileId,
 }) => {
   const idleMotion = useIdleMotion();
   const isLogistics = gameState.mode === 'logistics';
@@ -354,6 +356,13 @@ export const Board: React.FC<Props> = ({
                 ? gameState.players.find((p) => p.id === prop.ownerId)
                 : undefined;
               const currentRent = OneMonopolyEngine.calculateRent(gameState, tile.id, gameState.dice);
+              const isGroupComplete = Boolean(
+                tile.group &&
+                owner &&
+                LOOP_GROUPS_CONFIG[tile.group]?.tileIds.every(
+                  (id) => gameState.properties[id]?.ownerId === owner.id
+                )
+              );
 
               return (
                 <div
@@ -373,6 +382,8 @@ export const Board: React.FC<Props> = ({
                     orientation={getTileOrientation(tile.id)}
                     is3D={is3D}
                     myPlayerId={myPlayerId}
+                    isHighlighted={highlightedTileId === tile.id}
+                    isGroupComplete={isGroupComplete}
                     onClick={() => onSelectTile(tile.id)}
                   />
                 </div>

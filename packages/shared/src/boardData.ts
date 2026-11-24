@@ -5,87 +5,100 @@ export const AUCTION_BID_SECONDS = 20;
 export const STARTING_BALANCE = 1500;
 export const GO_REWARD = 200;
 export const HOLD_TILE_INDEX = 8;
+export const CANAL_TILE_INDEX = 16;
 export const GO_TO_HOLD_TILE_INDEX = 24;
 export const STORM_TUG_FEE = 25;
+export const CANAL_TRANSIT_FEE = 50;
 export const STORM_DRIFT_STEPS = -3;
 export const HOLD_FINE_AMOUNT = 50;
 export const MAX_HOLD_TURNS = 3;
 export const GREEN_FLEET_COST = 150;
 export const GREEN_FLEET_ESG_BONUS = 300;
+export const PORT_TAKEOVER_MULTIPLIER = 1.3;
 
 export const LOOP_GROUPS_CONFIG: Record<
   LoopGroup,
-  { name: string; color: string; tileIds: number[]; buildCost: number }
+  { name: string; nameVi?: string; color: string; tileIds: number[]; buildCost: number }
 > = {
   INTRA_ASIA: {
     name: 'Intra-Asia Route',
-    color: '#8D5B4C', // Nâu ấm
+    nameVi: 'Tuyến Nội Á',
+    color: '#8D5B4C', // Warm Brown
     tileIds: [1, 3],
     buildCost: 50,
   },
   MIDDLE_EAST: {
     name: 'Middle East Route',
-    color: '#70C1B3', // Xanh biển nhạt
+    nameVi: 'Tuyến Trung Đông',
+    color: '#70C1B3', // Light Sea Blue
     tileIds: [5, 7],
     buildCost: 50,
   },
   MEDITERRANEAN: {
     name: 'Mediterranean Route',
-    color: '#C379B4', // Tím hồng
+    nameVi: 'Tuyến Địa Trung Hải',
+    color: '#C379B4', // Purple Pink
     tileIds: [9, 11, 12],
     buildCost: 100,
   },
   NORTH_EUROPE: {
     name: 'North Europe Route',
-    color: '#F9844A', // Cam sáng
+    nameVi: 'Tuyến Bắc Âu',
+    color: '#F9844A', // Bright Orange
     tileIds: [14, 15],
     buildCost: 100,
   },
   TRANS_PACIFIC_WEST: {
     name: 'Trans-Pacific West',
-    color: '#E63946', // Đỏ son
+    nameVi: 'Tuyến Bờ Tây Thái Bình Dương',
+    color: '#E63946', // Crimson Red
     tileIds: [17, 19],
     buildCost: 150,
   },
   TRANS_PACIFIC_EAST: {
     name: 'Trans-Pacific East',
-    color: '#F4A261', // Vàng nghệ
+    nameVi: 'Tuyến Bờ Đông Thái Bình Dương',
+    color: '#F4A261', // Amber Orange
     tileIds: [21, 23],
     buildCost: 150,
   },
   LATIN_AMERICA: {
     name: 'Latin America Route',
-    color: '#2A9D8F', // Xanh lá ngọc
+    nameVi: 'Tuyến Châu Mỹ Latin',
+    color: '#2A9D8F', // Emerald Green
     tileIds: [25, 27],
     buildCost: 200,
   },
   GLOBAL_HUB: {
     name: 'Global Flagship Hub',
-    color: '#1D3557', // Xanh hải quân
+    nameVi: 'Tuyến Cảng Trung Chuyển Toàn Cầu',
+    color: '#1D3557', // Navy Blue
     tileIds: [30, 31],
     buildCost: 200,
   },
 };
 
-// 4 Tuyến Dịch Vụ Huyết Mạch của ONE
+// 4 Global Lifeline Service Lines of ONE
 export const SERVICE_LINES = [4, 13, 20, 28]; // VSS, MD2, FE2, PS3
 
-// 2 Nền Tảng Số Đột Phá của ONE
+// 2 Digital Platforms of ONE
 export const INFRA_TILES = [10, 22]; // ONE QUOTE, ONE Eco Calculator
 
 export const BOARD_TILES: BoardTile[] = [
-  // --- GÓC DƯỚI (CHÍNH DIỆN NGƯỜI DÙNG) ---
+  // --- BOTTOM CORNER (USER FRONT FACING) ---
   {
     id: 0,
     code: 'SGSIN',
     name: 'Singapore Global Hub',
+    nameVi: 'Cảng Singapore Global Hub',
     type: 'GO',
   },
-  // --- CẠNH DƯỚI-TRÁI (Tiles 1-7) ---
+  // --- BOTTOM-LEFT EDGE (Tiles 1-7) ---
   {
     id: 1,
     code: 'VNSGN',
-    name: 'Cảng Cát Lái (Sài Gòn)',
+    name: 'Cat Lai Port (Saigon)',
+    nameVi: 'Cảng Cát Lái (Sài Gòn)',
     type: 'PORT',
     group: 'INTRA_ASIA',
     price: 60,
@@ -96,13 +109,15 @@ export const BOARD_TILES: BoardTile[] = [
   {
     id: 2,
     code: 'MARKET-1',
-    name: 'Biến Động Thị Trường',
+    name: 'Market Fluctuations',
+    nameVi: 'Biến Động Thị Trường',
     type: 'MARKET_CARD',
   },
   {
     id: 3,
     code: 'VNVUT',
-    name: 'Cảng Cái Mép (Vũng Tàu)',
+    name: 'Cai Mep Port (Vung Tau)',
+    nameVi: 'Cảng Cái Mép (Vũng Tàu)',
     type: 'PORT',
     group: 'INTRA_ASIA',
     price: 60,
@@ -113,7 +128,8 @@ export const BOARD_TILES: BoardTile[] = [
   {
     id: 4,
     code: 'VSS',
-    name: 'Tuyến Vietnam Straits Service (VSS)',
+    name: 'Vietnam Straits Service (VSS)',
+    nameVi: 'Tuyến Vietnam Straits Service (VSS)',
     type: 'SERVICE_LINE',
     price: 200,
     mortgageValue: 100,
@@ -121,7 +137,8 @@ export const BOARD_TILES: BoardTile[] = [
   {
     id: 5,
     code: 'THLCH',
-    name: 'Cảng Laem Chabang',
+    name: 'Laem Chabang Port',
+    nameVi: 'Cảng Laem Chabang',
     type: 'PORT',
     group: 'MIDDLE_EAST',
     price: 100,
@@ -132,13 +149,15 @@ export const BOARD_TILES: BoardTile[] = [
   {
     id: 6,
     code: 'OPS-1',
-    name: 'Sự Cố & Vận Hành',
+    name: 'Operations & Incidents',
+    nameVi: 'Sự Cố & Vận Hành',
     type: 'OPS_CARD',
   },
   {
     id: 7,
     code: 'AEJEA',
-    name: 'Cảng Jebel Ali (Dubai)',
+    name: 'Jebel Ali Port (Dubai)',
+    nameVi: 'Cảng Jebel Ali (Dubai)',
     type: 'PORT',
     group: 'MIDDLE_EAST',
     price: 120,
@@ -146,18 +165,20 @@ export const BOARD_TILES: BoardTile[] = [
     buildCost: 50,
     mortgageValue: 60,
   },
-  // --- GÓC TRÁI (Tile 8) ---
+  // --- LEFT CORNER (Tile 8) ---
   {
     id: 8,
     code: 'CUSTOMS_HOLD',
-    name: 'Khu Neo Chờ Thông Quan',
+    name: 'Customs Inspection Hold',
+    nameVi: 'Khu Neo Chờ Thông Quan',
     type: 'CUSTOMS_HOLD',
   },
-  // --- CẠNH TRÊN-TRÁI (Tiles 9-15 - Chứa ESVLC) ---
+  // --- TOP-LEFT EDGE (Tiles 9-15) ---
   {
     id: 9,
     code: 'GRPIR',
-    name: 'Cảng Piraeus',
+    name: 'Piraeus Port',
+    nameVi: 'Cảng Piraeus',
     type: 'PORT',
     group: 'MEDITERRANEAN',
     price: 140,
@@ -168,7 +189,8 @@ export const BOARD_TILES: BoardTile[] = [
   {
     id: 10,
     code: 'ONE-QUOTE',
-    name: 'Nền Tảng Đặt Cước ONE QUOTE',
+    name: 'ONE QUOTE Freight Platform',
+    nameVi: 'Nền Tảng Đặt Cước ONE QUOTE',
     type: 'INFRA',
     price: 150,
     mortgageValue: 75,
@@ -176,7 +198,8 @@ export const BOARD_TILES: BoardTile[] = [
   {
     id: 11,
     code: 'ITGOA',
-    name: 'Cảng Genoa',
+    name: 'Genoa Port',
+    nameVi: 'Cảng Genoa',
     type: 'PORT',
     group: 'MEDITERRANEAN',
     price: 140,
@@ -187,7 +210,8 @@ export const BOARD_TILES: BoardTile[] = [
   {
     id: 12,
     code: 'ESVLC',
-    name: 'Cảng Valencia',
+    name: 'Valencia Port',
+    nameVi: 'Cảng Valencia',
     type: 'PORT',
     group: 'MEDITERRANEAN',
     price: 160,
@@ -198,7 +222,8 @@ export const BOARD_TILES: BoardTile[] = [
   {
     id: 13,
     code: 'MD2',
-    name: 'Tuyến Mediterranean 2 (MD2)',
+    name: 'Mediterranean 2 Route (MD2)',
+    nameVi: 'Tuyến Mediterranean 2 (MD2)',
     type: 'SERVICE_LINE',
     price: 200,
     mortgageValue: 100,
@@ -206,7 +231,8 @@ export const BOARD_TILES: BoardTile[] = [
   {
     id: 14,
     code: 'DEHAM',
-    name: 'Cảng Hamburg',
+    name: 'Hamburg Port',
+    nameVi: 'Cảng Hamburg',
     type: 'PORT',
     group: 'NORTH_EUROPE',
     price: 180,
@@ -217,7 +243,8 @@ export const BOARD_TILES: BoardTile[] = [
   {
     id: 15,
     code: 'NLRTM',
-    name: 'Cảng Rotterdam',
+    name: 'Rotterdam Port',
+    nameVi: 'Cảng Rotterdam',
     type: 'PORT',
     group: 'NORTH_EUROPE',
     price: 200,
@@ -225,18 +252,20 @@ export const BOARD_TILES: BoardTile[] = [
     buildCost: 100,
     mortgageValue: 100,
   },
-  // --- GÓC TRÊN (Tile 16) ---
+  // --- TOP CORNER (Tile 16) ---
   {
     id: 16,
-    code: 'FREE_ANCHOR',
-    name: 'Vùng Neo Đậu Miễn Phí',
-    type: 'FREE_ANCHOR',
+    code: 'CANAL',
+    name: 'Suez & Panama Canal Transit',
+    nameVi: 'Kênh Đào Hàng Hải Quốc Tế (Suez · Panama)',
+    type: 'CANAL_TRANSIT',
   },
-  // --- CẠNH TRÊN-PHẢI (Tiles 17-23) ---
+  // --- TOP-RIGHT EDGE (Tiles 17-23) ---
   {
     id: 17,
     code: 'KRPUS',
-    name: 'Cảng Busan',
+    name: 'Busan Port',
+    nameVi: 'Cảng Busan',
     type: 'PORT',
     group: 'TRANS_PACIFIC_WEST',
     price: 220,
@@ -247,13 +276,15 @@ export const BOARD_TILES: BoardTile[] = [
   {
     id: 18,
     code: 'OPS-2',
-    name: 'Sự Cố & Vận Hành',
+    name: 'Operations & Incidents',
+    nameVi: 'Sự Cố & Vận Hành',
     type: 'OPS_CARD',
   },
   {
     id: 19,
     code: 'CNYTN',
-    name: 'Cảng Yantian (Thâm Quyến)',
+    name: 'Yantian Port (Shenzhen)',
+    nameVi: 'Cảng Yantian (Thâm Quyến)',
     type: 'PORT',
     group: 'TRANS_PACIFIC_WEST',
     price: 240,
@@ -264,7 +295,8 @@ export const BOARD_TILES: BoardTile[] = [
   {
     id: 20,
     code: 'FE2',
-    name: 'Tuyến Far East Europe 2 (FE2)',
+    name: 'Far East Europe 2 Route (FE2)',
+    nameVi: 'Tuyến Far East Europe 2 (FE2)',
     type: 'SERVICE_LINE',
     price: 200,
     mortgageValue: 100,
@@ -272,7 +304,8 @@ export const BOARD_TILES: BoardTile[] = [
   {
     id: 21,
     code: 'USOAK',
-    name: 'Cảng Oakland',
+    name: 'Oakland Port',
+    nameVi: 'Cảng Oakland',
     type: 'PORT',
     group: 'TRANS_PACIFIC_EAST',
     price: 260,
@@ -283,7 +316,8 @@ export const BOARD_TILES: BoardTile[] = [
   {
     id: 22,
     code: 'ECO-CALC',
-    name: 'Nền Tảng ONE Eco Calculator',
+    name: 'ONE Eco Calculator Platform',
+    nameVi: 'Nền Tảng ONE Eco Calculator',
     type: 'INFRA',
     price: 150,
     mortgageValue: 75,
@@ -291,7 +325,8 @@ export const BOARD_TILES: BoardTile[] = [
   {
     id: 23,
     code: 'USLAX',
-    name: 'Cảng Los Angeles',
+    name: 'Los Angeles Port',
+    nameVi: 'Cảng Los Angeles',
     type: 'PORT',
     group: 'TRANS_PACIFIC_EAST',
     price: 280,
@@ -299,18 +334,20 @@ export const BOARD_TILES: BoardTile[] = [
     buildCost: 150,
     mortgageValue: 140,
   },
-  // --- GÓC PHẢI (Tile 24) ---
+  // --- RIGHT CORNER (Tile 24) ---
   {
     id: 24,
     code: 'GO_TO_HOLD',
-    name: 'Lệnh Giữ Tàu Kiểm Hóa',
+    name: 'Go to Customs Hold',
+    nameVi: 'Lệnh Giữ Tàu Kiểm Hóa',
     type: 'GO_TO_HOLD',
   },
-  // --- CẠNH DƯỚI-PHẢI (Tiles 25-31 - Chứa HKHKG) ---
+  // --- BOTTOM-RIGHT EDGE (Tiles 25-31) ---
   {
     id: 25,
     code: 'USSAV',
-    name: 'Cảng Savannah',
+    name: 'Savannah Port',
+    nameVi: 'Cảng Savannah',
     type: 'PORT',
     group: 'LATIN_AMERICA',
     price: 300,
@@ -321,13 +358,15 @@ export const BOARD_TILES: BoardTile[] = [
   {
     id: 26,
     code: 'MARKET-2',
-    name: 'Biến Động Thị Trường',
+    name: 'Market Fluctuations',
+    nameVi: 'Biến Động Thị Trường',
     type: 'MARKET_CARD',
   },
   {
     id: 27,
     code: 'BRSSZ',
-    name: 'Cảng Santos (Brazil)',
+    name: 'Santos Port (Brazil)',
+    nameVi: 'Cảng Santos (Brazil)',
     type: 'PORT',
     group: 'LATIN_AMERICA',
     price: 320,
@@ -338,7 +377,8 @@ export const BOARD_TILES: BoardTile[] = [
   {
     id: 28,
     code: 'PS3',
-    name: 'Tuyến Pacific South 3 (PS3)',
+    name: 'Pacific South 3 Route (PS3)',
+    nameVi: 'Tuyến Pacific South 3 (PS3)',
     type: 'SERVICE_LINE',
     price: 200,
     mortgageValue: 100,
@@ -346,7 +386,8 @@ export const BOARD_TILES: BoardTile[] = [
   {
     id: 29,
     code: 'CARBON-TAX',
-    name: 'Thuế Carbon & Phạt Phát Thải',
+    name: 'Carbon Tax & Emissions Penalty',
+    nameVi: 'Thuế Carbon & Phạt Phát Thải',
     type: 'TAX',
     taxAmount: 100,
   },
@@ -354,6 +395,7 @@ export const BOARD_TILES: BoardTile[] = [
     id: 30,
     code: 'HKHKG',
     name: 'Hong Kong Flagship Hub',
+    nameVi: 'Cảng Hong Kong Flagship Hub',
     type: 'PORT',
     group: 'GLOBAL_HUB',
     price: 350,
@@ -365,6 +407,7 @@ export const BOARD_TILES: BoardTile[] = [
     id: 31,
     code: 'JPTYO',
     name: 'Tokyo Flagship Hub',
+    nameVi: 'Cảng Tokyo Flagship Hub',
     type: 'PORT',
     group: 'GLOBAL_HUB',
     price: 400,
@@ -375,185 +418,235 @@ export const BOARD_TILES: BoardTile[] = [
 ];
 
 export const GAME_CARDS: GameCard[] = [
-  // 10 THẺ BIẾN ĐỘNG THỊ TRƯỜNG (MARKET)
+  // 10 MARKET DYNAMICS CARDS (MARKET)
   {
     id: 'MKT-01',
     type: 'MARKET',
-    title: 'Giá Cước Tăng Đột Biến (GRI Peak)',
-    description: 'Chỉ số cước container toàn cầu tăng kỷ lục. Nhận ngay $200M tiền cước bổ sung.',
+    title: 'Global Freight Rate Spike (GRI Peak)',
+    titleVi: 'Giá Cước Tăng Đột Biến (GRI Peak)',
+    description: 'Global container freight index hits record high. Receive $200M additional freight revenue.',
+    descriptionVi: 'Chỉ số cước container toàn cầu tăng kỷ lục. Nhận ngay $200M tiền cước bổ sung.',
     effect: { type: 'CASH', amount: 200 },
   },
   {
     id: 'MKT-02',
     type: 'MARKET',
-    title: 'Cổ Tức Cuối Năm Từ ONE Corp',
-    description: 'ONE công bố lợi nhuận kinh doanh vượt mục tiêu. Nhận $100M cổ tức.',
+    title: 'Year-End Dividend from ONE Corp',
+    titleVi: 'Cổ Tức Cuối Năm Từ ONE Corp',
+    description: 'ONE announces business profits exceeding target. Receive $100M dividend.',
+    descriptionVi: 'ONE công bố lợi nhuận kinh doanh vượt mục tiêu. Nhận $100M cổ tức.',
     effect: { type: 'CASH', amount: 100 },
   },
   {
     id: 'MKT-03',
     type: 'MARKET',
-    title: 'Biến Động Tỷ Giá USD/JPY',
-    description: 'Tỷ giá hối đoái có lợi cho hợp đồng thuê tàu. Nhận $50M.',
+    title: 'USD/JPY Exchange Rate Fluctuation',
+    titleVi: 'Biến Động Tỷ Giá USD/JPY',
+    description: 'Favorable foreign exchange rate for chartering contracts. Receive $50M.',
+    descriptionVi: 'Tỷ giá hối đoái có lợi cho hợp đồng thuê tàu. Nhận $50M.',
     effect: { type: 'CASH', amount: 50 },
   },
   {
     id: 'MKT-04',
     type: 'MARKET',
-    title: 'Chuyến Tàu Tốc Hành Đi Singapore',
-    description: 'Điều động tàu khẩn cấp về Singapore Global Hub. Đi thẳng đến ô xuất phát và nhận $200M.',
+    title: 'Express Voyage to Singapore',
+    titleVi: 'Chuyến Tàu Tốc Hành Đi Singapore',
+    description: 'Urgent deployment to Singapore Global Hub. Advance directly to GO and collect $200M.',
+    descriptionVi: 'Điều động tàu khẩn cấp về Singapore Global Hub. Đi thẳng đến ô xuất phát và nhận $200M.',
     effect: { type: 'MOVE_TO', targetTile: 0 },
   },
   {
     id: 'MKT-05',
     type: 'MARKET',
-    title: 'Khảo Sát Tuyến Á - Âu',
-    description: 'Di chuyển thẳng đến Cảng Rotterdam (NLRTM - Ô 15). Nếu qua ô xuất phát, nhận $200M.',
+    title: 'Asia-Europe Route Survey',
+    titleVi: 'Khảo Sát Tuyến Á - Âu',
+    description: 'Advance directly to Rotterdam Port (NLRTM - Tile 15). If passing GO, collect $200M.',
+    descriptionVi: 'Di chuyển thẳng đến Cảng Rotterdam (NLRTM - Ô 15). Nếu qua ô xuất phát, nhận $200M.',
     effect: { type: 'MOVE_TO', targetTile: 15 },
   },
   {
     id: 'MKT-06',
     type: 'MARKET',
-    title: 'Chi Phí Thu Hồi Vỏ Container Rỗng',
-    description: 'Tình trạng thiếu vỏ container tại các cảng nội địa. Nộp $150M chi phí logistics.',
+    title: 'Empty Container Repositioning Costs',
+    titleVi: 'Chi Phí Thu Hồi Vỏ Container Rỗng',
+    description: 'Container deficit at inland depots requires repositioning. Pay $150M logistics fee.',
+    descriptionVi: 'Tình trạng thiếu vỏ container tại các cảng nội địa. Nộp $150M chi phí logistics.',
     effect: { type: 'CASH', amount: -150 },
   },
   {
     id: 'MKT-07',
     type: 'MARKET',
-    title: 'Quyên Góp Quỹ Hàng Hải Xanh',
-    description: 'Đóng góp $50M vào chương trình giảm thải phát xạ Carbon của ONE.',
+    title: 'Green Maritime Fund Contribution',
+    titleVi: 'Quyên Góp Quỹ Hàng Hải Xanh',
+    description: 'Contribute $50M to ONE carbon reduction and decarbonization programs.',
+    descriptionVi: 'Đóng góp $50M vào chương trình giảm thải phát xạ Carbon của ONE.',
     effect: { type: 'CASH', amount: -50 },
   },
   {
     id: 'MKT-08',
     type: 'MARKET',
-    title: 'Phí Thẩm Định Tiêu Chuẩn Xanh Cảng Biển',
-    description: 'Bảo trì hệ thống bến bãi: Nộp $25M cho mỗi Lô Container và $100M cho mỗi Siêu tàu ONE Innovation.',
+    title: 'Green Port Standards Assessment Fee',
+    titleVi: 'Phí Thẩm Định Tiêu Chuẩn Xanh Cảng Biển',
+    description: 'Terminal maintenance: Pay $25M per container lot and $100M per ONE Innovation Mega-Vessel.',
+    descriptionVi: 'Bảo trì hệ thống bến bãi: Nộp $25M cho mỗi Lô Container và $100M cho mỗi Siêu tàu ONE Innovation.',
     effect: { type: 'PAY_PER_CONTAINER', perContainerAmount: 25, perMegaTerminalAmount: 100 },
   },
   {
     id: 'MKT-09',
     type: 'MARKET',
-    title: 'Hợp Đồng Hợp Tác Liên Minh THE Alliance',
-    description: 'Các đối tác hãng tàu thanh toán phí sử dụng bãi chung. Thu từ mỗi người chơi $50M.',
+    title: 'THE Alliance Partnership Agreement',
+    titleVi: 'Hợp Đồng Hợp Tác Liên Minh THE Alliance',
+    description: 'Alliance partners settle shared terminal dues. Collect $50M from every player.',
+    descriptionVi: 'Các đối tác hãng tàu thanh toán phí sử dụng bãi chung. Thu từ mỗi người chơi $50M.',
     effect: { type: 'COLLECT_FROM_PLAYERS', amount: 50 },
   },
   {
     id: 'MKT-10',
     type: 'MARKET',
-    title: 'Giấy Chứng Nhận Hải Quan Ưu Tiên (AEO)',
-    description: 'Thẻ miễn phí thông quan hải quan. Giữ lại để sử dụng khi bị giữ tàu hoặc bán lại.',
+    title: 'Authorized Economic Operator (AEO) Pass',
+    titleVi: 'Giấy Chứng Nhận Hải Quan Ưu Tiên (AEO)',
+    description: 'Priority customs clearance pass. Keep this pass to exit Customs Hold free of charge or trade later.',
+    descriptionVi: 'Thẻ miễn phí thông quan hải quan. Giữ lại để sử dụng khi bị giữ tàu hoặc bán lại.',
     effect: { type: 'GET_PASS' },
   },
 
-  // 10 THẺ SỰ CỐ & VẬN HÀNH (OPS)
+  // 10 OPERATIONS & INCIDENTS CARDS (OPS)
   {
     id: 'OPS-01',
     type: 'OPS',
-    title: 'Kênh Đào Suez Ùn Tắc Khẩn Cấp',
-    description: 'Hải quân thông báo phong tỏa hải trình. Tàu của bạn phải quay về Vùng Neo Đậu Miễn Phí (Ô 16).',
+    title: 'Suez Canal Emergency Congestion',
+    titleVi: 'Kênh Đào Suez Ùn Tắc Khẩn Cấp',
+    description: 'Maritime authority reports blockage. Reroute directly to Suez & Panama Canal Transit (Tile 16).',
+    descriptionVi: 'Hải quân thông báo phong tỏa hải trình. Tàu của bạn phải chuyển hướng đến Kênh Đào Hàng Hải Quốc Tế (Ô 16).',
     effect: { type: 'MOVE_TO', targetTile: 16 },
   },
   {
     id: 'OPS-02',
     type: 'OPS',
-    title: 'Bão Biển Bất Ngờ Ngoài Khơi',
-    description: `Thuê tàu kéo với giá $${STORM_TUG_FEE}M để giữ nguyên vị trí, hoặc để tàu trôi lùi ${Math.abs(STORM_DRIFT_STEPS)} ô và xử lý ô cập bến.`,
+    title: 'Sudden Offshore Sea Storm',
+    titleVi: 'Bão Biển Bất Ngờ Ngoài Khơi',
+    description: `Hire tugboats for $${STORM_TUG_FEE}M to maintain position, or drift back ${Math.abs(STORM_DRIFT_STEPS)} tiles and resolve destination.`,
+    descriptionVi: `Thuê tàu kéo với giá $${STORM_TUG_FEE}M để giữ nguyên vị trí, hoặc để tàu trôi lùi ${Math.abs(STORM_DRIFT_STEPS)} ô và xử lý ô cập bến.`,
     effect: { type: 'STORM_CHOICE' },
   },
   {
     id: 'OPS-03',
     type: 'OPS',
-    title: 'Nghi Vấn Vi Phạm Quy Định Tải Trọng (VGM)',
-    description: 'Cơ quan kiểm định cảng yêu cầu giữ tàu. Đi thẳng vào Khu Neo Chờ Thông Quan (Ô 8). Không nhận tiền xuất phát.',
+    title: 'Suspected VGM Weight Discrepancy',
+    titleVi: 'Nghi Vấn Vi Phạm Quy Định Tải Trọng (VGM)',
+    description: 'Port authority orders vessel detention for inspection. Go directly to Customs Hold (Tile 8). Do not pass GO.',
+    descriptionVi: 'Cơ quan kiểm định cảng yêu cầu giữ tàu. Đi thẳng vào Khu Neo Chờ Thông Quan (Ô 8). Không nhận tiền xuất phát.',
     effect: { type: 'GO_TO_HOLD' },
   },
   {
     id: 'OPS-04',
     type: 'OPS',
-    title: 'Thẻ Thông Quan Xanh Đặc Cách (Green Lane)',
-    description: 'Được miễn kiểm hóa hải quan. Giữ lại thẻ này để thoát khỏi Khu Neo Đậu bất cứ lúc nào.',
+    title: 'Green Lane Customs Clearance Pass',
+    titleVi: 'Thẻ Thông Quan Xanh Đặc Cách (Green Lane)',
+    description: 'Exempt from customs inspection. Keep this card to exit Customs Hold at any time without fees.',
+    descriptionVi: 'Được miễn kiểm hóa hải quan. Giữ lại thẻ này để thoát khỏi Khu Neo Đậu bất cứ lúc nào.',
     effect: { type: 'GET_PASS' },
   },
   {
     id: 'OPS-05',
     type: 'OPS',
-    title: 'Trợ Cấp Cứu Hộ Hàng Hải',
-    description: 'Hoàn thành nhiệm vụ cứu hộ một tàu lai dắt trên biển. Nhận thưởng $100M.',
+    title: 'Maritime Search and Rescue Subsidy',
+    titleVi: 'Trợ Cấp Cứu Hộ Hàng Hải',
+    description: 'Completed emergency tug assistance at open sea. Receive $100M maritime subsidy.',
+    descriptionVi: 'Hoàn thành nhiệm vụ cứu hộ một tàu lai dắt trên biển. Nhận thưởng $100M.',
     effect: { type: 'CASH', amount: 100 },
   },
   {
     id: 'OPS-06',
     type: 'OPS',
-    title: 'Chi Phí Đại Tu Động Cơ Siêu Tàu',
-    description: 'Bảo dưỡng định kỳ trục chân vịt và hệ thống máy chính. Nộp $100M.',
+    title: 'Flagship Main Engine Overhaul',
+    titleVi: 'Chi Phí Đại Tu Động Cơ Siêu Tàu',
+    description: 'Scheduled propulsion shaft and main turbocharger maintenance. Pay $100M.',
+    descriptionVi: 'Bảo dưỡng định kỳ trục chân vịt và hệ thống máy chính. Nộp $100M.',
     effect: { type: 'CASH', amount: -100 },
   },
   {
     id: 'OPS-07',
     type: 'OPS',
-    title: 'Đình Công Tại Cảng Bốc Dỡ',
-    description: 'Hỗ trợ chi phí lưu kho bãi và bốc xếp ngoài giờ cho công nhân: Trả cho mỗi người chơi $50M.',
+    title: 'Stevedore Dock Labor Strike',
+    titleVi: 'Đình Công Tại Cảng Bốc Dỡ',
+    description: 'Emergency overtime and terminal storage compensation: Pay $50M to each rival player.',
+    descriptionVi: 'Hỗ trợ chi phí lưu kho bãi và bốc xếp ngoài giờ cho công nhân: Trả cho mỗi người chơi $50M.',
     effect: { type: 'PAY_PLAYERS', amount: 50 },
   },
   {
     id: 'OPS-08',
     type: 'OPS',
-    title: 'Nâng Cấp Hệ Thống Cẩu Bờ Cảng Biển',
-    description: 'Bảo dưỡng định kỳ: Nộp $40M cho mỗi Lô Container và $115M cho mỗi Siêu tàu ONE Innovation bạn sở hữu.',
+    title: 'Quayside Gantry Crane Upgrade',
+    titleVi: 'Nâng Cấp Hệ Thống Cẩu Bờ Cảng Biển',
+    description: 'Periodic equipment upgrade: Pay $40M per container lot and $115M per ONE Innovation Mega-Vessel.',
+    descriptionVi: 'Bảo dưỡng định kỳ: Nộp $40M cho mỗi Lô Container và $115M cho mỗi Siêu tàu ONE Innovation bạn sở hữu.',
     effect: { type: 'PAY_PER_CONTAINER', perContainerAmount: 40, perMegaTerminalAmount: 115 },
   },
   {
     id: 'OPS-09',
     type: 'OPS',
-    title: 'Bảo Hiểm Hàng Hải Bồi Thường Rủi Ro',
-    description: 'Công ty bảo hiểm bồi thường thiệt hại hỏng hóc container hàng lạnh. Nhận $150M.',
+    title: 'Marine Cargo Insurance Settlement',
+    titleVi: 'Bảo Hiểm Hàng Hải Bồi Thường Rủi Ro',
+    description: 'Insurance claims settled for reefer refrigeration equipment damages. Collect $150M.',
+    descriptionVi: 'Công ty bảo hiểm bồi thường thiệt hại hỏng hóc container hàng lạnh. Nhận $150M.',
     effect: { type: 'CASH', amount: 150 },
   },
   {
     id: 'OPS-10',
     type: 'OPS',
-    title: 'Thưởng Dịch Vụ Vận Chuyển Đúng Giờ (On-Time Delivery)',
-    description: 'Chỉ số KPI vận hành quý đạt hạng 1 thế giới. Nhận thưởng $50M.',
+    title: 'On-Time Delivery Performance Bonus',
+    titleVi: 'Thưởng Dịch Vụ Vận Chuyển Đúng Giờ (On-Time Delivery)',
+    description: 'Quarterly operational schedule reliability ranks #1 globally. Collect $50M award.',
+    descriptionVi: 'Chỉ số KPI vận hành quý đạt hạng 1 thế giới. Nhận thưởng $50M.',
     effect: { type: 'CASH', amount: 50 },
   },
 ];
 
-// Thẻ Hợp Đồng Chiến Lược Premier Alliance (Secret Mission Cards)
+// Strategic Alliance Contracts (Secret Mission Cards)
 export const SECRET_MISSIONS: SecretMissionCard[] = [
   {
     id: 'MISSION-1',
-    title: 'Hợp Đồng 1: Cầu Nối Việt Nam – Mỹ',
-    description: 'Sở hữu đồng thời Cảng Cái Mép (VNVUT), Cảng Los Angeles (USLAX) và Tuyến PS3.',
+    title: 'Contract 1: Vietnam – Americas Bridge',
+    titleVi: 'Hợp Đồng 1: Cầu Nối Việt Nam – Mỹ',
+    description: 'Simultaneously own Cai Mep Port (VNVUT), Los Angeles Port (USLAX), and PS3 Route.',
+    descriptionVi: 'Sở hữu đồng thời Cảng Cái Mép (VNVUT), Cảng Los Angeles (USLAX) và Tuyến PS3.',
     reward: 400,
     isCompleted: false,
   },
   {
     id: 'MISSION-2',
-    title: 'Hợp Đồng 2: Di Sản Nhật – Hàn',
-    description: 'Sở hữu Tokyo Flagship Hub (JPTYO), Cảng Busan (KRPUS) và 1 Siêu tàu ONE Innovation (Mức 5).',
+    title: 'Contract 2: Japan – Singapore Heritage',
+    titleVi: 'Hợp Đồng 2: Di Sản Nhật – Singapore',
+    description: 'Own Tokyo Flagship Hub (JPTYO), Busan Port (KRPUS), and 1 ONE Innovation Mega-Vessel (Level 5).',
+    descriptionVi: 'Sở hữu Tokyo Flagship Hub (JPTYO), Cảng Busan (KRPUS) và 1 Siêu tàu ONE Innovation (Mức 5).',
     reward: 500,
     isCompleted: false,
   },
   {
     id: 'MISSION-3',
-    title: 'Hợp Đồng 3: Tiên Phong Số & Xanh',
-    description: 'Sở hữu cả ONE QUOTE, ONE Eco Calculator và có ít nhất 1 Huy hiệu Tàu Nhiên Liệu Xanh.',
+    title: 'Contract 3: Digital & Green Pioneer',
+    titleVi: 'Hợp Đồng 3: Tiên Phong Số & Xanh',
+    description: 'Own both ONE QUOTE, ONE Eco Calculator, and at least 1 Green Fuel Ready badge.',
+    descriptionVi: 'Sở hữu cả ONE QUOTE, ONE Eco Calculator và có ít nhất 1 Huy hiệu Tàu Nhiên Liệu Xanh.',
     reward: 350,
     isCompleted: false,
   },
   {
     id: 'MISSION-4',
-    title: 'Hợp Đồng 4: Vua Tuyến Dịch Vụ Huyết Mạch',
-    description: 'Sở hữu ít nhất 3 trong 4 Tuyến Dịch Vụ Toàn Cầu (VSS, MD2, FE2, PS3).',
+    title: 'Contract 4: Global Lifeline Emperor',
+    titleVi: 'Hợp Đồng 4: Vua Tuyến Dịch Vụ Huyết Mạch',
+    description: 'Own at least 3 of the 4 Global Service Lines (VSS, MD2, FE2, PS3).',
+    descriptionVi: 'Sở hữu ít nhất 3 trong 4 Tuyến Dịch Vụ Toàn Cầu (VSS, MD2, FE2, PS3).',
     reward: 450,
     isCompleted: false,
   },
   {
     id: 'MISSION-5',
-    title: 'Hợp Đồng 5: Trục Vận Tải Châu Á Thần Tốc',
-    description: 'Sở hữu trọn bộ Tuyến Intra-Asia (Cát Lái, Cái Mép) và Tuyến VSS.',
+    title: 'Contract 5: Express Asian Corridor',
+    titleVi: 'Hợp Đồng 5: Trục Vận Tải Châu Á Thần Tốc',
+    description: 'Own the complete Intra-Asia Route (Cat Lai, Cai Mep) and VSS Service Line.',
+    descriptionVi: 'Sở hữu trọn bộ Tuyến Intra-Asia (Cát Lái, Cái Mép) và Tuyến VSS.',
     reward: 350,
     isCompleted: false,
   },

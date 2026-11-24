@@ -158,7 +158,7 @@ describe('Ordinary rent on landing', () => {
       const { state: landed, events } = OneMonopolyEngine.dispatch(state, { type: 'ROLL_DICE', forcedDice: dice });
 
       assert.equal(landed.players[0].position, testCase.tile);
-      assert.equal(landed.phase, 'END_OF_TURN');
+      assert.ok(landed.phase === 'END_OF_TURN' || landed.phase === 'AWAITING_TAKEOVER_DECISION');
       assert.deepEqual(balances(landed), [1500 - testCase.rent, 1500 + testCase.rent, 1500]);
       const payments = events.filter((event) => event.type === 'DEMURRAGE_PAID');
       assert.deepEqual(payments.map((event) => event.amount), testCase.rent ? [testCase.rent] : []);

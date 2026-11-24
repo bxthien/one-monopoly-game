@@ -6,6 +6,7 @@ import { portGuide } from './ports/portGuide.js';
 import type { PortTenderNotice } from './ports/portTender.js';
 import { Anchor, ArrowUpRight, Boxes, Check, Coins, FileText, Flag, Handshake, Leaf, Compass, LifeBuoy, Navigation, RadioTower, Sailboat, Ship, Siren, Stamp, Waves, Wind } from 'lucide-react';
 import type { RentReceipt } from './useBoardPlayback.js';
+import { useI18n } from '../i18n/I18nContext.js';
 import './tile-claim.css';
 import './tile-rent.css';
 import './tile-mission.css';
@@ -17,7 +18,8 @@ import './truck-appointments.css';
 const tileSymbols: Partial<Record<BoardTile['type'], typeof Anchor>> = {
   GO: ArrowUpRight,
   CUSTOMS_HOLD: Stamp,
-  FREE_ANCHOR: Anchor,
+  FREE_ANCHOR: Compass,
+  CANAL_TRANSIT: Compass,
   GO_TO_HOLD: Siren,
   MARKET_CARD: FileText,
   OPS_CARD: Boxes,
@@ -107,6 +109,8 @@ interface Props {
   is3D?: boolean;
   movingPlayerIds?: Set<string>;
   myPlayerId?: string | null;
+  isHighlighted?: boolean;
+  isGroupComplete?: boolean;
 }
 
 export const TileView: React.FC<Props> = ({
@@ -124,7 +128,10 @@ export const TileView: React.FC<Props> = ({
   is3D = false,
   movingPlayerIds,
   myPlayerId,
+  isHighlighted = false,
+  isGroupComplete = false,
 }) => {
+  const { t, lang } = useI18n();
   const groupConfig = tile.group ? LOOP_GROUPS_CONFIG[tile.group] : null;
   const isCorner = orientation === 'corner';
   const isPort = tile.type === 'PORT' || tile.type === 'GO';
@@ -167,27 +174,32 @@ export const TileView: React.FC<Props> = ({
       return <span className="text-red-600 font-black text-[9px] sm:text-[10px] leading-none whitespace-nowrap">-${tile.taxAmount}M</span>;
     }
     if (tile.type === 'CUSTOMS_HOLD') {
-      return <span className="text-amber-700 font-black text-[8px] sm:text-[9px] leading-none whitespace-nowrap">KIỂM HÓA</span>;
+      return <span className="text-amber-700 font-black text-[8px] sm:text-[9px] leading-none whitespace-nowrap">{t('tile.customsHold')}</span>;
     }
-    if (tile.type === 'FREE_ANCHOR') {
-      return <span className="text-teal-700 font-black text-[8px] sm:text-[9px] leading-none whitespace-nowrap">NEO ĐẬU</span>;
+    if (tile.type === 'FREE_ANCHOR' || tile.type === 'CANAL_TRANSIT') {
+      return <span className="text-teal-700 font-black text-[8px] sm:text-[9px] leading-none whitespace-nowrap">{t('tile.canal')}</span>;
     }
     if (tile.type === 'GO_TO_HOLD') {
-      return <span className="text-red-700 font-black text-[8px] sm:text-[9px] leading-none whitespace-nowrap">VÀO HOLD</span>;
+      return <span className="text-red-700 font-black text-[8px] sm:text-[9px] leading-none whitespace-nowrap">{t('tile.goToHold')}</span>;
     }
     if (tile.type === 'MARKET_CARD') {
-      return <span className="text-pink-600 font-black text-[8px] sm:text-[9px] leading-none whitespace-nowrap">THỊ TRƯỜNG</span>;
+      return <span className="text-pink-600 font-black text-[8px] sm:text-[9px] leading-none whitespace-nowrap">{t('tile.marketCard')}</span>;
     }
     if (tile.type === 'OPS_CARD') {
-      return <span className="text-amber-600 font-black text-[8px] sm:text-[9px] leading-none whitespace-nowrap">VẬN HÀNH</span>;
+      return <span className="text-amber-600 font-black text-[8px] sm:text-[9px] leading-none whitespace-nowrap">{t('tile.opsCard')}</span>;
     }
 
     if (owner) {
       if (property?.isMortgaged) {
-        return <span className="text-gray-400 font-black text-[8px] sm:text-[9px] leading-none whitespace-nowrap">CẦM CỐ</span>;
+        return <span className="text-gray-400 font-black text-[8px] sm:text-[9px] leading-none whitespace-nowrap">{t('tile.mortgaged')}</span>;
       }
       return (
-        <span className="font-black text-[9px] sm:text-[10px] text-[#E1007A] leading-none whitespace-nowrap">
+        <span className="font-black text-[9px] sm:text-[10px] text-[#E1007A] leading-none whitespace-nowrap flex items-center justify-center gap-0.5">
+          {isGroupComplete && property?.containerLevel === 0 && (
+            <span className="bg-amber-400 text-amber-950 px-1 py-0.2 rounded-[2px] text-[7px] font-bold shadow-xs" title={t('property.monopolyMultiplier')}>
+              x2
+            </span>
+          )}
           ${currentRent}M
         </span>
       );
@@ -203,7 +215,8 @@ export const TileView: React.FC<Props> = ({
   // Rút gọn mã ô hiển thị
   const getDisplayCode = () => {
     if (tile.code === 'CUSTOMS_HOLD') return 'HOLD';
-    if (tile.code === 'FREE_ANCHOR') return 'ANCHOR';
+    if (tile.code === 'FREE_ANCHOR') return 'CANAL';
+    if (tile.code === 'CANAL') return 'CANAL';
     if (tile.code === 'GO_TO_HOLD') return 'TO HOLD';
     if (tile.code.startsWith('MARKET')) return 'MKT';
     if (tile.code.startsWith('OPS')) return 'OPS';
@@ -281,6 +294,9 @@ export const TileView: React.FC<Props> = ({
         </span>
       </span>
 
+      {isHighlighted && (
+        <span className="absolute inset-0 z-30 pointer-events-none rounded-sm border-2 border-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.9)] animate-pulse" />
+      )}
       {missionTarget && (
         <svg className="tile-mission-mark" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
           <circle cx="12" cy="12" r="10.7" fill="#124d50" stroke="#fff3ca" strokeWidth="1.8" />

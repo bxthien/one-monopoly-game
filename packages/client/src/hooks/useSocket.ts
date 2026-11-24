@@ -229,7 +229,7 @@ export function useSocket() {
     [room, myPlayerId]
   );
 
-  const startGame = useCallback((rivalStyle?: FreightRivalStyle) => {
+  const startGame = useCallback((mode: 'classic' | 'logistics' = 'classic', rivalStyle?: FreightRivalStyle) => {
     if (!room || !myPlayerId || pendingStart.current !== null) return;
     if (!socketRef.current?.connected) {
       setErrorMsg('Chưa kết nối với phòng chơi.');
@@ -241,6 +241,7 @@ export function useSocket() {
     socketRef.current.timeout(5000).emit('room:start', {
       roomId: room.id,
       playerId: myPlayerId,
+      mode,
       ...(rivalStyle !== undefined && { rivalStyle }),
     }, (timeout: Error | null, result?: { success: boolean; error?: string }) => {
       if (pendingStart.current !== request) return;

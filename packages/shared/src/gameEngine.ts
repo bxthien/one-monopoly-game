@@ -1,5 +1,6 @@
 import {
   BoardTile,
+  CanalChoice,
   CardEffect,
   CharterRent,
   EngineResult,
@@ -19,6 +20,7 @@ import {
 import {
   AUCTION_INCREMENT,
   BOARD_TILES,
+  CANAL_TRANSIT_FEE,
   GAME_CARDS,
   GO_REWARD,
   GO_TO_HOLD_TILE_INDEX,
@@ -29,6 +31,7 @@ import {
   INFRA_TILES,
   LOOP_GROUPS_CONFIG,
   MAX_HOLD_TURNS,
+  PORT_TAKEOVER_MULTIPLIER,
   SECRET_MISSIONS,
   SERVICE_LINES,
   STARTING_BALANCE,
@@ -113,6 +116,8 @@ export class OneMonopolyEngine {
       canUpgradeCurrentPort: false,
       pendingDebt: null,
       pendingSlotCharter: null,
+      pendingTakeover: null,
+      awaitingCanalChoice: false,
       winnerId: null,
       turnCount: 1,
       gameStarted: true,
@@ -148,6 +153,8 @@ export class OneMonopolyEngine {
       return { state, events: [] };
     }
     if ((state.phase === 'AWAITING_STORM_DECISION' && action.type !== 'RESOLVE_STORM') ||
+        (state.phase === 'AWAITING_CANAL_CHOICE' && action.type !== 'RESOLVE_CANAL_TRANSIT') ||
+        (state.phase === 'AWAITING_TAKEOVER_DECISION' && action.type !== 'TAKEOVER_PROPERTY' && action.type !== 'SKIP_TAKEOVER') ||
         (state.phase === 'AWAITING_BUY_DECISION' && action.type === 'END_TURN')) {
       return { state, events: [] };
     }
@@ -184,6 +191,90 @@ export class OneMonopolyEngine {
         break;
       }
 
+      case 'RESOLVE_CANAL_TRANSIT': {
+        const { choice, targetTileId } = action;
+        if (state.phase !== 'AWAITING_CANAL_CHOICE' || !state.awaitingCanalChoice) {
+          return { state, events: [] };
+        }
+
+        if (choice === 'SKIP') {
+          nextState.awaitingCanalChoice = false;
+          events.push({
+            type: 'CANAL_TRANSITED',
+            playerId: activePlayer.id,
+            from: activePlayer.position,
+            to: activePlayer.position,
+            fee: 0,
+            choice: 'SKIP',
+          });
+          OneMonopolyEngine.finishStepPhase(nextState);
+          break;
+        }
+
+        if (activePlayer.balance < CANAL_TRANSIT_FEE) {
+          return { state, events: [] };
+        }
+
+        if (choice === 'ROLL_AGAIN') {
+          activePlayer.balance -= CANAL_TRANSIT_FEE;
+          nextState.awaitingCanalChoice = false;
+          nextState.hasRolled = false;
+          nextState.phase = 'WAIT_FOR_ROLL';
+          events.push({
+            type: 'CANAL_TRANSITED',
+            playerId: activePlayer.id,
+            from: activePlayer.position,
+            to: activePlayer.position,
+            fee: CANAL_TRANSIT_FEE,
+            choice: 'ROLL_AGAIN',
+          });
+          events.push({
+            type: 'BALANCE_CHANGED',
+            playerId: activePlayer.id,
+            delta: -CANAL_TRANSIT_FEE,
+            newBalance: activePlayer.balance,
+            reason: 'Phí hoa tiêu Kênh Đào (Tăng tốc)',
+          });
+          break;
+        }
+
+        if (choice === 'TRANSIT') {
+          if (targetTileId === undefined || targetTileId === activePlayer.position) {
+            return { state, events: [] };
+          }
+          const isServiceLine = SERVICE_LINES.includes(targetTileId);
+          const isOwnedPort = state.properties[targetTileId]?.ownerId === activePlayer.id;
+          if (!isServiceLine && !isOwnedPort) {
+            return { state, events: [] };
+          }
+
+          activePlayer.balance -= CANAL_TRANSIT_FEE;
+          nextState.awaitingCanalChoice = false;
+          const from = activePlayer.position;
+          events.push({
+            type: 'CANAL_TRANSITED',
+            playerId: activePlayer.id,
+            from,
+            to: targetTileId,
+            fee: CANAL_TRANSIT_FEE,
+            choice: 'TRANSIT',
+          });
+          events.push({
+            type: 'BALANCE_CHANGED',
+            playerId: activePlayer.id,
+            delta: -CANAL_TRANSIT_FEE,
+            newBalance: activePlayer.balance,
+            reason: 'Phí hoa tiêu Kênh Đào (Chuyển luồng)',
+          });
+
+          const steps = (targetTileId - from + BOARD_TILES.length) % BOARD_TILES.length;
+          OneMonopolyEngine.movePlayerSteps(nextState, events, activePlayer, steps, true);
+          break;
+        }
+
+        break;
+      }
+
       case 'ROLL_DICE':
         OneMonopolyEngine.handleRollDice(nextState, events, activePlayer, action.forcedDice);
         break;
@@ -216,6 +307,14 @@ export class OneMonopolyEngine {
 
       case 'RESPOND_SLOT_CHARTER':
         OneMonopolyEngine.handleRespondSlotCharter(nextState, events, action.accept);
+        break;
+
+      case 'TAKEOVER_PROPERTY':
+        OneMonopolyEngine.handleTakeoverProperty(nextState, events, activePlayer, action.tileId);
+        break;
+
+      case 'SKIP_TAKEOVER':
+        OneMonopolyEngine.handleSkipTakeover(nextState, events, activePlayer);
         break;
 
       case 'CLAIM_MISSION_REWARD':
@@ -416,6 +515,16 @@ export class OneMonopolyEngine {
         OneMonopolyEngine.finishStepPhase(state);
         break;
 
+      case 'CANAL_TRANSIT':
+        if (player.balance >= CANAL_TRANSIT_FEE) {
+          state.awaitingCanalChoice = true;
+          state.phase = 'AWAITING_CANAL_CHOICE';
+        } else {
+          state.awaitingCanalChoice = false;
+          OneMonopolyEngine.finishStepPhase(state);
+        }
+        break;
+
       case 'GO_TO_HOLD':
         OneMonopolyEngine.sendToHold(state, events, player, 'Lệnh Giữ Tàu Kiểm Hóa (Ô 30)');
         state.phase = 'END_OF_TURN';
@@ -593,6 +702,32 @@ export class OneMonopolyEngine {
     if (partner) {
       OneMonopolyEngine.applyRentBalance(partner, partnerAmount, receipt, events);
     }
+
+    const tile = BOARD_TILES[tileId];
+    const prop = state.properties[tileId];
+    // Check if eligible for Port Takeover:
+    // Only PORT tiles, not mortgaged, level < 5 (Landmark protection), and visitor has enough balance
+    if (
+      tile?.type === 'PORT' &&
+      prop &&
+      !prop.isMortgaged &&
+      prop.containerLevel < 5 &&
+      !visitor.isBankrupt &&
+      !owner.isBankrupt
+    ) {
+      const takeoverPrice = OneMonopolyEngine.calculateTakeoverPrice(state, tileId);
+      if (visitor.balance >= takeoverPrice) {
+        state.phase = 'AWAITING_TAKEOVER_DECISION';
+        state.pendingTakeover = {
+          tileId,
+          ownerId: owner.id,
+          buyerId: visitor.id,
+          price: takeoverPrice,
+        };
+        return;
+      }
+    }
+
     OneMonopolyEngine.finishStepPhase(state);
   }
 
@@ -1210,6 +1345,79 @@ export class OneMonopolyEngine {
       accept ? charter.discountedRent : charter.originalRent,
       accept ? { type: 'DISCOUNT' } : undefined
     );
+  }
+
+  public static calculateTakeoverPrice(state: GameState, tileId: number): number {
+    const tile = BOARD_TILES[tileId];
+    const prop = state.properties[tileId];
+    if (!tile || tile.type !== 'PORT' || !prop) return 0;
+    const basePrice = tile.price || 0;
+    const buildCost = tile.buildCost || 50;
+    const containersCost = (prop.containerLevel || 0) * buildCost;
+    const totalInvestment = basePrice + containersCost;
+    return Math.round(totalInvestment * PORT_TAKEOVER_MULTIPLIER);
+  }
+
+  private static handleTakeoverProperty(
+    state: GameState,
+    events: GameEvent[],
+    player: Player,
+    tileId: number
+  ): void {
+    if (state.phase !== 'AWAITING_TAKEOVER_DECISION' || !state.pendingTakeover) return;
+    const takeover = state.pendingTakeover;
+    if (takeover.tileId !== tileId || takeover.buyerId !== player.id) return;
+
+    const prop = state.properties[tileId];
+    const owner = state.players.find((p) => p.id === takeover.ownerId);
+    if (!prop || !owner || player.balance < takeover.price) return;
+
+    // Deduct from buyer
+    player.balance -= takeover.price;
+    events.push({
+      type: 'BALANCE_CHANGED',
+      playerId: player.id,
+      newBalance: player.balance,
+      delta: -takeover.price,
+      reason: `Thâu tóm ${BOARD_TILES[tileId].name}`,
+    });
+
+    // Credit to previous owner
+    owner.balance += takeover.price;
+    events.push({
+      type: 'BALANCE_CHANGED',
+      playerId: owner.id,
+      newBalance: owner.balance,
+      delta: takeover.price,
+      reason: `Bán lại ${BOARD_TILES[tileId].name} do bị thâu tóm`,
+    });
+
+    // Transfer ownership
+    const previousOwnerId = prop.ownerId!;
+    prop.ownerId = player.id;
+
+    events.push({
+      type: 'PROPERTY_TAKEOVER',
+      tileId,
+      previousOwnerId,
+      newOwnerId: player.id,
+      price: takeover.price,
+    });
+
+    state.pendingTakeover = null;
+    OneMonopolyEngine.finishStepPhase(state);
+  }
+
+  private static handleSkipTakeover(
+    state: GameState,
+    events: GameEvent[],
+    player: Player
+  ): void {
+    if (state.phase !== 'AWAITING_TAKEOVER_DECISION' || !state.pendingTakeover) return;
+    if (state.pendingTakeover.buyerId !== player.id) return;
+
+    state.pendingTakeover = null;
+    OneMonopolyEngine.finishStepPhase(state);
   }
 
   // ==================== TÍNH NĂNG MỚI: KIỂM TRA THẺ NHIỆM VỤ BÍ MẬT ==================== //

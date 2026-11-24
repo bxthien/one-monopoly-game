@@ -21,6 +21,7 @@ export type TileType =
   | 'TAX'
   | 'CUSTOMS_HOLD'
   | 'FREE_ANCHOR'
+  | 'CANAL_TRANSIT'
   | 'GO_TO_HOLD'
   | 'MARKET_CARD'
   | 'OPS_CARD';
@@ -39,6 +40,7 @@ export interface BoardTile {
   id: number;
   code: string;
   name: string;
+  nameVi?: string;
   type: TileType;
   group?: LoopGroup;
   price?: number;
@@ -64,7 +66,11 @@ export interface PropertyState {
 export interface SecretMissionCard {
   id: string;
   title: string;
+  titleVi?: string;
   description: string;
+  descriptionVi?: string;
+  hint?: string;
+  hintVi?: string;
   reward: number;
   isCompleted: boolean;
 }
@@ -243,7 +249,9 @@ export interface GameCard {
   id: string;
   type: CardType;
   title: string;
+  titleVi?: string;
   description: string;
+  descriptionVi?: string;
   effect: CardEffect;
 }
 
@@ -253,7 +261,9 @@ export type TurnPhase =
   | 'AWAITING_BUY_DECISION'
   | 'AWAITING_AUCTION'
   | 'AWAITING_STORM_DECISION'
+  | 'AWAITING_CANAL_CHOICE'
   | 'AWAITING_SLOT_CHARTER_RESPONSE'
+  | 'AWAITING_TAKEOVER_DECISION'
   | 'AWAITING_DEBT_RESOLUTION'
   | 'END_OF_TURN';
 
@@ -275,6 +285,13 @@ export interface PendingSlotCharter {
   tileId: number;
   originalRent: number;
   discountedRent: number;
+}
+
+export interface PendingTakeover {
+  tileId: number;
+  ownerId: string;
+  buyerId: string;
+  price: number;
 }
 
 export interface PropertyAuction {
@@ -317,12 +334,16 @@ export interface GameState {
   canUpgradeCurrentPort?: boolean; // True when landing on an already-owned port (allows at most 1 upgrade on this visit)
   pendingDebt: DebtInfo | null;
   pendingSlotCharter: PendingSlotCharter | null;
+  pendingTakeover?: PendingTakeover | null;
+  awaitingCanalChoice?: boolean;
   winnerId: string | null;
   turnCount: number;
   gameStarted: boolean;
 }
 
 export type StormChoice = 'TUG' | 'DRIFT';
+
+export type CanalChoice = 'TRANSIT' | 'ROLL_AGAIN' | 'SKIP';
 
 export type CargoAction =
   | { type: 'LOAD_CARGO'; tileId: number; kind: CargoKind; reefer?: true; destinationTileId: number; revision: number }
@@ -343,6 +364,7 @@ export type GameAction =
   | { type: 'AUCTION_BID'; auctionId: number; revision: number; amount: number }
   | { type: 'AUCTION_PASS'; auctionId: number; revision: number }
   | { type: 'RESOLVE_STORM'; choice: StormChoice }
+  | { type: 'RESOLVE_CANAL_TRANSIT'; choice: CanalChoice; targetTileId?: number }
   | { type: 'ROLL_DICE'; forcedDice?: [number, number] }
   | { type: 'BUY_PROPERTY' }
   | { type: 'SKIP_BUY' }
@@ -351,6 +373,8 @@ export type GameAction =
   | { type: 'UPGRADE_GREEN_FLEET'; tileId: number }
   | { type: 'PROPOSE_SLOT_CHARTER'; tileId: number }
   | { type: 'RESPOND_SLOT_CHARTER'; accept: boolean }
+  | { type: 'TAKEOVER_PROPERTY'; tileId: number }
+  | { type: 'SKIP_TAKEOVER' }
   | { type: 'CLAIM_MISSION_REWARD' }
   | { type: 'MORTGAGE_TILE'; tileId: number }
   | { type: 'UNMORTGAGE_TILE'; tileId: number }
@@ -378,12 +402,14 @@ export type GameEvent =
   | { type: 'AUCTION_STARTED'; tileId: number }
   | { type: 'AUCTION_ENDED'; tileId: number; winnerId: string | null; price: number }
   | { type: 'STORM_RESOLVED'; playerId: string; choice: StormChoice }
+  | { type: 'CANAL_TRANSITED'; playerId: string; from: number; to: number; fee: number; choice: CanalChoice }
   | { type: 'DICE_ROLLED'; playerId: string; dice: [number, number]; isDouble: boolean }
   | { type: 'SHIP_STEPPED'; playerId: string; from: number; to: number; feeder?: true }
   | { type: 'PASSED_GO'; playerId: string; reward: number }
   | { type: 'SENT_TO_HOLD'; playerId: string; reason: string }
   | { type: 'RELEASED_FROM_HOLD'; playerId: string; method: 'DICE_DOUBLE' | 'FINE' | 'PASS' }
   | { type: 'TILE_PURCHASED'; playerId: string; tileId: number; price: number }
+  | { type: 'PROPERTY_TAKEOVER'; tileId: number; previousOwnerId: string; newOwnerId: string; price: number }
   | { type: 'CONTAINER_BUILT'; playerId: string; tileId: number; newLevel: number; cost: number }
   | { type: 'CONTAINER_SOLD'; playerId: string; tileId: number; newLevel: number; refund: number }
   | { type: 'GREEN_FLEET_UPGRADED'; playerId: string; tileId: number; cost: number }

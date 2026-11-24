@@ -80,6 +80,53 @@ describe('parseRentReceiptFromEvent', () => {
     });
   });
 
+  it('parses PASSED_GO event into credit line at tile 0', () => {
+    const event: GameEvent = {
+      type: 'PASSED_GO',
+      playerId: 'p1',
+      reward: 200,
+    };
+    const receipt = parseRentReceiptFromEvent(event, players);
+    assert.ok(receipt);
+    assert.equal(receipt.tileId, 0);
+    assert.deepEqual(receipt.lines[0], {
+      playerId: 'p1',
+      playerName: 'Captain ONE',
+      amount: 200,
+      type: 'credit',
+    });
+  });
+
+  it('parses TAX_PAID and PROPERTY_TAKEOVER events', () => {
+    const taxEvt: GameEvent = {
+      type: 'TAX_PAID',
+      playerId: 'p2',
+      tileId: 21,
+      amount: 100,
+    };
+    const taxReceipt = parseRentReceiptFromEvent(taxEvt, players);
+    assert.ok(taxReceipt);
+    assert.equal(taxReceipt.tileId, 21);
+    assert.equal(taxReceipt.lines[0].type, 'deduct');
+    assert.equal(taxReceipt.lines[0].amount, 100);
+
+    const takeoverEvt: GameEvent = {
+      type: 'PROPERTY_TAKEOVER',
+      tileId: 5,
+      previousOwnerId: 'p2',
+      newOwnerId: 'p1',
+      price: 130,
+    };
+    const toReceipt = parseRentReceiptFromEvent(takeoverEvt, players);
+    assert.ok(toReceipt);
+    assert.equal(toReceipt.tileId, 5);
+    assert.equal(toReceipt.lines.length, 2);
+    assert.equal(toReceipt.lines[0].playerId, 'p1');
+    assert.equal(toReceipt.lines[0].type, 'deduct');
+    assert.equal(toReceipt.lines[1].playerId, 'p2');
+    assert.equal(toReceipt.lines[1].type, 'credit');
+  });
+
   it('returns null for unrelated events', () => {
     const event: GameEvent = {
       type: 'DICE_ROLLED',

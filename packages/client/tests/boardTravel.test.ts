@@ -59,6 +59,17 @@ describe('board travel playback', () => {
     assert.deepEqual(frames.filter((frame) => frame.gliding).map((frame) => frame.tile), [22, 23, 24]);
   });
 
+  it('cruises at high speed from canal transit to destination tile', () => {
+    const events: any[] = [
+      { type: 'CANAL_TRANSITED', playerId: 'captain', from: 16, to: 20, fee: 50, choice: 'TRANSIT' },
+      { type: 'SHIP_STEPPED', playerId: 'captain', from: 16, to: 20 },
+    ];
+    const frames = buildTravelFrames({ tile: 16, heading: 90 }, 'captain', events);
+    assert.deepEqual(poses(frames), [[17, 90], [18, 90], [19, 90], [20, 90]]);
+    // All 4 frames are high-speed gliding with duration 90
+    assert.equal(frames.every((f) => f.gliding && f.duration === 90), true);
+  });
+
   it('leaves the observing player in place during the other player’s roll and transfer', () => {
     assert.deepEqual(buildTravelFrames({ tile: 21, heading: 90 }, 'pilot', roll(21, [1, 2]).events), []);
   });

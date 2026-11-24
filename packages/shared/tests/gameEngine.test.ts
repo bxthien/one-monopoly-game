@@ -352,4 +352,116 @@ describe('OneMonopolyEngine Unit Tests', () => {
     const gameOverEvent = res.events.find((e) => e.type === 'GAME_OVER');
     assert.ok(gameOverEvent);
   });
+
+  describe('Port Takeover Mechanic', () => {
+    it('prompts AWAITING_TAKEOVER_DECISION when landing on rival port with enough cash', () => {
+      const state = OneMonopolyEngine.createGame('room-1', initialPlayers);
+      state.properties[3] = {
+        ownerId: 'p2',
+        containerLevel: 0,
+        isMortgaged: false,
+        hasGreenFleet: false,
+        slotCharter: null,
+      };
+      const res = OneMonopolyEngine.dispatch(state, {
+        type: 'ROLL_DICE',
+        forcedDice: [1, 2],
+      });
+
+      assert.equal(res.state.players[0].position, 3);
+      assert.equal(res.state.phase, 'AWAITING_TAKEOVER_DECISION');
+      assert.ok(res.state.pendingTakeover);
+      assert.equal(res.state.pendingTakeover.tileId, 3);
+      assert.equal(res.state.pendingTakeover.ownerId, 'p2');
+      assert.equal(res.state.pendingTakeover.buyerId, 'p1');
+      assert.equal(res.state.pendingTakeover.price, 78);
+    });
+
+    it('TAKEOVER_PROPERTY transfers port ownership and money to previous owner', () => {
+      const state = OneMonopolyEngine.createGame('room-1', initialPlayers);
+      state.properties[3] = {
+        ownerId: 'p2',
+        containerLevel: 0,
+        isMortgaged: false,
+        hasGreenFleet: false,
+        slotCharter: null,
+      };
+      state.players[0].balance = 1000;
+      state.players[1].balance = 1000;
+      state.players[0].position = 3;
+      state.phase = 'AWAITING_TAKEOVER_DECISION';
+      state.pendingTakeover = {
+        tileId: 3,
+        ownerId: 'p2',
+        buyerId: 'p1',
+        price: 78,
+      };
+
+      const res = OneMonopolyEngine.dispatch(state, {
+        type: 'TAKEOVER_PROPERTY',
+        tileId: 3,
+      });
+
+      assert.equal(res.state.properties[3].ownerId, 'p1');
+      assert.equal(res.state.players[0].balance, 1000 - 78);
+      assert.equal(res.state.players[1].balance, 1000 + 78);
+      assert.equal(res.state.phase, 'END_OF_TURN');
+      assert.equal(res.state.pendingTakeover, null);
+
+      const takeoverEvent = res.events.find((e) => e.type === 'PROPERTY_TAKEOVER');
+      assert.ok(takeoverEvent);
+      assert.equal(takeoverEvent.tileId, 3);
+      assert.equal(takeoverEvent.previousOwnerId, 'p2');
+      assert.equal(takeoverEvent.newOwnerId, 'p1');
+      assert.equal(takeoverEvent.price, 78);
+    });
+
+    it('SKIP_TAKEOVER preserves original ownership without changing money', () => {
+      const state = OneMonopolyEngine.createGame('room-1', initialPlayers);
+      state.properties[3] = {
+        ownerId: 'p2',
+        containerLevel: 0,
+        isMortgaged: false,
+        hasGreenFleet: false,
+        slotCharter: null,
+      };
+      state.players[0].position = 3;
+      state.phase = 'AWAITING_TAKEOVER_DECISION';
+      state.pendingTakeover = {
+        tileId: 3,
+        ownerId: 'p2',
+        buyerId: 'p1',
+        price: 78,
+      };
+
+      const res = OneMonopolyEngine.dispatch(state, {
+        type: 'SKIP_TAKEOVER',
+      });
+
+      assert.equal(res.state.properties[3].ownerId, 'p2');
+      assert.equal(res.state.players[0].balance, 1500);
+      assert.equal(res.state.players[1].balance, 1500);
+      assert.equal(res.state.pendingTakeover, null);
+    });
+
+    it('Landmark Protection: level 5 port cannot be taken over', () => {
+      const state = OneMonopolyEngine.createGame('room-1', initialPlayers);
+      state.properties[3] = {
+        ownerId: 'p2',
+        containerLevel: 5, // Landmark Level 5
+        isMortgaged: false,
+        hasGreenFleet: false,
+        slotCharter: null,
+      };
+
+      const res = OneMonopolyEngine.dispatch(state, {
+        type: 'ROLL_DICE',
+        forcedDice: [1, 2],
+      });
+
+      // After paying rent, phase should NOT be AWAITING_TAKEOVER_DECISION
+      assert.notEqual(res.state.phase, 'AWAITING_TAKEOVER_DECISION');
+      assert.equal(res.state.pendingTakeover, null);
+    });
+  });
 });

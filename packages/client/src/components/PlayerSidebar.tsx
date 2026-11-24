@@ -8,6 +8,7 @@ import { portGuide } from './ports/portGuide.js';
 import './freight-scoreboard.css';
 import type { RentReceipt } from './useBoardPlayback.js';
 import { TOKEN_CONFIG } from './TokenBadge.js';
+import { useI18n } from '../i18n/I18nContext.js';
 
 interface Props {
   gameState: GameState;
@@ -35,6 +36,7 @@ function playerRent(receipts: Record<number, RentReceipt>, playerId: string): nu
 }
 
 export const PlayerSidebar: React.FC<Props> = ({ gameState, myPlayerId, turnTimer, onOfferForTile, rentReceipts, pendingRent, reactions }) => {
+  const { t, lang } = useI18n();
   const active = gameState.players[gameState.activePlayerIndex];
   const [portfolioId, setPortfolioId] = useState<string | null>(null);
   const captain = gameState.players.find(player => player.id === portfolioId);
@@ -63,7 +65,18 @@ export const PlayerSidebar: React.FC<Props> = ({ gameState, myPlayerId, turnTime
             const reaction = reactions.find(item => item.playerId === player.id);
             const captainLabel = (
               <span className="chart-player-name fleet-captain">
-                <span className="fleet-captain-label">{player.name}{player.id === myPlayerId && <small>Bạn</small>}</span>
+                <span className="fleet-captain-label">
+                  {player.name}
+                  {player.id === myPlayerId && <small>{lang === 'vi' ? 'Bạn' : 'You'}</small>}
+                  {player.customsClearancePasses > 0 && (
+                    <span
+                      className="inline-flex items-center gap-0.5 px-1 py-0.2 ml-1 rounded text-[10px] font-extrabold bg-amber-400 text-slate-950 shadow-xs border border-amber-500/50"
+                      title={`${t('common.customsPass')}: ${player.customsClearancePasses}`}
+                    >
+                      🎫 x{player.customsClearancePasses}
+                    </span>
+                  )}
+                </span>
                 {reaction && <span key={reaction.id} className="fleet-reaction-badge" data-player-id={player.id}
                   aria-hidden="true">{reaction.emoji}</span>}
               </span>

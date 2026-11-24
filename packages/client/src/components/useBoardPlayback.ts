@@ -72,6 +72,73 @@ export function parseRentReceiptFromEvent(
     };
   }
 
+  if (event.type === 'PASSED_GO') {
+    const player = players.find((p) => p.id === event.playerId);
+    return {
+      tileId: 0,
+      lines: [
+        {
+          playerId: event.playerId,
+          playerName: player?.name ?? 'Thuyền trưởng',
+          amount: event.reward,
+          type: 'credit',
+        },
+      ],
+    };
+  }
+
+  if (event.type === 'TAX_PAID') {
+    const player = players.find((p) => p.id === event.playerId);
+    return {
+      tileId: event.tileId,
+      lines: [
+        {
+          playerId: event.playerId,
+          playerName: player?.name ?? 'Thuyền trưởng',
+          amount: event.amount,
+          type: 'deduct',
+        },
+      ],
+    };
+  }
+
+  if (event.type === 'PROPERTY_TAKEOVER') {
+    const buyer = players.find((p) => p.id === event.newOwnerId);
+    const seller = players.find((p) => p.id === event.previousOwnerId);
+    return {
+      tileId: event.tileId,
+      lines: [
+        {
+          playerId: event.newOwnerId,
+          playerName: buyer?.name ?? 'Người mua',
+          amount: event.price,
+          type: 'deduct',
+        },
+        {
+          playerId: event.previousOwnerId,
+          playerName: seller?.name ?? 'Chủ cũ',
+          amount: event.price,
+          type: 'credit',
+        },
+      ],
+    };
+  }
+
+  if (event.type === 'TILE_PURCHASED') {
+    const player = players.find((p) => p.id === event.playerId);
+    return {
+      tileId: event.tileId,
+      lines: [
+        {
+          playerId: event.playerId,
+          playerName: player?.name ?? 'Chủ cảng',
+          amount: event.price,
+          type: 'deduct',
+        },
+      ],
+    };
+  }
+
   return null;
 }
 

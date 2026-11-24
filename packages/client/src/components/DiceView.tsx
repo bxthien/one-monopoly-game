@@ -64,7 +64,7 @@ const Die3D: React.FC<DieProps> = ({ value, isRolling, theme }) => {
                 rotateX: [0, 360, 720, 1080],
                 rotateY: [0, -360, -720, -1080],
                 rotateZ: [0, 180, 360, 540],
-                y: [0, -30, 0, -15, 0],
+                y: [0, -28, 0, -14, 0],
                 scale: [1, 1.15, 1, 1.05, 1],
               }
             : {
@@ -78,8 +78,8 @@ const Die3D: React.FC<DieProps> = ({ value, isRolling, theme }) => {
         whileHover={{ scale: 1.08 }}
         transition={
           isRolling
-            ? { duration: 0.6, repeat: Infinity, ease: 'linear' }
-            : { type: 'spring', stiffness: 300, damping: 20 }
+            ? { duration: 0.45, repeat: Infinity, ease: 'linear' }
+            : { duration: 0.15, ease: 'easeOut' }
         }
       >
         {/* MẶT TRÊN (TOP FACE - Hiển thị giá trị xúc xắc chính xác) */}

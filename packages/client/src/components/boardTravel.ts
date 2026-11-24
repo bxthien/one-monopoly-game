@@ -2,7 +2,7 @@ import { BOARD_TILES, HOLD_TILE_INDEX, STORM_DRIFT_STEPS } from '@one-monopoly/s
 import type { GameEvent } from '@one-monopoly/shared';
 import { TILE_CENTER_PERCENT } from './boardCoordinates.js';
 
-export const DICE_ROLL_MS = 950;
+export const DICE_ROLL_MS = 800;
 const TILE_MS = 240;
 const TURN_MS = 210;
 const tileCount = BOARD_TILES.length;
@@ -30,6 +30,7 @@ export function buildTravelFrames(start: Pose, playerId: string, events: GameEve
   const frames: TravelFrame[] = [];
   let pose = start;
   let steps: number | undefined;
+  let isCanalCruise = false;
   const add = (frame: TravelFrame) => {
     frames.push(frame);
     pose = frame;
@@ -47,6 +48,12 @@ export function buildTravelFrames(start: Pose, playerId: string, events: GameEve
         break;
       case 'STORM_RESOLVED':
         steps = event.choice === 'DRIFT' ? STORM_DRIFT_STEPS : undefined;
+        break;
+      case 'CANAL_TRANSITED':
+        if (event.choice === 'TRANSIT' && event.from !== event.to) {
+          steps = (event.to - event.from + tileCount) % tileCount;
+          isCanalCruise = true;
+        }
         break;
       case 'SENT_TO_HOLD':
         add({ ...restingPose(HOLD_TILE_INDEX), duration: 0 });
@@ -67,13 +74,16 @@ export function buildTravelFrames(start: Pose, playerId: string, events: GameEve
           break;
         }
         const direction = Math.sign(steps);
+        const tileDuration = isCanalCruise ? 90 : TILE_MS;
+        const turnDuration = isCanalCruise ? 70 : TURN_MS;
         for (let i = 0; i < Math.abs(steps); i++) {
           const next = (pose.tile + direction + tileCount) % tileCount;
           const heading = direction > 0 ? forwardHeading(pose.tile) : (forwardHeading(next) + 180) % 360;
-          if (pose.heading !== heading) add({ tile: pose.tile, heading, duration: TURN_MS });
-          add({ tile: next, heading, duration: TILE_MS, gliding: true });
+          if (pose.heading !== heading) add({ tile: pose.tile, heading, duration: turnDuration });
+          add({ tile: next, heading, duration: tileDuration, gliding: true });
         }
         steps = undefined;
+        isCanalCruise = false;
         break;
       }
     }

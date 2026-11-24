@@ -29,6 +29,8 @@ const boardPrompts: Record<GameState['phase'], string> = {
   AWAITING_STORM_DECISION: 'Đến lượt bạn chọn cách vượt bão.',
   AWAITING_SLOT_CHARTER_RESPONSE: 'Bạn có đề nghị chia sẻ chỗ cần trả lời.',
   AWAITING_DEBT_RESOLUTION: 'Đến lượt bạn xử lý khoản nợ.',
+  AWAITING_CANAL_CHOICE: 'Đến lượt bạn chọn cách qua kênh đào.',
+  AWAITING_TAKEOVER_DECISION: 'Đến lượt bạn quyết định thâu tóm cảng.',
   END_OF_TURN: 'Bạn có thể kết thúc lượt trên bàn cờ.',
 };
 
